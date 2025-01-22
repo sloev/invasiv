@@ -1,66 +1,14 @@
-# Attempt to load a config.make file.
-# If none is found, project defaults in config.project.make will be used.
-ifneq ($(wildcard config.make),)
-	include config.make
-endif
+build_base:
+	podman build -t ofxdocker_2204_of_0_12_0_invasiv .
+build:
+	podman build -t ofxdocker_2204_of_0_12_0_invasiv_build -f invasiv.Dockerfile .
+bash:
+	podman run --rm -it    --entrypoint bash ofxdocker_2204_of_0_12_0_invasiv_build
 
-# make sure the the OF_ROOT location is defined
-ifndef OF_ROOT
-    OF_ROOT=$(realpath ../../..)
-endif
+copy: build
+	podman create --name extract ofxdocker_2204_of_0_12_0_invasiv_build
+	podman cp extract:/of/apps/myApps/invasiv/bin ./artifacts
+	podman rm extract
 
-# call the project makefile!
-include $(OF_ROOT)/libs/openFrameworksCompiled/project/makefileCommon/compile.project.mk
-
-################################################################################
-##### macos
-
-# ofxSyphon
-include syphon_targets.mk
-
-# additional build targets for macOS
-ifeq ($(PLATFORM_LIB_SUBPATH),osx)
-
-##### syphon
-
-# build Debug app and install the Syphon framework
-DebugLoaf: DebugSyphon
-
-# build Release app and install the Syphon framework
-ReleaseLoaf: ReleaseSyphon
-
-##### Makefile-mac-dist.mk
-
-# app name to build
-mac.app.name = loaf
-
-# pull version from define in config.h
-mac.dist.version := $(shell grep VERSION src/config.h | awk '{gsub("\"",""); print $$3}')
-
-# openFrameworks projects use the "APPNAME Release" and "APPNAME Debug" naming
-mac.app.project.scheme = $(mac.app.name) Release
-
-# include openFrameworks project data
-mac.dist.include = README.md CHANGES.txt LICENSE.txt examples
-
-# add link to /Applications in dmg
-mac.dmg.appslink = true
-
-# codesign identity, usually a Developer ID Application string
-# REPLACE this with your own or set it via the commandline:
-# make app dist-dmg mac.codesign.identity="Foo Bar Baz Developers"
-#mac.codesign.identity = Foo
-
-MACDISTHELPER_DIR=.
-include $(MACDISTHELPER_DIR)/Makefile-mac-dist.mk
-
-# rename to txt
-postdistdir::
-	cd $(mac.dist.subdir) && mv README.md README.txt
-
-# override zip and dmg naming to include platform and arch,
-# could include some logic to choose between current arch or "universal"
-mac.dmg.name=$(mac.dist.name.version)-macos
-mac.zip.name=$(mac.dist.name.version)-macos
-
-endif
+run: copy
+	./artifacts/bin/invasiv

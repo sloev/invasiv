@@ -1,3 +1,0 @@
-ofxLua
-ofxOsc
-ofxSyphon
