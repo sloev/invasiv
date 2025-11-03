@@ -3,6 +3,7 @@
 #include "ofMain.h"
 #include "Coms.h"
 #include "sync.h"
+#include "warp.h"
 
 class ofApp : public ofBaseApp{
 
@@ -29,6 +30,10 @@ class ofApp : public ofBaseApp{
 		Coms coms;
     std::unique_ptr<tcp_file::SyncClient> sync;
     std::unique_ptr<tcp_file::Server> target;
+	ofWarpStack warpStack;
+	ofTexture demoTexture;
+	ofVideoPlayer myPlayer;
+
 
 		
 		
