@@ -5,6 +5,7 @@
 #include "sync.h"
 #include "warp.h"
 
+
 class ofApp : public ofBaseApp{
 
 	public:
@@ -29,6 +30,7 @@ class ofApp : public ofBaseApp{
 		void onSyncEvent(tcp_file::SyncStatus& s);
 		Coms coms;
     std::unique_ptr<tcp_file::SyncClient> sync;
+	
     std::unique_ptr<tcp_file::Server> target;
 	ofWarpStack warpStack;
 	ofTexture demoTexture;

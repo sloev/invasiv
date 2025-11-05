@@ -20,7 +20,7 @@ void ofApp::setup()
     }
     demoTexture.loadData(pix);
     myPlayer.load("fluk.mp4");
-myPlayer.play();
+    myPlayer.play();
 
     // Add a warp to the stack
     size_t warpIndex = warpStack.addWarp();
@@ -47,11 +47,8 @@ myPlayer.play();
     target = std::make_unique<tcp_file::Server>(8081, ofToDataPath("target")); // Use OF data path
     target->startThread();
 
-    // tcp_file::Client cli("127.0.0.1", 8080);
-    // cli.connect();
-    // std::cout << cli.list();           // remote dir listing
-    // cli.download("remote.txt", "local.txt");
-    // cli.upload("myfile.bin", "remote.bin");
+// ---- sync client (master) ----
+
     std::vector<tcp_file::SyncClient::Target> targets = {
         {"127.0.0.1", 8081}};
     sync = std::make_unique<tcp_file::SyncClient>(targets, ofToDataPath("shared"));
@@ -118,7 +115,7 @@ void ofApp::onSyncEvent(tcp_file::SyncStatus &s)
 //--------------------------------------------------------------
 void ofApp::update()
 {
-        myPlayer.update(); // get all the new frames
+    myPlayer.update(); // get all the new frames
 
     vector<Message> new_messages = coms.process();
     for (Message m : new_messages)
@@ -144,32 +141,38 @@ void ofApp::draw()
 //--------------------------------------------------------------
 void ofApp::exit()
 {
-    target->stopThread();
-    sync->stopThread();
+    target->waitForThread(true);
+    sync->waitForThread(true);
 }
 
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key)
 {
-    ofBilinearWarp& warp = warpStack.getWarp(0);  // Assuming one warp
+    ofBilinearWarp &warp = warpStack.getWarp(0); // Assuming one warp
 
-        // Add/remove divisions
-        if (key == 'x') warp.addDivisionX();
-        if (key == 'X') warp.removeDivisionX();
-        if (key == 'y') warp.addDivisionY();
-        if (key == 'Y') warp.removeDivisionY();
+    // Add/remove divisions
+    if (key == 'x')
+        warp.addDivisionX();
+    if (key == 'X')
+        warp.removeDivisionX();
+    if (key == 'y')
+        warp.addDivisionY();
+    if (key == 'Y')
+        warp.removeDivisionY();
 
-        // Save to file on 's'
-        if (key == 's') {
-            warpStack.saveToFile("warp_settings.json");
-            ofLogNotice() << "Saved warp settings to warp_settings.json";
-        }
+    // Save to file on 's'
+    if (key == 's')
+    {
+        warpStack.saveToFile("warp_settings.json");
+        ofLogNotice() << "Saved warp settings to warp_settings.json";
+    }
 
-        // Load from file on 'l'
-        if (key == 'l') {
-            warpStack.loadFromFile("warp_settings.json");
-            ofLogNotice() << "Loaded warp settings from warp_settings.json";
-        }
+    // Load from file on 'l'
+    if (key == 'l')
+    {
+        warpStack.loadFromFile("warp_settings.json");
+        ofLogNotice() << "Loaded warp settings from warp_settings.json";
+    }
 }
 
 //--------------------------------------------------------------

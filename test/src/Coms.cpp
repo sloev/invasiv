@@ -47,18 +47,18 @@ void Coms::setup()
 
 	sender.Setup(senderSettings);
 
-	sendBroadcastMessage("announce");
+	sendBroadcastMessage(CMD_ANNOUNCE);
 }
 
-void Coms::sendMessage(string target_uuid, string message)
+void Coms::sendMessage(string target_uuid, string command, string message)
 {
-	string encoded = std::format("{}{}{}", uid, target_uuid, message);
+	string encoded = std::format("{}{}{}{}", uid, target_uuid, command, message);
 	sender.Send(encoded.c_str(), encoded.length());
 }
 
-void Coms::sendBroadcastMessage(string message)
+void Coms::sendBroadcastMessage(string command, string message)
 {
-	string encoded = std::format("{}{}{}", uid, broadcast_uid, message);
+	string encoded = std::format("{}{}{}{}", uid, broadcast_uid, command, message);
 	sender.Send(encoded.c_str(), encoded.length());
 }
 
@@ -73,7 +73,10 @@ vector<Message> Coms::process()
 	{
 		uint64_t now = ofGetCurrentTime().getAsMilliseconds();
 
-		string from_uid = messageIn.substr(0, hash_len);
+		int index = 0;
+
+		string from_uid = messageIn.substr(index, hash_len);
+		index+=hash_len;
 
 		if (from_uid != uid)
 		{
@@ -85,21 +88,26 @@ vector<Message> Coms::process()
 			}
 
 			string target_uid = messageIn.substr(hash_len, hash_len);
+			index += hash_len;
 			if (target_uid == broadcast_uid || target_uid == uid)
 			{
-				string content = messageIn.substr(hash_len * 2);
+				string command = messageIn.substr(index, 1);
+				index+=1;
+				string content = messageIn.substr(index);
+				
 
 				std::cout << "processing message from " << from_uid << " to " << target_uid << " : " << content << "\n";
 
-				if (content == "announce")
+				if (command == CMD_ANNOUNCE)
 				{
-					sendMessage(from_uid, "announce_reply");
+					sendMessage(from_uid, CMD_ANNOUNCE_REPLY);
 				}
 				else
 				{
 					Message m;
 					m.from_uid = from_uid;
 					m.last_seen = now;
+					m.command = command;
 					m.content = content;
 					new_messages.push_back(m);
 				}

@@ -30,10 +30,19 @@
 #include "freeport.h"
 #include "uid.h"
 
+#define CMD_SCRIPT  "0"	  //< send json to script
+#define CMD_WARP_ADD  "1"	  //< path was created
+#define CMD_WARP_CHANGE  "2" //< path was modified
+#define CMD_WARP_DELETE  "3"
+#define CMD_ANNOUNCE  "4"
+#define CMD_ANNOUNCE_REPLY  "5"
+#define CMD_SCRIPT_RELOAD  "6"
+
 struct Message
 {
 	std::string from_uid;
 	uint64_t last_seen;
+	string command;
 	std::string content;
 };
 
@@ -43,8 +52,8 @@ class Coms
 public:
 	void setup();
 	vector<Message> process();
-	void sendMessage(string target_uuid, string message);
-	void sendBroadcastMessage(string message);
+	void sendMessage(string target_uuid, string command, string message="");
+	void sendBroadcastMessage(string command, string message="");
 
 	ofxUDPManager listener;
 	ofxUDPManager sender;
@@ -55,4 +64,5 @@ public:
 	int max_message_size = 1024 * 32;
 	string broadcast_uid;
 	int hash_len;
+	int max_command_length = 2;
 };
