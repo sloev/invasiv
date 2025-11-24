@@ -688,20 +688,38 @@ namespace tcp_file
         };
         ofEvent<SyncStatus> syncEvent;
 
-        SyncClient(const std::vector<Target> &targets, const std::string &local_root = ".")
-            : m_targets(targets), m_local_root(fs::absolute(local_root)) {}
+        SyncClient(const std::string &local_root = ".")
+            : m_local_root(fs::absolute(local_root)) {}
 
+        void syncToPeers(map<string, Peer> &peers)
+        {
+            std::vector<Target> targets;
+
+            for (const auto &item : peers)
+            {
+                Target t;
+                t.host = item.second.ip;
+                t.port = item.second.syncPort;
+                cout << "peer " << item.first << "has " << item.second.ip << "\n";
+                targets.push_back(t);
+            }
+
+            m_targets = targets;
+            startThread();
+        }
         void threadedFunction() override
         {
             std::vector<std::unique_ptr<SyncTask>> tasks;
             for (const auto &t : m_targets)
             {
+
                 auto task = std::make_unique<SyncTask>(t.host, t.port, m_local_root, this);
                 task->startThread();
                 tasks.push_back(std::move(task));
             }
 
             for (auto &t : tasks)
+
             {
                 t->waitForThread(false);
             }

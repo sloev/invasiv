@@ -22,9 +22,10 @@
 ==============================================================================*/
 #include "Coms.h"
 
-void Coms::setup()
+void Coms::setup(string id)
 {
-	uid = short_uid::generate<4>();
+	syncPort = get_free_port();
+	uid = id;
 	hash_len = uid.length();
 	pair = netinfo::preferred_and_broadcast();
 	broadcast_uid = std::string(hash_len, '0');
@@ -47,8 +48,14 @@ void Coms::setup()
 
 	sender.Setup(senderSettings);
 
-	sendBroadcastMessage(CMD_ANNOUNCE);
+	string ipPort = std::format("{}:{}", pair.preferred, syncPort);
+
+	sendBroadcastMessage(CMD_ANNOUNCE, ipPort);
 }
+uint16_t Coms::getSyncPort()
+{
+	return syncPort;
+};
 
 void Coms::sendMessage(string target_uuid, string command, string message)
 {
@@ -76,15 +83,18 @@ vector<Message> Coms::process()
 		int index = 0;
 
 		string from_uid = messageIn.substr(index, hash_len);
-		index+=hash_len;
+		index += hash_len;
 
 		if (from_uid != uid)
 		{
-			peers[from_uid] = now;
+			Peer p = peers[from_uid];
+			p.last_seen = now;
+			peers[from_uid] = p;
+
 			std::cout << "seen_peers:\n";
 			for (const auto &item : peers)
 			{
-				std::cout << item.first << ": " << item.second << std::endl;
+				std::cout << item.first << ": " << item.second.last_seen << std::endl;
 			}
 
 			string target_uid = messageIn.substr(hash_len, hash_len);
@@ -92,15 +102,22 @@ vector<Message> Coms::process()
 			if (target_uid == broadcast_uid || target_uid == uid)
 			{
 				string command = messageIn.substr(index, 1);
-				index+=1;
+				index += 1;
 				string content = messageIn.substr(index);
-				
 
 				std::cout << "processing message from " << from_uid << " to " << target_uid << " : " << content << "\n";
-
 				if (command == CMD_ANNOUNCE)
 				{
-					sendMessage(from_uid, CMD_ANNOUNCE_REPLY);
+					parseIpPort(content, p);
+					peers[from_uid] = p;
+
+					string reply = std::format("{}:{}", pair.preferred, syncPort);
+					sendMessage(from_uid, CMD_ANNOUNCE_REPLY, reply);
+				}
+				else if (command == CMD_ANNOUNCE_REPLY)
+				{
+					parseIpPort(content, p);
+					peers[from_uid] = p;
 				}
 				else
 				{
@@ -115,4 +132,35 @@ vector<Message> Coms::process()
 		}
 	}
 	return new_messages;
+}
+
+// Returns true on success, false on any parse error
+bool Coms::parseIpPort(std::string_view input, Peer &out)
+{
+	// Find the last ':' → works correctly with IPv6 [::1]:8080
+	size_t colonPos = input.rfind(':');
+	if (colonPos == std::string_view::npos)
+	{
+		return false;
+	}
+
+	// --- Parse port (fastest + safest) ---
+	std::string_view portStr = input.substr(colonPos + 1);
+	uint16_t port = 0;
+
+	auto [ptr, ec] = std::from_chars(portStr.data(),
+									 portStr.data() + portStr.size(),
+									 port);
+
+	if (ec != std::errc() || ptr != portStr.data() + portStr.size())
+	{
+		return false; // invalid number or garbage after digits
+	}
+
+	// --- Success: fill the Peer ---
+	out.ip = std::string(input.substr(0, colonPos)); // copy IP part
+	out.syncPort = port;
+	// last_seen remains unchanged (you probably set it yourself)
+
+	return true;
 }

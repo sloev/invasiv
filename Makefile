@@ -18,5 +18,8 @@ test: build
 	docker create --name extract ofxdocker_2204_of_0_12_1_loaf
 	docker cp extract:/of/apps/myApps/test/bin ./artifacts
 	docker rm extract
-	./artifacts/bin/test
+	cd ./artifacts/bin/ && gdb -batch -ex "set pagination off" -ex "run" -ex "bt full" -ex "quit" --args test
+
+run-test:
+	cd ./testing && ../artifacts/bin/test
 

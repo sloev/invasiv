@@ -4,7 +4,11 @@
 #include "Coms.h"
 #include "sync.h"
 #include "warp.h"
-
+#include "ofJson.h"
+#include "textures.h"
+#include "ofxImGui.h"
+#include "settings.h"
+#include "freeport.h"
 
 class ofApp : public ofBaseApp{
 
@@ -28,16 +32,22 @@ class ofApp : public ofBaseApp{
 		void dragEvent(ofDragInfo dragInfo) override;
 		void gotMessage(ofMessage msg) override;
 		void onSyncEvent(tcp_file::SyncStatus& s);
+		void afterDraw(ofEventArgs&);
 		Coms coms;
     std::unique_ptr<tcp_file::SyncClient> sync;
 	
     std::unique_ptr<tcp_file::Server> target;
 	ofWarpStack warpStack;
-	ofTexture demoTexture;
-	ofVideoPlayer myPlayer;
-
+	TextureManager textureManager;
+	string settingsFileName = "settings.json";
+        ofxImGui::Gui gui;
+		ConfigSyncedWatcher config;
 
 		
+        // Variables exposed to ImGui
+        float numLines = 10;
+        float backGroundColor[3] = {1,1,1};
+        bool drawLines = false;
 		
 
 };

@@ -77,6 +77,16 @@ RUN cd of/apps/myApps/loaf/ && ./scripts/generate_bindings.sh
 RUN cd of/apps/myApps/loaf/ && make
 
 
+
+ARG OFXIMGUI_SHA=49318f0
+
+RUN git gets -H -v -Y  https://github.com/jvcleave/ofxImGui/commit/${OFXIMGUI_SHA} -o /of/addons/ofxImGui
+RUN cp -r of/addons/ofxImGui/example-simple/ of/apps/myApps/ofxImGui/
+
+RUN cd of/ && /of/apps/projectGenerator/commandLine/bin/projectGenerator -r -o"." apps/myApps/ofxImGui/
+RUN cd of/apps/myApps/ofxImGui/ && make
+
+
 ADD ./test of/apps/myApps/test
 RUN cd of/ && /of/apps/projectGenerator/commandLine/bin/projectGenerator -r -o"." apps/myApps/test/
 RUN cd of/apps/myApps/test/ && make

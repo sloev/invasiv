@@ -29,14 +29,15 @@
 #include "ofxNetwork.h"
 #include "freeport.h"
 #include "uid.h"
+#include <string_view>
+#include <charconv>
+#include <cstdint>
 
-#define CMD_SCRIPT  "0"	  //< send json to script
-#define CMD_WARP_ADD  "1"	  //< path was created
-#define CMD_WARP_CHANGE  "2" //< path was modified
-#define CMD_WARP_DELETE  "3"
-#define CMD_ANNOUNCE  "4"
-#define CMD_ANNOUNCE_REPLY  "5"
-#define CMD_SCRIPT_RELOAD  "6"
+#define CMD_ANNOUNCE  "0"
+#define CMD_ANNOUNCE_REPLY  "1"
+#define CMD_SCRIPT_RELOAD  "2"
+#define CMD_SCRIPT_CALL  "3"	  //< send json to script
+#define CMD_MAPPING "4"	  //< path was created
 
 struct Message
 {
@@ -46,23 +47,33 @@ struct Message
 	std::string content;
 };
 
+struct Peer {
+	string ip;
+	uint16_t syncPort;
+	uint64_t last_seen;
+};
+
 class Coms
 {
 
 public:
-	void setup();
+	void setup(string id);
 	vector<Message> process();
 	void sendMessage(string target_uuid, string command, string message="");
 	void sendBroadcastMessage(string command, string message="");
+	bool parseIpPort(std::string_view input, Peer& out);
+	uint16_t getSyncPort();
+
 
 	ofxUDPManager listener;
 	ofxUDPManager sender;
-	map<string, uint64_t> peers = {};
+	map<string, Peer> peers = {};
 
 	string uid;
 	netinfo::ip_pair pair;
 	int max_message_size = 1024 * 32;
 	string broadcast_uid;
+	uint16_t syncPort;
 	int hash_len;
 	int max_command_length = 2;
 };

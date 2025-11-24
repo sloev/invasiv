@@ -3,30 +3,22 @@
 //--------------------------------------------------------------
 void ofApp::setup()
 {
-    // --- Create a demo texture (512x512) ---
+    config.setup(); // supports --config "/path" or -c
 
-    ofPixels pix;
-    pix.allocate(256, 256, OF_PIXELS_RGB);
-    for (int y = 0; y < 256; ++y)
-    {
-        for (int x = 0; x < 256; ++x)
-        {
-            // gradient + red grid every 32 px
-            ofColor c = ofColor::fromHsb((x / 255.0f) * 255, 200, 255);
-            if ((x % 32) < 2 || (y % 32) < 2)
-                c = ofColor::red;
-            pix.setColor(x, y, c);
-        }
-    }
-    demoTexture.loadData(pix);
-    myPlayer.load("fluk.mp4");
-    myPlayer.play();
+    // --- Create a demo texture (512x512) ---
+    textureManager.setup();
+    warpStack.loadFromFile(config.getMappingsPathForId(config.getID()));
+
+    gui.setup(nullptr, true);
+    gui.afterDraw.add(this, &ofApp::afterDraw, OF_EVENT_ORDER_APP);
+
+    // warpStack.loadFromFile(ofToDataPath(settingsFileName));
 
     // Add a warp to the stack
-    size_t warpIndex = warpStack.addWarp();
+    ofBilinearWarp &warp = warpStack.addWarp();
 
-    // Get reference to the warp
-    ofBilinearWarp &warp = warpStack.getWarp(warpIndex);
+    // // Get reference to the warp
+    // ofBilinearWarp &warp = warpStack.getWarp(warpIndex);
 
     // Set divisions (e.g., 2 divisions in X and Y, resulting in 3x3 control points)
     warp.setDivisions(1, 1);
@@ -42,18 +34,14 @@ void ofApp::setup()
     // warp.setOutputPoint(0, 2, ofVec2f(0.1f, 0.9f)); // Bottom-left
     // warp.setOutputPoint(2, 2, ofVec2f(0.9f, 0.9f)); // Bottom-right
 
-    coms.setup();
+    coms.setup(config.getID());
 
-    target = std::make_unique<tcp_file::Server>(8081, ofToDataPath("target")); // Use OF data path
+    target = std::make_unique<tcp_file::Server>(coms.getSyncPort(), config.getSyncedFolder()); // Use OF data path
     target->startThread();
 
-// ---- sync client (master) ----
-
-    std::vector<tcp_file::SyncClient::Target> targets = {
-        {"127.0.0.1", 8081}};
-    sync = std::make_unique<tcp_file::SyncClient>(targets, ofToDataPath("shared"));
+    // ---- sync client (master) ----
+    sync = std::make_unique<tcp_file::SyncClient>(config.getSyncedFolder());
     ofAddListener(sync->syncEvent, this, &ofApp::onSyncEvent);
-    sync->startThread();
 }
 
 void ofApp::onSyncEvent(tcp_file::SyncStatus &s)
@@ -115,27 +103,61 @@ void ofApp::onSyncEvent(tcp_file::SyncStatus &s)
 //--------------------------------------------------------------
 void ofApp::update()
 {
-    myPlayer.update(); // get all the new frames
-
+    textureManager.update();
+    textureManager.pauseNotUsedTextures();
     vector<Message> new_messages = coms.process();
     for (Message m : new_messages)
     {
-        if (m.content == "reload")
+        if (m.command == CMD_SCRIPT_RELOAD)
         {
             // script reload
         }
-        else
+        else if (m.command == CMD_MAPPING)
+        {
+            try
+            {
+                ofJson json;
+                json = ofJson::parse(m.content);
+                warpStack.fromJson(json);
+            }
+            catch (const std::exception &e)
+            {
+                ofLogError() << "JSON parse error: " << e.what();
+            }
+        }
+        else if (m.command == CMD_SCRIPT_CALL)
         {
             // send message on to script
         }
     }
+
+    int numLinesCopy = numLines; // do something with numLines...
+    numLinesCopy *= 1;           // silence "unused variable" warning !
 }
 
 //--------------------------------------------------------------
 void ofApp::draw()
 {
-    warpStack.drawAll(myPlayer.getTexture());
-    demoTexture.draw(0, 0);
+    warpStack.drawAll(textureManager);
+    // Start drawing to ImGui (newFrame)a
+    gui.begin();
+
+    // Create a new window
+    ImGui::Begin("invasiv");
+    for (const auto &item : coms.peers)
+    {
+
+        if (ImGui::CollapsingHeader(std::format("peer: {}", item.first).c_str()))
+        {
+            ImGui::TextWrapped("This example can be compiled with or without `USE_AUTODRAW`, to demonstrate 2 different behaviours.");
+        }
+    }
+
+    ImGui::End();
+
+    // End our ImGui Frame.
+    // From here on, no GUI components can be submitted anymore !
+    gui.end();
 }
 
 //--------------------------------------------------------------
@@ -143,34 +165,27 @@ void ofApp::exit()
 {
     target->waitForThread(true);
     sync->waitForThread(true);
+    gui.afterDraw.remove(this, &ofApp::afterDraw, OF_EVENT_ORDER_APP);
 }
 
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key)
 {
-    ofBilinearWarp &warp = warpStack.getWarp(0); // Assuming one warp
-
-    // Add/remove divisions
-    if (key == 'x')
-        warp.addDivisionX();
-    if (key == 'X')
-        warp.removeDivisionX();
-    if (key == 'y')
-        warp.addDivisionY();
-    if (key == 'Y')
-        warp.removeDivisionY();
-
-    // Save to file on 's'
-    if (key == 's')
+    if (key == 'w')
     {
-        warpStack.saveToFile("warp_settings.json");
+        sync->waitForThread(true);
+
+        sync->syncToPeers(coms.peers);
+    } // Save to file on 's'
+    if (key == 's')
+        warpStack.saveToFile(config.getMappingsPathForId(config.getID()));
         ofLogNotice() << "Saved warp settings to warp_settings.json";
     }
 
     // Load from file on 'l'
     if (key == 'l')
     {
-        warpStack.loadFromFile("warp_settings.json");
+        warpStack.loadFromFile(config.getMappingsPathForId(config.getID()));
         ofLogNotice() << "Loaded warp settings from warp_settings.json";
     }
 }
@@ -228,4 +243,9 @@ void ofApp::gotMessage(ofMessage msg)
 //--------------------------------------------------------------
 void ofApp::dragEvent(ofDragInfo dragInfo)
 {
+}
+
+void ofApp::afterDraw(ofEventArgs &)
+{
+    ofDrawBitmapStringHighlight("The gui.afterDraw() event always lets you draw above the GUI.", 10, 45);
 }

@@ -14,5 +14,16 @@ attribution:
 * [x] udp networking via broadcast
 * [ ] symetric, only one program
 * [ ] http server, acts as http to udp vice versa
-* [ ] folder sync
-* [ ]  
+* [x] folder sync
+* [x] save mapping to json
+* [ ] shared mapping setup  
+* [ ] if file added or removed to directory, then sync
+
+
+file hirachy
+
+/foo/
+    - settings.json
+    - mappings.json
+    - /synced/
+    
