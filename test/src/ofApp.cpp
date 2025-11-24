@@ -178,6 +178,7 @@ void ofApp::keyPressed(int key)
         sync->syncToPeers(coms.peers);
     } // Save to file on 's'
     if (key == 's')
+    {
         warpStack.saveToFile(config.getMappingsPathForId(config.getID()));
         ofLogNotice() << "Saved warp settings to warp_settings.json";
     }
