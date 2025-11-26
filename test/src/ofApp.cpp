@@ -4,6 +4,7 @@
 void ofApp::setup()
 {
     config.setup(); // supports --config "/path" or -c
+    selectedPeerId = config.getID();
 
     // --- Create a demo texture (512x512) ---
     textureManager.setup();
@@ -15,23 +16,23 @@ void ofApp::setup()
     // warpStack.loadFromFile(ofToDataPath(settingsFileName));
 
     // Add a warp to the stack
-    ofBilinearWarp &warp = warpStack.addWarp();
+    // ofBilinearWarp &warp = warpStack.addWarp();
 
     // // Get reference to the warp
     // ofBilinearWarp &warp = warpStack.getWarp(warpIndex);
 
     // Set divisions (e.g., 2 divisions in X and Y, resulting in 3x3 control points)
-    warp.setDivisions(1, 1);
+    // warp.setDivisions(1, 1);
 
     // // Edit some input control points (normalized 0-1)
     // // By default, they are uniform, but you can adjust
-    warp.setInputPoint(0, 0, ofVec2f(0.2f, 0.2f)); // Top-left
+    // warp.setInputPoint(0, 0, ofVec2f(0.2f, 0.2f)); // Top-left
     // warp.setInputPoint(2, 2, ofVec2f(1.0f, 1.0f)); // Bottom-right
 
     // // Edit some output control points to create perspective distortion (normalized 0-1)
     // warp.setOutputPoint(0, 0, ofVec2f(0.2f, 0.1f)); // Top-left shifted
     // warp.setOutputPoint(2, 0, ofVec2f(0.8f, 0.1f)); // Top-right
-    // warp.setOutputPoint(0, 2, ofVec2f(0.1f, 0.9f)); // Bottom-left
+    // warp.setOutputPoint(0, 2, ofVec2f(0.1f>>, 0.9f)); // Bottom-left
     // warp.setOutputPoint(2, 2, ofVec2f(0.9f, 0.9f)); // Bottom-right
 
     coms.setup(config.getID());
@@ -112,6 +113,14 @@ void ofApp::update()
         {
             // script reload
         }
+        else if (m.command == CMD_ANNOUNCE_MAPPING_MASTER_ON)
+        {
+            mode = MODE_MAPPING_SLAVE;
+        }
+        else if (m.command == CMD_ANNOUNCE_MAPPING_MASTER_OFF)
+        {
+            mode = MODE_PERFORM;
+        }
         else if (m.command == CMD_MAPPING)
         {
             try
@@ -133,27 +142,80 @@ void ofApp::update()
 
     int numLinesCopy = numLines; // do something with numLines...
     numLinesCopy *= 1;           // silence "unused variable" warning !
+
+    float now = ofGetElapsedTimef(); // seconds since start
+    if (mode == MODE_MAPPING_SLAVE && now - lastSaveTime >= 3.0f && config.checkForChanges())
+    {
+        warpStack.loadFromFile(config.getMappingsPathForId(config.getID()));
+        lastSaveTime = now; // update timestamp
+    }
 }
 
 //--------------------------------------------------------------
 void ofApp::draw()
 {
-    warpStack.drawAll(textureManager);
+    if (mode == MODE_MAPPING_MASTER)
+    {
+        warpStack.drawEditmode(textureManager);
+    }
+    else
+    {
+        warpStack.draw(textureManager);
+    }
     // Start drawing to ImGui (newFrame)a
     gui.begin();
-
-    // Create a new window
-    ImGui::Begin("invasiv");
-    for (const auto &item : coms.peers)
+    if (mode == MODE_MAPPING_MASTER)
     {
 
-        if (ImGui::CollapsingHeader(std::format("peer: {}", item.first).c_str()))
+        // Create a new window
+        ImGui::Begin("invasiv", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+        // ImGui::Checkbox("autoSync", &autoSync);
+        if (warpStack.isDirty() && ImGui::Button("sync"))
         {
-            ImGui::TextWrapped("This example can be compiled with or without `USE_AUTODRAW`, to demonstrate 2 different behaviours.");
+            warpStack.saveToFile(config.getMappingsPathForId(selectedPeerId));
+            sync->syncToPeers(coms.peers);
         }
-    }
 
-    ImGui::End();
+        ImGui::SeparatorText("Instances");
+
+        string NodeToClose;
+
+        for (const auto &item : coms.peers)
+        {
+            const string &peerId = item.first;
+            const bool isSelf = item.second.is_self;
+            const bool isSelected = (selectedPeerId == peerId);
+
+            string title = isSelf ? std::format("[me] {}", peerId) : peerId;
+
+            ImGui::PushID(peerId.c_str());
+
+            // Force open/close state based on selection
+            ImGui::SetNextItemOpen(isSelected, ImGuiCond_Always);
+
+            ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_CollapsingHeader;
+            if (isSelected)
+                flags |= ImGuiTreeNodeFlags_Selected;
+
+            bool open = ImGui::CollapsingHeader(title.c_str(), flags);
+
+            // Click = select
+            if (ImGui::IsItemClicked())
+            {
+                selectedPeerId = peerId;
+                warpStack.loadFromFile(config.getMappingsPathForId(selectedPeerId));
+            }
+
+            if (open && isSelected)
+            {
+                warpStack.drawGui(item.second);
+            }
+
+            ImGui::PopID();
+        }
+
+        ImGui::End();
+    }
 
     // End our ImGui Frame.
     // From here on, no GUI components can be submitted anymore !
@@ -171,9 +233,18 @@ void ofApp::exit()
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key)
 {
+    if (key == 'm')
+    {
+        mode = MODE_MAPPING_MASTER;
+        coms.sendBroadcastMessage(CMD_ANNOUNCE_MAPPING_MASTER_ON);
+    }
+    if (key == 'p')
+    {
+        mode = MODE_PERFORM;
+        coms.sendBroadcastMessage(CMD_ANNOUNCE_MAPPING_MASTER_OFF);
+    }
     if (key == 'w')
     {
-        sync->waitForThread(true);
 
         sync->syncToPeers(coms.peers);
     } // Save to file on 's'
@@ -248,5 +319,8 @@ void ofApp::dragEvent(ofDragInfo dragInfo)
 
 void ofApp::afterDraw(ofEventArgs &)
 {
-    ofDrawBitmapStringHighlight("The gui.afterDraw() event always lets you draw above the GUI.", 10, 45);
+    if (mode == MODE_MAPPING_SLAVE)
+    {
+        ofDrawBitmapStringHighlight(std::format("id: {}", config.getID()), 10, 10);
+    }
 }

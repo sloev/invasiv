@@ -7,6 +7,8 @@
 #include <unordered_set>
 #include "textures.h"
 #include <filesystem>
+#include "ofxImGui.h"
+#include "Coms.h"
 
 class ofBilinearWarp
 {
@@ -108,6 +110,8 @@ public:
     int getDivX() const { return numCols - 1; }
     int getDivY() const { return numRows - 1; }
 
+    int getNumCols() const { return numCols; }
+    int getNumRows() const { return numRows; }
 
     void setDivisions(int divX, int divY)
     {
@@ -233,6 +237,14 @@ public:
         mesh.draw();
         tex.unbind();
     }
+    void drawTexture(TextureManager &textureManager)
+    {
+        ofTexture tex = textureManager.getTextureById(getTextureId());
+
+        float outW = ofGetWidth();
+        float outH = ofGetHeight();
+        tex.draw(0.0, 0.0, outW, outH);
+    }
 
     ofJson toJson() const
     {
@@ -288,11 +300,19 @@ public:
     }
 };
 
+#define EDIT_MODE_NONE "0"
+#define EDIT_MODE_TEXTURE "1"
+#define EDIT_MODE_MAPPING "2"
+
 class ofWarpStack
 {
 private:
     std::vector<string> layerOrder;
     map<string, ofBilinearWarp> warps = {};
+    string selectedWarpId;
+    int selectedPointIndex = 0;
+    string editMode = EDIT_MODE_NONE;
+    mutable bool dirty = false;
 
 public:
     ofWarpStack() {}
@@ -318,9 +338,10 @@ public:
         }
     }
 
+  
+
     ofBilinearWarp &getWarp(string wId)
     {
-
         return warps.at(wId); // ← Use at() for non-const ref; add ;
     }
 
@@ -334,9 +355,137 @@ public:
     {
         return layerOrder.size();
     }
+    void drawGui(Peer p)
+    {
+
+        if (ImGui::TreeNode("Info"))
+        {
+            if (ImGui::BeginTable("tableInfo", 4))
+            {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("IP");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("%s", p.ip.c_str());
+
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("SyncPort");
+
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("%d", p.syncPort);
+
+                ImGui::EndTable();
+            }
+            ImGui::TreePop();
+        }
+
+        ImGui::SeparatorText("Surfaces");
+        ImGui::PushItemFlag(ImGuiItemFlags_AllowDuplicateId, true);
+
+        std::vector<std::string> layernames = layerOrder; // make a copy to modify
+        if (ImGui::BeginTable("tableSurfaceInfo", 2))
+        {
+            ImGui::TableNextRow();
+
+            ImGui::TableSetColumnIndex(0);
+
+            for (int n = 0; n < layernames.size(); ++n)
+            {
+                // Unique boolean for each item (required!)
+                bool selected = false;
+                string n_id = layernames[n];
+                string buttonText;
+
+                if (selectedWarpId == n_id)
+                {
+                    buttonText = std::format("[x] {}: {}", n, n_id);
+                }
+                else
+                {
+                    buttonText = std::format("[ ] {}: {}", n, n_id);
+                }
+                // Use the version that allows selection state
+
+                if (ImGui::Selectable(buttonText.c_str(), &selected))
+                {
+                    // Optional: clicked (not dragged)
+                    // You can react to actual clicks here if needed
+                    if (selectedWarpId == n_id)
+                    {
+                        selectedWarpId = "";
+                    }
+                    else
+                    {
+                        selectedWarpId = n_id;
+                    }
+                }
+
+                // Drag to reorder logic
+                if (ImGui::IsItemActive() && !ImGui::IsItemHovered())
+                {
+                    int direction = (ImGui::GetMouseDragDelta(0).y < 0.f) ? -1 : 1;
+                    int n_next = n + direction;
+
+                    if (n_next >= 0 && n_next < (int)layernames.size())
+                    {
+                        std::swap(layernames[n], layernames[n_next]);
+                        ImGui::ResetMouseDragDelta();
+                    }
+                }
+            }
+
+            // Apply changes back if needed
+            layerOrder = layernames;
+
+            ImGui::TableSetColumnIndex(1);
+            auto it = warps.find(selectedWarpId);
+            if (it != warps.end())
+            {
+                ofBilinearWarp selectedWarp = warps[selectedWarpId];
+                ImGui::Text("selected warp: %s", selectedWarpId.c_str());
+
+                if (ImGui::Selectable("no edit", editMode == EDIT_MODE_NONE))
+                {
+                    editMode = EDIT_MODE_NONE;
+                }
+                if (ImGui::Selectable("edit texture", editMode == EDIT_MODE_TEXTURE))
+                {
+                    editMode = EDIT_MODE_TEXTURE;
+                }
+                if (ImGui::Selectable("edit mapping", editMode == EDIT_MODE_MAPPING))
+                {
+                    editMode = EDIT_MODE_MAPPING;
+                }
+
+                int dx = selectedWarp.getNumCols();
+                int dy = selectedWarp.getNumRows();
+                if (ImGui::BeginTable("editPoints", dx * dy))
+                {
+                    for (int y = 0; y < dy; y++)
+                    {
+                        ImGui::TableNextRow();
+
+                        for (int x = 0; x < dx; x++)
+                        {
+                            ImGui::TableSetColumnIndex(x);
+                            ImGui::PushID(std::format("point {}:{}", x, y).c_str());
+
+                            ImGui::RadioButton("", &selectedPointIndex, (y * dy) + x);
+                            ImGui::PopID();
+                        }
+                    }
+                    ImGui::EndTable();
+                }
+            }
+            ImGui::EndTable();
+        }
+
+        ImGui::PopItemFlag();
+    }
 
     // Draw all warps in order using the same texture (user can override per draw if needed)
-    void drawAll(TextureManager &textureManager)
+    void draw(TextureManager &textureManager)
     {
         for (string wId : layerOrder)
         {
@@ -366,7 +515,7 @@ public:
         auto warr = j.value("w", ofJson::array());
         for (const auto &wj : warr)
         {
-            string wId = j.value("id", "null");
+            string wId = wj.value("i", "null");
             layerOrder.push_back(wId);
             keepSet.insert(wId); // one insert → O(1) average
 
@@ -386,77 +535,134 @@ public:
         // Erase all map entries whose key is NOT in the set
         std::erase_if(warps, [&keepSet](const auto &pair)
                       { return keepSet.find(pair.first) == keepSet.end(); });
+        selectedPointIndex = 0;
+        selectedWarpId = "";
+    }
+
+    bool isDirty(){
+        return dirty;
     }
 
     void saveToFile(const std::string &path) const
     {
         ofSaveJson(path, toJson());
+        dirty = false;
     }
 
     void loadFromFile(const std::string &path)
     {
-        if (!std::filesystem::exists(path)){
+        if (!std::filesystem::exists(path))
+        {
+            cout << "path does not exist to loadfromjson, creating now: " << path << "\n";
             ofSaveJson(path, toJson());
         }
-
         fromJson(ofLoadJson(path));
     }
-    // Inside ofWarpStack class definition
-    void drawControlPoints(
-        string wId,
-        bool editingInput = true,
-        int selectedCol = -1,
-        int selectedRow = -1,
-        float selectionRadius = 0.03f,
-        float pointSize = 7.0f) const
-    {
 
-        auto it = warps.find(wId);
-        if (it == warps.end())
+   
+    
+    void drawEditmode(
+        TextureManager &textureManager,
+        float selectionRadius = 0.03f,
+        float pointSize = 7.0f)
+    {
+        if (selectedWarpId != "" && editMode == EDIT_MODE_TEXTURE)
         {
-            return;
+            warps[selectedWarpId].drawTexture(textureManager);
         }
-        const ofBilinearWarp &warp = warps.at(wId); // ← Use at()
+        else if (selectedWarpId != "" && editMode == EDIT_MODE_MAPPING)
+        {
+            warps[selectedWarpId].draw(textureManager);
+        }else{
+            draw(textureManager);
+        }
+
+        auto it = warps.find(selectedWarpId);
+        if (it == warps.end() || selectedWarpId.empty())
+            return;
+
+        ofBilinearWarp &warp = warps.at(selectedWarpId); // non-const reference so we can modify
 
         float outW = ofGetWidth();
         float outH = ofGetHeight();
 
+        int mouseX = ofGetMouseX();
+        int mouseY = ofGetMouseY();
+        bool mousePressed = ofGetMousePressed(OF_MOUSE_BUTTON_LEFT);
+
+        // Normalized mouse position
+        ofVec2f mouseNorm(mouseX / outW, mouseY / outH);
+
+        int bestIndex = -1;
+        float bestDist = selectionRadius;
+
+        // Find closest point within radius
+        int cols = warp.getNumCols();
+        int rows = warp.getNumRows();
+
+        for (int r = 0; r < rows; ++r)
+        {
+            for (int c = 0; c < cols; ++c)
+            {
+                int idx = r * cols + c;
+                ofVec2f p = (editMode == EDIT_MODE_TEXTURE)
+                                ? warp.getInputPoint(c, r)
+                                : warp.getOutputPoint(c, r);
+
+                float dist = p.distance(mouseNorm);
+                if (dist < bestDist)
+                {
+                    bestDist = dist;
+                    bestIndex = idx;
+                }
+            }
+        }
+
+        // If mouse is pressed and close enough → drag that point
+        if (mousePressed && bestIndex != -1)
+        {
+            ofVec2f newPos = mouseNorm;
+            newPos.x = ofClamp(newPos.x, 0.0f, 1.0f);
+            newPos.y = ofClamp(newPos.y, 0.0f, 1.0f);
+
+            int c = bestIndex % cols;
+            int r = bestIndex / cols;
+
+            if (editMode == EDIT_MODE_TEXTURE)
+            {
+                warp.setInputPoint(c, r, newPos);
+                dirty = true;
+            }
+            else
+            {
+                warp.setOutputPoint(c, r, newPos);
+                dirty = true;
+            }
+
+            // Optional: auto-select the point you're dragging
+            selectedPointIndex = bestIndex;
+        }
+
+        // === Drawing (unchanged, just cleaned up a bit) ===
         ofSetLineWidth(1.5);
         ofNoFill();
 
-        // Draw grid lines in output space
-        ofSetColor(255, 100);
-        for (int r = 0; r < warp.getDivY() + 1; ++r)
+        for (int r = 0; r < rows; ++r)
         {
-            ofBeginShape();
-            for (int c = 0; c < warp.getDivX() + 1; ++c)
+            for (int c = 0; c < cols; ++c)
             {
-                ofVec2f p = warp.getOutputPoint(c, r);
-                ofVertex(p.x * outW, p.y * outH);
-            }
-            ofEndShape();
-        }
-        for (int c = 0; c < warp.getDivX() + 1; ++c)
-        {
-            ofBeginShape();
-            for (int r = 0; r < warp.getDivY() + 1; ++r)
-            {
-                ofVec2f p = warp.getOutputPoint(c, r);
-                ofVertex(p.x * outW, p.y * outH);
-            }
-            ofEndShape();
-        }
+                int idx = r * cols + c;
+                ofVec2f op = (editMode == EDIT_MODE_TEXTURE)
+                                 ? warp.getInputPoint(c, r)
+                                 : warp.getOutputPoint(c, r);
 
-        // Draw control points
-        for (int r = 0; r < warp.getDivY() + 1; ++r)
-        {
-            for (int c = 0; c < warp.getDivX() + 1; ++c)
-            {
-                ofVec2f op = warp.getOutputPoint(c, r);
                 float px = op.x * outW;
                 float py = op.y * outH;
 
-                if (c == selectedCol && r == selectedRow)
+                bool isSelected = (selectedPointIndex == idx);
+                bool isHovered = (bestIndex == idx && bestDist < selectionRadius);
+
+                if (isSelected)
                 {
                     ofSetColor(255, 200, 0);
                     ofFill();
@@ -464,17 +670,26 @@ public:
                     ofSetColor(0);
                     ofDrawCircle(px, py, pointSize - 1);
                 }
+                else if (isHovered)
+                {
+                    ofSetColor(255, 255, 100);
+                    ofFill();
+                    ofDrawCircle(px, py, pointSize + 2);
+                }
                 else
                 {
-                    ofSetColor(editingInput ? ofColor(100, 200, 255) : ofColor(255, 200, 100));
+                    ofSetColor(ofColor(100, 200, 255));
                     ofFill();
                     ofDrawCircle(px, py, pointSize);
                 }
 
                 ofSetColor(255, 150);
-                ofDrawBitmapString(ofToString(c) + "," + ofToString(r), px + 10, py);
+                ofDrawBitmapString(std::format("{},{}\n({},{})", c, r, px, py), px + 10, py);
             }
         }
+
+        ofNoFill();
+        ofSetColor(255);
     }
 };
 

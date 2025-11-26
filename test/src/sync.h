@@ -794,8 +794,10 @@ namespace tcp_file
             std::vector<Target> targets;
             for (const auto &item : peers)
             {
+                if (!item.second.is_self){
                 Target t{item.second.ip, item.second.syncPort};
                 targets.push_back(t);
+                }
             }
 
             m_targets = std::move(targets);

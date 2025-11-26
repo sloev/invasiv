@@ -38,6 +38,8 @@
 #define CMD_SCRIPT_RELOAD  "2"
 #define CMD_SCRIPT_CALL  "3"	  //< send json to script
 #define CMD_MAPPING "4"	  //< path was created
+#define CMD_ANNOUNCE_MAPPING_MASTER_ON "5"
+#define CMD_ANNOUNCE_MAPPING_MASTER_OFF "6"
 
 struct Message
 {
@@ -48,7 +50,9 @@ struct Message
 };
 
 struct Peer {
+	string uid;
 	string ip;
+	bool is_self;
 	uint16_t syncPort;
 	uint64_t last_seen;
 };

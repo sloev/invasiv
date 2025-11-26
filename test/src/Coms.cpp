@@ -26,8 +26,17 @@ void Coms::setup(string id)
 {
 	syncPort = get_free_port();
 	uid = id;
+
 	hash_len = uid.length();
 	pair = netinfo::preferred_and_broadcast();
+
+	Peer p;
+	p.uid = uid;
+	p.is_self = true;
+	p.ip = pair.preferred;
+	p.syncPort = syncPort;
+	peers[uid] = p;
+
 	broadcast_uid = std::string(hash_len, '0');
 
 	cout << "my uid : " << uid << " the broadcast adress:" << pair.broadcast << "\n";
@@ -88,6 +97,7 @@ vector<Message> Coms::process()
 		if (from_uid != uid)
 		{
 			Peer p = peers[from_uid];
+			p.uid = from_uid;
 			p.last_seen = now;
 			peers[from_uid] = p;
 
