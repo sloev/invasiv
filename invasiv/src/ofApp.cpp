@@ -3,7 +3,11 @@
 //--------------------------------------------------------------
 void ofApp::setup()
 {
-    config.setup(); // supports --config "/path" or -c
+    config.setup();                 // supports --config "/path" or -c
+    watcher.setCheckInterval(1.0f); // scan once per second
+    watcher.addPath(config.getVideosFolder(), this, &ofApp::onVideoFilesChanged);
+    watcher.addPath(config.getConfigsFolder(), this, &ofApp::onConfigFilesChanged);
+
     selectedPeerId = config.getID();
 
     // --- Create a demo texture (512x512) ---
@@ -41,8 +45,27 @@ void ofApp::setup()
     target->startThread();
 
     // ---- sync client (master) ----
-    sync = std::make_unique<tcp_file::SyncClient>(config.getSyncedFolder());
+    sync = std::make_unique<tcp_file::SyncClient>(config.getSyncedFolder(), [&coms] {
+        return coms.getPeers();
+    });
     ofAddListener(sync->syncEvent, this, &ofApp::onSyncEvent);
+}
+
+void ofApp::onConfigFilesChanged(const std::vector<std::string> &paths)
+{
+    ofLogNotice("ofApp") << paths.size() << " file(s) changed in configs folder";
+    for (const auto &p : paths)
+    {
+        ofLogNotice() << "  • " << p;
+    }
+}
+void ofApp::onVideoFilesChanged(const std::vector<std::string> &paths)
+{
+    ofLogNotice("ofApp") << paths.size() << " file(s) changed in videos folder";
+    for (const auto &p : paths)
+    {
+        ofLogNotice() << "  • " << p;
+    }
 }
 
 void ofApp::onSyncEvent(tcp_file::SyncStatus &s)
@@ -104,12 +127,17 @@ void ofApp::onSyncEvent(tcp_file::SyncStatus &s)
 //--------------------------------------------------------------
 void ofApp::update()
 {
+    watcher.update(); // safe to call every frame
     textureManager.update();
     textureManager.pauseNotUsedTextures();
     vector<Message> new_messages = coms.process();
     for (Message m : new_messages)
     {
-        if (m.command == CMD_SCRIPT_RELOAD)
+        if (m.command == CMD_ANNOUNCE || m.command == CMD_ANNOUNCE_REPLY)
+        {
+            w
+        }
+        else if (m.command == CMD_SCRIPT_RELOAD)
         {
             // script reload
         }
@@ -173,7 +201,6 @@ void ofApp::draw()
         if (warpStack.isDirty() && ImGui::Button("sync"))
         {
             warpStack.saveToFile(config.getMappingsPathForId(selectedPeerId));
-            sync->syncToPeers(coms.peers);
         }
 
         ImGui::SeparatorText("Instances");
@@ -226,7 +253,7 @@ void ofApp::draw()
 void ofApp::exit()
 {
     target->waitForThread(true);
-    sync->waitForThread(true);
+    sync->stop();
     gui.afterDraw.remove(this, &ofApp::afterDraw, OF_EVENT_ORDER_APP);
 }
 
@@ -237,17 +264,15 @@ void ofApp::keyPressed(int key)
     {
         mode = MODE_MAPPING_MASTER;
         coms.sendBroadcastMessage(CMD_ANNOUNCE_MAPPING_MASTER_ON);
+        sync->start();
     }
     if (key == 'p')
     {
+
         mode = MODE_PERFORM;
         coms.sendBroadcastMessage(CMD_ANNOUNCE_MAPPING_MASTER_OFF);
+        sync->stop();
     }
-    if (key == 'w')
-    {
-
-        sync->syncToPeers(coms.peers);
-    } // Save to file on 's'
     if (key == 's')
     {
         warpStack.saveToFile(config.getMappingsPathForId(config.getID()));

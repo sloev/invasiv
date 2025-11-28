@@ -9,6 +9,7 @@
 #include "ofxImGui.h"
 #include "settings.h"
 #include "freeport.h"
+#include "ofWatcher.h"
 
 
 #define MODE_PERFORM "0"
@@ -57,4 +58,5 @@ public:
 	float numLines = 10;
 	float backGroundColor[3] = {1, 1, 1};
 	bool drawLines = false;
+	ofWatcher watcher;
 };

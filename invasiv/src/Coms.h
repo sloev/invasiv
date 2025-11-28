@@ -33,11 +33,11 @@
 #include <charconv>
 #include <cstdint>
 
-#define CMD_ANNOUNCE  "0"
-#define CMD_ANNOUNCE_REPLY  "1"
-#define CMD_SCRIPT_RELOAD  "2"
-#define CMD_SCRIPT_CALL  "3"	  //< send json to script
-#define CMD_MAPPING "4"	  //< path was created
+#define CMD_ANNOUNCE "0"
+#define CMD_ANNOUNCE_REPLY "1"
+#define CMD_SCRIPT_RELOAD "2"
+#define CMD_SCRIPT_CALL "3" //< send json to script
+#define CMD_MAPPING "4"		//< path was created
 #define CMD_ANNOUNCE_MAPPING_MASTER_ON "5"
 #define CMD_ANNOUNCE_MAPPING_MASTER_OFF "6"
 
@@ -49,7 +49,8 @@ struct Message
 	std::string content;
 };
 
-struct Peer {
+struct Peer
+{
 	string uid;
 	string ip;
 	bool is_self;
@@ -63,11 +64,13 @@ class Coms
 public:
 	void setup(string id);
 	vector<Message> process();
-	void sendMessage(string target_uuid, string command, string message="");
-	void sendBroadcastMessage(string command, string message="");
-	bool parseIpPort(std::string_view input, Peer& out);
+	void sendMessage(string target_uuid, string command, string message = "");
+	void sendBroadcastMessage(string command, string message = "");
+	bool parseIpPort(std::string_view input, Peer &out);
 	uint16_t getSyncPort();
-
+	const std::map<std::string, Peer> &getPeers();
+	
+	mutable std::mutex peersMutex; // mutable = can lock in const method
 
 	ofxUDPManager listener;
 	ofxUDPManager sender;

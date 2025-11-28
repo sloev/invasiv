@@ -63,18 +63,18 @@ RUN cd of/apps/myApps/zmqExample/ && make
 
 RUN apt-get update -y && apt-get install -y swig
 
-ADD ./loaf of/apps/myApps/loaf
+# ADD ./loaf of/apps/myApps/loaf
 
-# ARG LOAF_SHA=3ffce08
+# # ARG LOAF_SHA=3ffce08
 
-# RUN git gets -H -v -Y  https://github.com/danomatika/loaf/commit/${LOAF_SHA} -o of/apps/myApps/loaf
-# RUN rm -rf of/apps/myApps/loaf/src/bindings/macos/*
+# # RUN git gets -H -v -Y  https://github.com/danomatika/loaf/commit/${LOAF_SHA} -o of/apps/myApps/loaf
+# # RUN rm -rf of/apps/myApps/loaf/src/bindings/macos/*
 
 
 
-RUN cd of/ && /of/apps/projectGenerator/commandLine/bin/projectGenerator -r -o"." apps/myApps/loaf/
-RUN cd of/apps/myApps/loaf/ && ./scripts/generate_bindings.sh
-RUN cd of/apps/myApps/loaf/ && make
+# RUN cd of/ && /of/apps/projectGenerator/commandLine/bin/projectGenerator -r -o"." apps/myApps/loaf/
+# RUN cd of/apps/myApps/loaf/ && ./scripts/generate_bindings.sh
+# RUN cd of/apps/myApps/loaf/ && make
 
 
 
@@ -87,7 +87,7 @@ RUN cd of/ && /of/apps/projectGenerator/commandLine/bin/projectGenerator -r -o".
 RUN cd of/apps/myApps/ofxImGui/ && make
 
 
-ADD ./test of/apps/myApps/test
+ADD ./invasiv of/apps/myApps/test
 RUN cd of/ && /of/apps/projectGenerator/commandLine/bin/projectGenerator -r -o"." apps/myApps/test/
 RUN cd of/apps/myApps/test/ && make
 

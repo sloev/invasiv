@@ -15,16 +15,23 @@ public:
     {
         // --- command line args ---
 
-        configFolder = fs::current_path();
-        configFolder.make_preferred();
+        workingFolder = fs::current_path();
+        workingFolder.make_preferred();
 
-        syncedFolder = configFolder / "synced";
-        videosFolder = configFolder / "synced" / "videos";
+        syncedFolder = workingFolder / "synced";
+        videosFolder = workingFolder / "synced" / "videos";
+        configsFolder = workingFolder / "synced" / "configs";
 
         if (!fs::exists(videosFolder))
+        {
             fs::create_directories(videosFolder);
+        }
+        if (!fs::exists(configsFolder))
+        {
+            fs::create_directories(configsFolder);
+        }
 
-        settingsPath = configFolder / "settings.json";
+        settingsPath = workingFolder / "settings.json";
 
         loadSettings();
         checkForChanges(); // initial hash
@@ -96,13 +103,19 @@ public:
         return changed;
     }
 
-    fs::path getConfigFolder() const { return configFolder; }
+    fs::path getworkingFolder() const { return workingFolder; }
     fs::path getSyncedFolder() const { return syncedFolder; }
-    fs::path getMappingsPathForId(string id) const { 
-        string mappingsFileName = id + ".mappings.json";
-        return configFolder / "synced" / mappingsFileName;
-    }
+    fs::path getConfigsFolder() const { return configsFolder; }
     fs::path getVideosFolder() const { return videosFolder; }
+    fs::path getMappingsPathForId(string id) const
+    {
+        string mappingsFileName = id + ".mappings.json";
+        return configsFolder / mappingsFileName;
+    }
+    fs::path getTextureConfigPath() const
+    {
+        return configsFolder / "textures.json";
+    }
 
 private:
     void loadSettings()
@@ -129,9 +142,10 @@ private:
         ofs << settings.dump(4);
     }
 
-    fs::path configFolder;
+    fs::path workingFolder;
     fs::path syncedFolder;
     fs::path videosFolder;
+    fs::path configsFolder;
     fs::path settingsPath;
     ofJson settings;
     std::string lastHash;
