@@ -1,7 +1,8 @@
 // tcp_file_transfer.hpp
 // ---------------------------------------------------------------
 // Single-header TCP file server + client + sync with openFrameworks
-// Updated: recursive directory listing + MD5-based sync + cache invalidation
+// Updated: Fixed SIGABRT on Server (detached threads)
+// Updated: Fixed Sync logic (resync on file changes)
 // ---------------------------------------------------------------
 
 #ifndef TCP_FILE_TRANSFER_HPP
@@ -22,8 +23,10 @@
 #include <atomic>
 #include <memory>
 #include <unordered_map>
+#include <map>
 #include <mutex>
 #include <deque>
+#include <condition_variable> 
 
 // ------------------------------------------------------------
 // openFrameworks: ofThread + ofEvent
@@ -51,13 +54,17 @@ using socklen_t = int;
 #include <ofThread.h>
 #include <ofEvent.h>
 #include <ofLog.h>
-#include "MD5.h" // <-- added
+#include "MD5.h" 
+#include "Coms.h" 
+
 #define UPDATE_ME "UPDATE_ME"
 
 namespace fs = std::filesystem;
 
+
 // ------------------------------------------------------------
 // Winsock init/cleanup
+// ------------------------------------------------------------
 inline bool init_winsock()
 {
 #ifdef _WIN32
@@ -76,6 +83,7 @@ inline void cleanup_winsock()
 
 // ------------------------------------------------------------
 // Network helpers
+// ------------------------------------------------------------
 inline bool send_all(SOCKET s, const void *data, std::size_t len)
 {
     const char *ptr = static_cast<const char *>(data);
@@ -106,6 +114,7 @@ inline bool recv_all(SOCKET s, void *data, std::size_t len)
 
 // ------------------------------------------------------------
 // Protocol
+// ------------------------------------------------------------
 constexpr uint8_t CMD_LIST = 1;
 constexpr uint8_t CMD_GET = 2;
 constexpr uint8_t CMD_PUT = 3;
@@ -115,6 +124,7 @@ constexpr uint8_t CMD_ERR = 255;
 
 // ------------------------------------------------------------
 // Progress event
+// ------------------------------------------------------------
 struct TransferProgress
 {
     enum Type
@@ -132,6 +142,7 @@ struct TransferProgress
 
 // ------------------------------------------------------------
 // Server
+// ------------------------------------------------------------
 class Server : public ofThread
 {
 public:
@@ -184,6 +195,7 @@ public:
         {
             sockaddr_in client_addr{};
             socklen_t client_len = sizeof(client_addr);
+            
             SOCKET client = ::accept(listen_sock, (sockaddr *)&client_addr, &client_len);
             if (client == INVALID_SOCKET)
             {
@@ -192,8 +204,9 @@ public:
                 continue;
             }
 
+            // FIX: Using dedicated detached thread wrapper instead of inheriting ofThread
             ClientHandler *handler = new ClientHandler(client, m_root, this);
-            handler->startThread();
+            handler->start(); 
         }
         closesocket(listen_sock);
     }
@@ -202,7 +215,6 @@ public:
     void stop() { waitForThread(true); }
 
 private:
-    // Simple MD5 cache (per server instance)
     mutable std::mutex m_cache_mutex;
     mutable std::unordered_map<std::string, std::string> m_md5_cache;
 
@@ -230,9 +242,7 @@ private:
                 hash = MD5::hash(data);
             }
         }
-        catch (...)
-        {
-        }
+        catch (...) {}
 
         {
             std::lock_guard<std::mutex> tryLock(m_cache_mutex);
@@ -246,8 +256,12 @@ private:
         std::lock_guard<std::mutex> tryLock(m_cache_mutex);
         m_md5_cache.erase(key);
     }
+    
+    // Grant access to ClientHandler
+    friend class ClientHandler;
 
-    class ClientHandler : public ofThread
+    // FIX: Removed "public ofThread" inheritance to prevent SIGABRT on "delete this"
+    class ClientHandler 
     {
     public:
         ClientHandler(SOCKET sock, const fs::path &root, Server *parent)
@@ -259,7 +273,15 @@ private:
                 closesocket(m_sock);
         }
 
-        void threadedFunction() override
+        // Helper to launch detached thread
+        void start() 
+        {
+            std::thread t(&ClientHandler::run, this);
+            t.detach();
+        }
+
+        // Renamed from threadedFunction to run
+        void run()
         {
             while (true)
             {
@@ -267,56 +289,47 @@ private:
                 if (!recv_all(m_sock, &cmd, 1))
                     break;
 
-                if (cmd == CMD_LIST)
-                {
-                    list_directory_recursive(m_sock);
-                }
-                else if (cmd == CMD_GET)
-                {
+                if (cmd == CMD_LIST)      list_directory_recursive(m_sock);
+                else if (cmd == CMD_GET) {
                     std::string rel;
-                    if (!recv_string(m_sock, rel))
-                        break;
-                    send_file(m_sock, rel, m_root);
+                    if (recv_string(m_sock, rel)) send_file(m_sock, rel, m_root);
+                    else break;
                 }
-                else if (cmd == CMD_PUT)
-                {
+                else if (cmd == CMD_PUT) {
                     std::string rel;
-                    if (!recv_string(m_sock, rel))
-                        break;
-                    receive_file(m_sock, rel, m_root);
+                    if (recv_string(m_sock, rel)) receive_file(m_sock, rel, m_root);
+                    else break;
                 }
-                else if (cmd == CMD_DELETE)
-                {
+                else if (cmd == CMD_DELETE) {
                     std::string rel;
-                    if (!recv_string(m_sock, rel))
-                        break;
-                    delete_file(m_sock, rel, m_root);
+                    if (recv_string(m_sock, rel)) delete_file(m_sock, rel, m_root);
+                    else break;
                 }
-                else
-                {
-                    break;
-                }
+                else break;
             }
+            // FIX: Self-delete is now safe because the thread is detached
+            delete this; 
         }
 
     private:
-        // New recursive listing:  path|size|md5\n
         void list_directory_recursive(SOCKET sock)
         {
             std::ostringstream oss;
-            for (const auto &entry : fs::recursive_directory_iterator(m_root,
-                                                                      fs::directory_options::skip_permission_denied))
-            {
-                if (!entry.is_regular_file())
-                    continue;
-
-                fs::path rel = entry.path().lexically_relative(m_root);
-                std::string rel_str = rel.string();
-                uint64_t fsize = entry.file_size();
-                std::string md5 = m_parent->get_cached_md5(entry.path());
-
-                oss << rel_str << '|' << fsize << '|' << md5 << '\n';
-            }
+            try {
+                if(fs::exists(m_root)) {
+                     for (const auto &entry : fs::recursive_directory_iterator(m_root, fs::directory_options::skip_permission_denied))
+                    {
+                        if (!entry.is_regular_file()) continue;
+                        fs::path rel = entry.path().lexically_relative(m_root);
+                        std::string rel_str = rel.string();
+                        // Use "/" for network protocol consistency
+                        std::replace(rel_str.begin(), rel_str.end(), '\\', '/'); 
+                        uint64_t fsize = entry.file_size();
+                        std::string md5 = m_parent->get_cached_md5(entry.path());
+                        oss << rel_str << '|' << fsize << '|' << md5 << '\n';
+                    }
+                }
+            } catch(...) {}
 
             std::string data = oss.str();
             uint32_t sz = htonl(static_cast<uint32_t>(data.size()));
@@ -356,7 +369,6 @@ private:
                 if (!send_all(sock, buf.data(), read))
                     break;
                 transferred += read;
-
                 if ((transferred % reportInterval < read) || transferred == fsize)
                 {
                     TransferProgress prog;
@@ -374,16 +386,10 @@ private:
         {
             fs::path full = safe_path(rel_path, root);
             if (full.has_parent_path() && !fs::exists(full.parent_path()))
-            {
                 fs::create_directories(full.parent_path());
-            }
 
             uint64_t fsize = 0;
-            if (!recv_all(sock, &fsize, 8))
-            {
-                send_error(sock, "recv size failed");
-                return;
-            }
+            if (!recv_all(sock, &fsize, 8)) return;
             fsize = ntoh64(fsize);
 
             FILE *fp = fopen(full.string().c_str(), "wb");
@@ -405,7 +411,7 @@ private:
                 if (!recv_all(sock, buf.data(), to_read))
                 {
                     fclose(fp);
-                    return; // no error send, since already sent OK
+                    return;
                 }
                 fwrite(buf.data(), 1, to_read, fp);
                 transferred += to_read;
@@ -421,58 +427,39 @@ private:
                 }
             }
             fclose(fp);
-
-            // Invalidate cache after successful write
             m_parent->invalidate_md5(full.string());
         }
 
         void delete_file(SOCKET sock, const std::string &rel_path, const fs::path &root)
         {
             fs::path full = safe_path(rel_path, root);
-            if (!fs::exists(full))
-            {
-                send_error(sock, "File not found");
-                return;
-            }
-            if (!fs::is_regular_file(full))
-            {
-                send_error(sock, "Not a regular file");
-                return;
-            }
-
+            if (!fs::exists(full)) { send_error(sock, "File not found"); return; }
+            
             std::error_code ec;
             fs::remove(full, ec);
-            if (ec)
-            {
-                send_error(sock, "Delete failed: " + ec.message());
-                return;
-            }
+            if (ec) { send_error(sock, "Delete failed"); return; }
 
             send_all(sock, &CMD_OK, 1);
-
-            // Invalidate cache after delete
             m_parent->invalidate_md5(full.string());
 
             TransferProgress prog;
             prog.type = TransferProgress::Delete;
             prog.filename = rel_path;
-            prog.bytesTransferred = prog.totalBytes = 1;
+            prog.bytesTransferred = 1; prog.totalBytes = 1;
             ofNotifyEvent(m_parent->transferProgressEvent, prog, m_parent);
         }
 
         fs::path safe_path(const std::string &rel, const fs::path &root) const
         {
             fs::path p = fs::path(rel).lexically_normal();
-            if (p.is_absolute())
-                p = p.lexically_relative("/");
+            if (p.is_absolute()) p = p.lexically_relative("/");
             return fs::absolute(root / p);
         }
 
         bool recv_string(SOCKET sock, std::string &out)
         {
             uint16_t len = 0;
-            if (!recv_all(sock, &len, 2))
-                return false;
+            if (!recv_all(sock, &len, 2)) return false;
             len = ntohs(len);
             out.resize(len);
             return recv_all(sock, out.data(), len);
@@ -486,18 +473,7 @@ private:
             send_all(sock, msg.data(), msg.size());
         }
 
-        static uint64_t hto64(uint64_t v)
-        {
-            return ((v & 0xFFULL) << 56) |
-                   ((v & 0xFF00ULL) << 40) |
-                   ((v & 0xFF0000ULL) << 24) |
-                   ((v & 0xFF000000ULL) << 8) |
-                   ((v & 0xFF00000000ULL) >> 8) |
-                   ((v & 0xFF0000000000ULL) >> 24) |
-                   ((v & 0xFF000000000000ULL) >> 40) |
-                   ((v & 0xFF00000000000000ULL) >> 56);
-        }
-
+        static uint64_t hto64(uint64_t v) { return ((v & 0xFFULL) << 56) | ((v & 0xFF00ULL) << 40) | ((v & 0xFF0000ULL) << 24) | ((v & 0xFF000000ULL) << 8) | ((v & 0xFF00000000ULL) >> 8) | ((v & 0xFF0000000000ULL) >> 24) | ((v & 0xFF000000000000ULL) >> 40) | ((v & 0xFF00000000000000ULL) >> 56); }
         static uint64_t ntoh64(uint64_t v) { return hto64(v); }
 
         SOCKET m_sock;
@@ -510,115 +486,68 @@ private:
 };
 
 // ------------------------------------------------------------
-// Client
+// Client (Synchronous helper)
+// ------------------------------------------------------------
 class Client
 {
 public:
-    Client()
-    {
-        if (!init_winsock())
-            throw std::runtime_error("Winsock init failed");
-    }
-
-    ~Client()
-    {
-        disconnect();
-        cleanup_winsock();
-    }
+    Client() { init_winsock(); }
+    ~Client() { disconnect(); cleanup_winsock(); }
 
     bool connect(std::string host, uint16_t port)
     {
         disconnect();
         m_sock = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        if (m_sock == INVALID_SOCKET)
-            return false;
+        if (m_sock == INVALID_SOCKET) return false;
 
         addrinfo hints{}, *res = nullptr;
         hints.ai_family = AF_INET;
         hints.ai_socktype = SOCK_STREAM;
 
-        if (getaddrinfo(host.c_str(), std::to_string(port).c_str(), &hints, &res) != 0)
-            return false;
-
+        if (getaddrinfo(host.c_str(), std::to_string(port).c_str(), &hints, &res) != 0) return false;
+        
+        // Simple blocking connect with system timeout
         bool ok = (::connect(m_sock, res->ai_addr, static_cast<int>(res->ai_addrlen)) != SOCKET_ERROR);
         freeaddrinfo(res);
-        if (!ok)
-        {
-            closesocket(m_sock);
-            m_sock = INVALID_SOCKET;
-        }
+        if (!ok) { closesocket(m_sock); m_sock = INVALID_SOCKET; }
         return ok;
     }
 
     void disconnect()
     {
-        if (m_sock != INVALID_SOCKET)
-        {
-            closesocket(m_sock);
-            m_sock = INVALID_SOCKET;
-        }
+        if (m_sock != INVALID_SOCKET) { closesocket(m_sock); m_sock = INVALID_SOCKET; }
     }
 
-    // Returns map: relative_path -> {size, md5}
     std::unordered_map<std::string, std::pair<uint64_t, std::string>> list()
     {
         std::unordered_map<std::string, std::pair<uint64_t, std::string>> result;
-
-        if (!send_cmd(CMD_LIST))
-        {
-            ofLogError("Client") << "list(): send_cmd failed";
-            return result;
-        }
+        if (!send_cmd(CMD_LIST)) return result;
 
         uint8_t status = 0;
-        if (!recv_all(m_sock, &status, 1) || status != CMD_OK)
-        {
-            ofLogError("Client") << "list(): bad status " << (int)status;
-            return result;
-        }
+        if (!recv_all(m_sock, &status, 1) || status != CMD_OK) return result;
 
         uint32_t sz = 0;
-        if (!recv_all(m_sock, &sz, 4))
-        {
-            ofLogError("Client") << "list(): recv size failed";
-            return result;
-        }
+        if (!recv_all(m_sock, &sz, 4)) return result;
         sz = ntohl(sz);
-
-        if (sz == 0)
-            return result;
+        if (sz == 0) return result;
 
         std::string data(sz, '\0');
-        if (!recv_all(m_sock, data.data(), sz))
-        {
-            ofLogError("Client") << "list(): recv data failed";
-            return result;
-        }
+        if (!recv_all(m_sock, data.data(), sz)) return result;
 
         std::istringstream iss(data);
         std::string line;
         while (std::getline(iss, line))
         {
-            if (line.empty())
-                continue;
+            if (line.empty()) continue;
             size_t p1 = line.find('|');
             size_t p2 = line.rfind('|');
-            if (p1 == std::string::npos || p2 == std::string::npos || p1 == p2)
-                continue;
+            if (p1 == std::string::npos || p2 == std::string::npos || p1 == p2) continue;
 
             std::string path = line.substr(0, p1);
             std::string sizestr = line.substr(p1 + 1, p2 - p1 - 1);
             std::string md5 = line.substr(p2 + 1);
-
             uint64_t size = 0;
-            try
-            {
-                size = std::stoull(sizestr);
-            }
-            catch (...)
-            {
-            }
-
+            try { size = std::stoull(sizestr); } catch(...) {}
             result[path] = {size, md5};
         }
         return result;
@@ -626,31 +555,23 @@ public:
 
     bool download(const std::string &remote, const std::string &local)
     {
-        if (!send_cmd(CMD_GET, remote))
-            return false;
+        if (!send_cmd(CMD_GET, remote)) return false;
         uint8_t status = 0;
-        if (!recv_all(m_sock, &status, 1) || status != CMD_OK)
-            return false;
+        if (!recv_all(m_sock, &status, 1) || status != CMD_OK) return false;
 
         uint64_t fsize = 0;
-        if (!recv_all(m_sock, &fsize, 8))
-            return false;
+        if (!recv_all(m_sock, &fsize, 8)) return false;
         fsize = ntoh64(fsize);
 
         FILE *fp = fopen(local.c_str(), "wb");
-        if (!fp)
-            return false;
+        if (!fp) return false;
 
         std::array<char, 8192> buf{};
         uint64_t remaining = fsize;
         while (remaining > 0)
         {
             size_t chunk = static_cast<size_t>(std::min<uint64_t>(remaining, buf.size()));
-            if (!recv_all(m_sock, buf.data(), chunk))
-            {
-                fclose(fp);
-                return false;
-            }
+            if (!recv_all(m_sock, buf.data(), chunk)) { fclose(fp); return false; }
             fwrite(buf.data(), 1, chunk, fp);
             remaining -= chunk;
         }
@@ -660,33 +581,24 @@ public:
 
     bool upload(const std::string &local, const std::string &remote)
     {
-        if (!fs::exists(local) || !fs::is_regular_file(local))
-            return false;
-        if (!send_cmd(CMD_PUT, remote))
-            return false;
+        if (!fs::exists(local) || !fs::is_regular_file(local)) return false;
+        if (!send_cmd(CMD_PUT, remote)) return false;
 
         uint64_t fsize = fs::file_size(local);
         uint64_t net_size = hto64(fsize);
-        if (!send_all(m_sock, &net_size, 8))
-            return false;
+        if (!send_all(m_sock, &net_size, 8)) return false;
 
         uint8_t ok = 0;
-        if (!recv_all(m_sock, &ok, 1) || ok != CMD_OK)
-            return false;
+        if (!recv_all(m_sock, &ok, 1) || ok != CMD_OK) return false;
 
         FILE *fp = fopen(local.c_str(), "rb");
-        if (!fp)
-            return false;
+        if (!fp) return false;
 
         std::array<char, 8192> buf{};
         size_t read;
         while ((read = fread(buf.data(), 1, buf.size(), fp)) > 0)
         {
-            if (!send_all(m_sock, buf.data(), read))
-            {
-                fclose(fp);
-                return false;
-            }
+            if (!send_all(m_sock, buf.data(), read)) { fclose(fp); return false; }
         }
         fclose(fp);
         return true;
@@ -694,42 +606,25 @@ public:
 
     bool remove(const std::string &remote)
     {
-        if (!send_cmd(CMD_DELETE, remote))
-            return false;
+        if (!send_cmd(CMD_DELETE, remote)) return false;
         uint8_t status = 0;
-        if (!recv_all(m_sock, &status, 1))
-            return false;
+        if (!recv_all(m_sock, &status, 1)) return false;
         return status == CMD_OK;
     }
 
 private:
     bool send_cmd(uint8_t cmd, const std::string &arg = "")
     {
-        if (!send_all(m_sock, &cmd, 1))
-            return false;
+        if (!send_all(m_sock, &cmd, 1)) return false;
         if (!arg.empty())
         {
             uint16_t len = htons(static_cast<uint16_t>(arg.size()));
-            if (!send_all(m_sock, &len, 2))
-                return false;
-            if (!send_all(m_sock, arg.data(), arg.size()))
-                return false;
+            if (!send_all(m_sock, &len, 2)) return false;
+            if (!send_all(m_sock, arg.data(), arg.size())) return false;
         }
         return true;
     }
-
-    static uint64_t hto64(uint64_t v)
-    {
-        return ((v & 0xFFULL) << 56) |
-               ((v & 0xFF00ULL) << 40) |
-               ((v & 0xFF0000ULL) << 24) |
-               ((v & 0xFF000000ULL) << 8) |
-               ((v & 0xFF00000000ULL) >> 8) |
-               ((v & 0xFF0000000000ULL) >> 24) |
-               ((v & 0xFF000000000000ULL) >> 40) |
-               ((v & 0xFF00000000000000ULL) >> 56);
-    }
-
+    static uint64_t hto64(uint64_t v) { return ((v & 0xFFULL) << 56) | ((v & 0xFF00ULL) << 40) | ((v & 0xFF0000ULL) << 24) | ((v & 0xFF000000ULL) << 8) | ((v & 0xFF00000000ULL) >> 8) | ((v & 0xFF0000000000ULL) >> 24) | ((v & 0xFF000000000000ULL) >> 40) | ((v & 0xFF00000000000000ULL) >> 56); }
     static uint64_t ntoh64(uint64_t v) { return hto64(v); }
 
     SOCKET m_sock = INVALID_SOCKET;
@@ -737,6 +632,7 @@ private:
 
 // ------------------------------------------------------------
 // Sync Status
+// ------------------------------------------------------------
 struct SyncStatus
 {
     enum State
@@ -760,180 +656,113 @@ struct SyncStatus
 
 // ------------------------------------------------------------
 // Threaded Sync Client
+// ------------------------------------------------------------
 class SyncClient : public ofThread
 {
 public:
-    struct Target
-    {
-        std::string host;
-        uint16_t port;
-    };
+    ofEvent<SyncStatus> syncEvent;
     fs::path m_local_root;
 
-    ofEvent<SyncStatus> syncEvent;
-    mutable bool canceled = false;
+private:
+    // Thread safety primitives
+    mutable std::mutex m_mutex;
+    std::condition_variable m_cv;
+    std::atomic<bool> m_stop_requested{false};
 
-    mutable std::unordered_map<std::string, std::pair<uint64_t, std::string>> cache;
-    std::deque<string> cacheChanges; // ← replace vector<string>
-    mutable std::unordered_map<std::string, bool> peerIsSynced;
-    mutable std::map<std::string, Peer> localPeers;
+    // Shared Data (Protected by m_mutex)
+    std::map<std::string, Peer> m_peers;
+    std::map<std::string, bool> m_peer_synced_state;
+    std::deque<std::string> m_pending_paths;
+    
+    // Thread-Local Data (No mutex needed)
+    // The worker thread maintains its own map to avoid locking the mutex during IO/Hashing
+    std::unordered_map<std::string, std::pair<uint64_t, std::string>> m_local_cache;
 
-    ofMutex mutex;
+    Client m_client; // synchronous client used only by the thread
 
-    Client client;
-
+public:
     SyncClient(const std::string &local_root = ".")
         : m_local_root(fs::absolute(local_root))
     {
     }
 
-    void setPeers(std::map<std::string, Peer> peers)
+    ~SyncClient()
     {
-        ofScopedLock lock(mutex);
-
-        localPeers = peers;
-    };
-
-    std::map<std::string, Peer> getPeers()
-    {
-        ofScopedLock lock(mutex);
-
-        return localPeers;
+        stop();
     }
 
-    void stop()
+    // THREAD-SAFE: Can be called from any thread
+    void setPeers(const std::map<std::string, Peer>& peers)
     {
-        canceled = true;
-        if (isThreadRunning())
         {
-            ofLogNotice("SyncClient") << "stopping sync client";
-            stopThread();        // tells threadedFunction() to exit its loop
-            waitForThread(true); // blocks until all SyncTask threads are done
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_peers = peers;
+            
+            // Reconcile synced state: Remove old peers, add new ones as unsynced
+            // This prevents the "segfault" where the thread tries to access a deleted peer key
+            std::map<std::string, bool> new_synced_state;
+            for(auto const& [key, peer] : m_peers) {
+                if (m_peer_synced_state.count(key)) {
+                    new_synced_state[key] = m_peer_synced_state[key]; // keep state
+                } else {
+                    new_synced_state[key] = false; // new peer
+                }
+            }
+            m_peer_synced_state = new_synced_state;
         }
+        // Wake up thread to process new peers immediately
+        m_cv.notify_one(); 
+    }
+
+    // THREAD-SAFE: Can be called from any thread
+    std::map<std::string, Peer> getPeers()
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_peers;
+    }
+
+    // THREAD-SAFE: Can be called from any thread
+    void pathsHasUpdated(const std::vector<std::string> &paths, bool initialize = false)
+    {
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (initialize) {
+                m_pending_paths.push_back(UPDATE_ME);
+            }
+            for (const auto &p : paths) {
+                m_pending_paths.push_back(p);
+            }
+        }
+        m_cv.notify_one();
     }
 
     void start()
     {
-        canceled = false;
-        if (!isThreadRunning())
-        {
-            ofLogNotice("SyncClient") << "starting sync client";
+        m_stop_requested = false;
+        if (!isThreadRunning()) {
+            ofLogNotice("SyncClient") << "Starting sync client";
             startThread();
         }
     }
 
-    void pathsHasUpdated(std::vector<std::string> &paths, bool initialize = false)
+    void stop()
     {
-
-        if (initialize)
-        {
-            {
-                ofScopedLock lock(mutex);
-                cacheChanges.emplace_back(UPDATE_ME);
-            }
-        }
-        for (const auto &p : paths)
-        {
-            {
-                ofScopedLock lock(mutex);
-                cacheChanges.emplace_back(p);
-            }
+        m_stop_requested = true;
+        m_cv.notify_all(); // Wake up thread if sleeping
+        if (isThreadRunning()) {
+            ofLogNotice("SyncClient") << "Stopping sync client";
+            // Do not call m_client.disconnect() here, it causes race if thread is using it.
+            // rely on thread checking m_stop_requested.
+            waitForThread(true);
         }
     }
 
-    void initializeCache()
-    {
-        std::vector<std::string> paths;
-        // Build local file map with MD5
-
-        for (const auto &entry : fs::recursive_directory_iterator(m_local_root,
-                                                                  fs::directory_options::skip_permission_denied))
-        {
-            if (!entry.is_regular_file())
-            {
-                continue;
-            }
-            paths.push_back(entry.path().string());
-        }
-        pathsHasUpdated(paths, true);
-    }
-
-    std::unordered_map<std::string, std::pair<uint64_t, std::string>> getLocalMap()
-    {
-        bool done = false;
-        while (!done)
-        {
-            string full_str;
-            {
-                ofScopedLock lock(mutex);
-                if (cacheChanges.empty())
-                {
-                    done = true;
-                    continue;
-                }
-                else
-                {
-                    full_str = std::move(cacheChanges.front());
-                    cacheChanges.pop_front();
-                }
-            }
-
-            if (full_str == UPDATE_ME)
-            {
-                cache.clear();
-                continue;
-            }
-
-            fs::path entry = full_str;
-            fs::path rel = entry.lexically_relative(m_local_root);
-
-            std::string rel_str = rel.string();
-
-            if (!fs::exists(entry))
-            {
-                cout << "file does not exist: " << rel_str << "\n";
-                cache.erase(rel_str);
-            }
-            else
-            {
-                std::string hash = "";
-
-                try
-                {
-                    std::ifstream f(entry, std::ios::binary);
-                    if (f)
-                    {
-                        f.seekg(0, std::ios::end);
-                        auto sz = f.tellg();
-                        f.seekg(0);
-                        std::string buf(sz, '\0');
-                        f.read(&buf[0], sz);
-                        hash = MD5::hash(buf);
-                    }
-                }
-                catch (const std::exception &e)
-                {
-                    std::cerr << e.what() << '\n';
-                }
-                uint64_t sz = fs::file_size(entry);
-                cache[rel_str] = {sz, hash};
-
-                cout << "file exists: " << rel_str << "\n";
-            }
-        }
-
-        const auto &peers = getPeers();
-
-        for (const auto &item : peers)
-        {
-            peerIsSynced[item.first] = false;
-        }
-        return cache;
-    }
-
-    void notify(const std::string ip, const uint16_t port, SyncStatus::State state, const std::string &msg,
+private:
+    // Helper to send events back to main thread safely
+    void notify(const std::string ip, uint16_t port, SyncStatus::State state, const std::string &msg,
                 uint64_t bytes = 0, uint64_t total = 0, const std::string &filename = "")
     {
+        if(m_stop_requested) return;
         SyncStatus s;
         s.state = state;
         s.host = ip;
@@ -944,140 +773,224 @@ public:
         s.total = total;
         ofNotifyEvent(syncEvent, s, this);
     }
+
+    // Update local MD5 cache based on pending paths
+    // Returns true if cache was fully rebuilt
+    void process_cache_updates(std::deque<std::string>& updates) 
+    {
+        while(!updates.empty()) {
+            if(m_stop_requested) return;
+
+            std::string path_str = updates.front();
+            updates.pop_front();
+
+            if (path_str == UPDATE_ME) {
+                m_local_cache.clear();
+                 try {
+                    if(fs::exists(m_local_root)) {
+                         for (const auto &entry : fs::recursive_directory_iterator(m_local_root)) {
+                            if (entry.is_regular_file()) updates.push_back(entry.path().string());
+                         }
+                    }
+                } catch(...) {}
+                continue;
+            }
+
+            fs::path entry = path_str;
+            fs::path rel = entry.lexically_relative(m_local_root);
+            std::string rel_str = rel.string();
+            // normalize path separators
+            std::replace(rel_str.begin(), rel_str.end(), '\\', '/'); 
+
+            if (!fs::exists(entry)) {
+                m_local_cache.erase(rel_str);
+            } else {
+                // Calculate MD5
+                std::string hash = "";
+                try {
+                    std::ifstream f(entry, std::ios::binary);
+                    if (f) {
+                        f.seekg(0, std::ios::end);
+                        auto sz = f.tellg();
+                        f.seekg(0);
+                        std::string buf(sz, '\0');
+                        f.read(&buf[0], sz);
+                        hash = MD5::hash(buf);
+                    }
+                } catch (...) {}
+                
+                uint64_t sz = 0;
+                try { sz = fs::file_size(entry); } catch(...) {}
+                m_local_cache[rel_str] = {sz, hash};
+            }
+        }
+    }
+
     void threadedFunction() override
     {
-        initializeCache();
-        try
+        // Initial scan request
+        pathsHasUpdated({}, true);
+
+        while (!m_stop_requested)
         {
+            // -------------------------------------------------------
+            // SNAPSHOT PHASE
+            // -------------------------------------------------------
+            // We lock mutex only to copy what we need to do.
+            // This prevents race conditions with setPeers/pathsHasUpdated
+            
+            std::deque<std::string> local_path_updates;
+            std::vector<std::pair<std::string, Peer>> peers_to_process;
 
-            while (!canceled && isThreadRunning())
             {
-                auto localMapCopy = getLocalMap();
-                const auto &peers = getPeers();
-                bool anyPeerSynced = false;
+                std::unique_lock<std::mutex> lock(m_mutex);
+                
+                // Wait until we have work OR a timeout (heartbeat)
+                // We timeout every 2 seconds to retry failed peers or check connection health
+                m_cv.wait_for(lock, std::chrono::seconds(1), [&]{ 
+                    return !m_pending_paths.empty() || m_stop_requested; 
+                });
 
-                if (true)
-                {
-                    for (const auto &item : peers)
-                    {
+                if (m_stop_requested) break;
 
-                        if (canceled)
-                        {
-                            break;
+                // Move pending paths to local queue
+                local_path_updates = std::move(m_pending_paths);
+                bool has_new_updates = !local_path_updates.empty();
+
+                // Snapshot peers that need syncing
+                for(const auto& [key, peer] : m_peers) {
+                    bool is_synced = m_peer_synced_state[key];
+                    // FIX: If we have new updates, we must sync everyone, regardless of previous state.
+                    if (!peer.is_self && (!is_synced || has_new_updates)) {
+                        peers_to_process.push_back({key, peer});
+                        
+                        // Mark as unsynced now so we track the success of THIS new cycle
+                        if (has_new_updates) {
+                            m_peer_synced_state[key] = false;
                         }
-                        bool alreadySynced = false;
-
-                        auto it = peerIsSynced.find(item.first);
-                        if (it != peerIsSynced.end())
-                        {
-                            alreadySynced = it->second;
-                        }
-
-                        if (item.second.is_self || alreadySynced)
-                        {
-                            // cout << "already synced:" << alreadySynced << " is self?: " <<   item.second.is_self  << "\n";
-                            // peer is self or already synced
-                            continue;
-                        }
-
-                        notify(item.second.ip, item.second.syncPort, SyncStatus::Connecting, "Connecting...");
-                        if (!client.connect(item.second.ip, item.second.syncPort))
-                        {
-                            notify(item.second.ip, item.second.syncPort, SyncStatus::Error, "Failed to connect");
-                            break;
-                        }
-                        notify(item.second.ip, item.second.syncPort, SyncStatus::Connecting, "Connected");
-
-                        bool changed = true;
-                        int attempts = 0;
-                        const int max_attempts = 10;
-
-                        while (!canceled && changed && attempts++ < max_attempts && isThreadRunning())
-                        {
-                            changed = false;
-
-                            auto remote_map = client.list();
-                            if (remote_map.empty() && !fs::exists(m_local_root))
-                            {
-                                notify(item.second.ip, item.second.syncPort, SyncStatus::Error, "Failed to list remote");
-                                return;
-                            }
-
-                            // Upload missing or different files
-                            for (const auto &local_entry : localMapCopy)
-                            {
-                                if (canceled)
-                                    break;
-                                const std::string &path = local_entry.first;
-                                auto remote_it = remote_map.find(path);
-
-                                bool need_upload = (remote_it == remote_map.end()) ||
-                                                   (remote_it->second.second != local_entry.second.second);
-                                cout << "file: " << local_entry.first << "\nsame: " << (remote_it->second.second != local_entry.second.second) << "\nlocal: " << local_entry.second.second << "\nremote: " << remote_it->second.second << "\n";
-                                if (need_upload)
-                                {
-                                    std::string local_full = (m_local_root / path).string();
-                                    uint64_t fsize = local_entry.second.first;
-                                    notify(item.second.ip, item.second.syncPort, SyncStatus::Uploading, path, 0, fsize);
-                                    if (client.upload(local_full, path))
-                                    {
-                                        changed = true;
-                                        notify(item.second.ip, item.second.syncPort, SyncStatus::Uploading, path, fsize, fsize);
-                                    }
-                                    else
-                                    {
-                                        notify(item.second.ip, item.second.syncPort, SyncStatus::Error, "Upload failed: " + path);
-                                    }
-                                }
-                            }
-
-                            // Delete files that exist remotely but not locally
-                            for (const auto &remote_entry : remote_map)
-                            {
-                                if (canceled)
-                                    break;
-
-                                const std::string &path = remote_entry.first;
-                                if (localMapCopy.count(path) == 0)
-                                {
-                                    notify(item.second.ip, item.second.syncPort, SyncStatus::Deleting, path, 0, 1);
-                                    if (client.remove(path))
-                                    {
-                                        changed = true;
-                                        notify(item.second.ip, item.second.syncPort, SyncStatus::Deleting, path, 1, 1);
-                                    }
-                                    else
-                                    {
-                                        notify(item.second.ip, item.second.syncPort, SyncStatus::Error, "Delete failed: " + path);
-                                    }
-                                }
-                            }
-
-                            if (!canceled && changed)
-                            {
-                                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-                            }
-                        }
-                        peerIsSynced[item.first] = attempts <= max_attempts;
-                        anyPeerSynced = true;
-
-                        notify(item.second.ip, item.second.syncPort, SyncStatus::Done, attempts <= max_attempts ? "Synced" : "Max attempts exceeded");
-                    }
-                    if (anyPeerSynced)
-                    {
-                        SyncStatus done;
-                        done.state = SyncStatus::Done;
-                        done.message = "All servers synchronized";
-                        ofNotifyEvent(syncEvent, done, this);
                     }
                 }
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-        }
+            } 
+            // Lock released. We can now do heavy IO and Network without blocking setPeers.
 
-        catch (const std::exception &e)
-        {
-            std::cerr << e.what() << '\n';
+            // -------------------------------------------------------
+            // PROCESSING PHASE
+            // -------------------------------------------------------
+            
+            // 1. Update Cache (Heavy Disk IO)
+            process_cache_updates(local_path_updates);
+
+            // 2. Sync Peers (Heavy Network IO)
+            bool any_success = false;
+            
+            for (const auto& item : peers_to_process)
+            {
+                if (m_stop_requested) break;
+
+                std::string peerKey = item.first;
+                Peer peer = item.second;
+
+                notify(peer.ip, peer.syncPort, SyncStatus::Connecting, "Connecting...");
+                
+                if (!m_client.connect(peer.ip, peer.syncPort)) {
+                    notify(peer.ip, peer.syncPort, SyncStatus::Error, "Failed to connect");
+                    continue; // Try next peer
+                }
+
+                notify(peer.ip, peer.syncPort, SyncStatus::Connecting, "Connected");
+
+                bool success = false;
+                int attempts = 0;
+                const int max_attempts = 5; 
+
+                // Sync Loop for this peer
+                while(attempts < max_attempts && !m_stop_requested)
+                {
+                    attempts++;
+                    bool changed = false;
+
+                    auto remote_map = m_client.list();
+                    if (remote_map.empty() && !fs::exists(m_local_root)) {
+                         // Remote list failed or empty, treating as failure for safety if local has files
+                         if(!m_local_cache.empty()) {
+                             notify(peer.ip, peer.syncPort, SyncStatus::Error, "Failed to list remote");
+                             break;
+                         }
+                    }
+
+                    // A. Upload missing/changed
+                    for (const auto &local_entry : m_local_cache)
+                    {
+                        if (m_stop_requested) break;
+                        const std::string &path = local_entry.first;
+                        auto remote_it = remote_map.find(path);
+
+                        bool need_upload = (remote_it == remote_map.end()) ||
+                                           (remote_it->second.second != local_entry.second.second); // Compare MD5
+
+                        if (need_upload)
+                        {
+                            std::string local_full = (m_local_root / path).string();
+                            uint64_t fsize = local_entry.second.first;
+                            
+                            notify(peer.ip, peer.syncPort, SyncStatus::Uploading, path, 0, fsize);
+                            if (m_client.upload(local_full, path)) {
+                                changed = true;
+                                notify(peer.ip, peer.syncPort, SyncStatus::Uploading, path, fsize, fsize);
+                            } else {
+                                notify(peer.ip, peer.syncPort, SyncStatus::Error, "Upload failed: " + path);
+                            }
+                        }
+                    }
+
+                    // B. Delete remote files not in local
+                    for (const auto &remote_entry : remote_map)
+                    {
+                        if (m_stop_requested) break;
+                        const std::string &path = remote_entry.first;
+                        
+                        // If we don't have it locally, delete it remotely
+                        if (m_local_cache.find(path) == m_local_cache.end())
+                        {
+                            notify(peer.ip, peer.syncPort, SyncStatus::Deleting, path, 0, 1);
+                            if (m_client.remove(path)) {
+                                changed = true;
+                                notify(peer.ip, peer.syncPort, SyncStatus::Deleting, path, 1, 1);
+                            } else {
+                                notify(peer.ip, peer.syncPort, SyncStatus::Error, "Delete failed: " + path);
+                            }
+                        }
+                    }
+
+                    if (!changed) {
+                        success = true; // Synced!
+                        break;
+                    }
+                }
+                
+                m_client.disconnect();
+
+                if (success) {
+                    notify(peer.ip, peer.syncPort, SyncStatus::Done, "Synced");
+                    any_success = true;
+                    
+                    // Update state to avoid re-syncing this peer immediately
+                    std::lock_guard<std::mutex> lock(m_mutex);
+                    // Check if peer still exists (setPeers might have run)
+                    if(m_peer_synced_state.count(peerKey)) {
+                        m_peer_synced_state[peerKey] = true;
+                    }
+                } else {
+                     notify(peer.ip, peer.syncPort, SyncStatus::Done, "Sync Incomplete");
+                }
+            }
+
+            if (any_success && !m_stop_requested) {
+                 SyncStatus done; 
+                 done.state = SyncStatus::Done; 
+                 done.message = "Synchronization Cycle Complete"; 
+                 ofNotifyEvent(syncEvent, done, this);
+            }
         }
     }
 };

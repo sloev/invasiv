@@ -205,10 +205,13 @@ void ofApp::draw()
 
         // Create a new window
         ImGui::Begin("invasiv", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-        // ImGui::Checkbox("autoSync", &autoSync);
-        if (warpStack.isDirty() && ImGui::Button("sync"))
+        ImGui::Checkbox("autoSync", &autoSync);
+        float now = ofGetElapsedTimef();
+
+        if (warpStack.isDirty() && autoSync && now >= lastSaveTime)
         {
             warpStack.saveToFile(config.getMappingsPathForId(selectedPeerId));
+            lastSaveTime = now + 0.2f;
         }
 
         ImGui::SeparatorText("Instances");

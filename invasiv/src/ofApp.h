@@ -51,6 +51,7 @@ void onFilesChanged(std::vector<std::string>& paths);
 	string selectedPeerId;
 	string mode = MODE_PERFORM;
 	bool autoSync = false;
+	
 	float lastSaveTime = 0.0f;	 // <-- add this
 	float lastSyncedTime = 0.0f; // <-- add this
 

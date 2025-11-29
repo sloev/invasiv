@@ -38,3 +38,13 @@ test: build
 run-test:
 	cd ./testing && ../artifacts/bin/test
 
+run-debug:
+	cd ./testing && gdb -q \
+      -batch \
+      -ex 'set print thread-events off' \
+      -ex 'handle SIGALRM nostop pass' \
+      -ex 'handle SIGCHLD nostop pass' \
+      -ex 'run' \
+      -ex 'thread apply all backtrace' \
+      --args ../artifacts/bin/test_debug
+
