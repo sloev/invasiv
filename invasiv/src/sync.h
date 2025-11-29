@@ -766,7 +766,7 @@ public:
         std::string host;
         uint16_t port;
     };
-            fs::path m_local_root;
+    fs::path m_local_root;
 
     ofEvent<SyncStatus> syncEvent;
     mutable bool canceled = false;
@@ -774,6 +774,7 @@ public:
     mutable std::unordered_map<std::string, std::pair<uint64_t, std::string>> local_map;
     mutable std::mutex local_cache_mutex;
     mutable std::unordered_map<std::string, std::string> local_md5_cache;
+    mutable std::unordered_map<std::string, bool> peerIsSynced;
 
     Client client;
     std::function<const std::map<std::string, Peer> &()> peersGetter = {};
@@ -840,26 +841,32 @@ public:
 
     void pathsHasUpdated(std::vector<std::string> &paths)
     {
+        
         for (const auto &p : paths)
         {
             fs::path entry = p;
             fs::path rel = entry.lexically_relative(m_local_root);
 
             std::string rel_str = rel.string();
+            std::lock_guard<std::mutex> lock(local_cache_mutex);
+
+            local_md5_cache.erase(rel_str);
+            // local_map.erase(rel_str);
             if (!fs::exists(entry) || !fs::is_regular_file(entry))
             {
+
                 continue;
             }
-            else
-            {
-                std::lock_guard<std::mutex> lock(local_cache_mutex);
 
-                local_md5_cache.erase(rel_str);
-                local_map.erase(rel_str);
-            }
             uint64_t sz = fs::file_size(entry);
             std::string md5 = get_local_md5(entry);
             local_map[rel_str] = {sz, md5};
+        }
+        const auto &peers = peersGetter();
+
+        for (const auto &item : peers)
+        {
+            peerIsSynced[item.first] = false;
         }
     }
 
@@ -913,12 +920,30 @@ public:
         while (!canceled)
         {
             const auto &peers = peersGetter();
+            bool anyPeerSynced = false;
 
             for (const auto &item : peers)
             {
 
                 if (canceled)
+                {
                     break;
+                }
+                bool alreadySynced = false;
+
+                auto it = peerIsSynced.find(item.first);
+                if (it != peerIsSynced.end())
+                {
+                    alreadySynced = it->second;
+                }
+
+                if (item.second.is_self || alreadySynced)
+                {
+                    // cout << "already synced:" << alreadySynced << " is self?: " <<   item.second.is_self  << "\n";
+                    // peer is self or already synced
+                    continue;
+                }
+
                 notify(item.second.ip, item.second.syncPort, SyncStatus::Connecting, "Connecting...");
                 if (!client.connect(item.second.ip, item.second.syncPort))
                 {
@@ -930,6 +955,7 @@ public:
                 bool changed = true;
                 int attempts = 0;
                 const int max_attempts = 10;
+                auto localMapCopy = getLocalMap();
 
                 while (!canceled && changed && attempts++ < max_attempts && isThreadRunning())
                 {
@@ -943,7 +969,7 @@ public:
                     }
 
                     // Upload missing or different files
-                    for (const auto &local_entry : getLocalMap())
+                    for (const auto &local_entry : localMapCopy)
                     {
                         if (canceled)
                             break;
@@ -952,7 +978,7 @@ public:
 
                         bool need_upload = (remote_it == remote_map.end()) ||
                                            (remote_it->second.second != local_entry.second.second);
-
+                        cout << "file:" << local_entry.first << "local:" << local_entry.second.second << " remote:" << remote_it->second.second << "\n";
                         if (need_upload)
                         {
                             std::string local_full = (m_local_root / path).string();
@@ -977,7 +1003,7 @@ public:
                             break;
 
                         const std::string &path = remote_entry.first;
-                        if (local_map.count(path) == 0)
+                        if (localMapCopy.count(path) == 0)
                         {
                             notify(item.second.ip, item.second.syncPort, SyncStatus::Deleting, path, 0, 1);
                             if (client.remove(path))
@@ -994,17 +1020,23 @@ public:
 
                     if (!canceled && changed)
                     {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                     }
                 }
+                peerIsSynced[item.first] = attempts <= max_attempts;
+                anyPeerSynced = true;
 
                 notify(item.second.ip, item.second.syncPort, SyncStatus::Done, attempts <= max_attempts ? "Synced" : "Max attempts exceeded");
             }
-            SyncStatus done;
-            done.state = SyncStatus::Done;
-            done.message = "All servers synchronized";
-            ofNotifyEvent(syncEvent, done, this);
+            if (anyPeerSynced)
+            {
+                SyncStatus done;
+                done.state = SyncStatus::Done;
+                done.message = "All servers synchronized";
+                ofNotifyEvent(syncEvent, done, this);
+            }
         }
+        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
     }
 };
 

@@ -6,8 +6,6 @@ void ofApp::setup()
     config.setup();                 // supports --config "/path" or -c
     watcher.setCheckInterval(1.0f); // scan once per second
 
-
-
     // Register listener (this is the correct modern way)
     ofAddListener(watcher.filesChanged, this, &ofApp::onFilesChanged);
     watcher.addPath(config.getConfigsFolder());
@@ -47,7 +45,6 @@ void ofApp::setup()
 
     target = std::make_unique<Server>(coms.getSyncPort(), config.getSyncedFolder()); // Use OF data path
     target->startThread();
-    
 
     sync = std::make_unique<SyncClient>(
         config.getSyncedFolder(),
@@ -56,11 +53,20 @@ void ofApp::setup()
     ofAddListener(sync->syncEvent, this, &ofApp::onSyncEvent);
 }
 
-void ofApp::onFilesChanged(std::vector<std::string>& paths) {
-        ofLogNotice("ofApp") << paths.size() << " file(s) changed in configs folder";
+void ofApp::onFilesChanged(std::vector<std::string> &paths)
+{
+    ofLogNotice("ofApp") << paths.size() << " file(s) changed in configs folder";
     for (const auto &p : paths)
     {
         ofLogNotice() << "  • " << p;
+    }
+    if (mode == MODE_MAPPING_MASTER)
+    {
+        sync->pathsHasUpdated(paths);
+    }
+    else if (mode == MODE_MAPPING_SLAVE)
+    {
+        warpStack.loadFromFile(config.getMappingsPathForId(config.getID()));
     }
 }
 
@@ -129,7 +135,10 @@ void ofApp::update()
     vector<Message> new_messages = coms.process();
     for (Message m : new_messages)
     {
-
+        if (m.command == CMD_ANNOUNCE && mode == MODE_MAPPING_MASTER)
+        {
+            coms.sendMessage(m.from_uid, CMD_ANNOUNCE_MAPPING_MASTER_ON);
+        }
         if (m.command == CMD_SCRIPT_RELOAD)
         {
             // script reload
@@ -164,12 +173,7 @@ void ofApp::update()
     int numLinesCopy = numLines; // do something with numLines...
     numLinesCopy *= 1;           // silence "unused variable" warning !
 
-    float now = ofGetElapsedTimef(); // seconds since start
-    if (mode == MODE_MAPPING_SLAVE && now - lastSaveTime >= 3.0f && config.checkForChanges())
-    {
-        warpStack.loadFromFile(config.getMappingsPathForId(config.getID()));
-        lastSaveTime = now; // update timestamp
-    }
+    
 }
 
 //--------------------------------------------------------------
@@ -265,18 +269,6 @@ void ofApp::keyPressed(int key)
         mode = MODE_PERFORM;
         coms.sendBroadcastMessage(CMD_ANNOUNCE_MAPPING_MASTER_OFF);
         sync->stop();
-    }
-    if (key == 's')
-    {
-        warpStack.saveToFile(config.getMappingsPathForId(config.getID()));
-        ofLogNotice() << "Saved warp settings to warp_settings.json";
-    }
-
-    // Load from file on 'l'
-    if (key == 'l')
-    {
-        warpStack.loadFromFile(config.getMappingsPathForId(config.getID()));
-        ofLogNotice() << "Loaded warp settings from warp_settings.json";
     }
 }
 
