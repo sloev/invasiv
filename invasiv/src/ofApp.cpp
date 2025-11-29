@@ -6,12 +6,12 @@ void ofApp::setup()
     config.setup();                 // supports --config "/path" or -c
     watcher.setCheckInterval(1.0f); // scan once per second
 
-    watcher.addPath(config.getConfigsFolder());
-    watcher.addPath(config.getVideosFolder());
+
 
     // Register listener (this is the correct modern way)
     ofAddListener(watcher.filesChanged, this, &ofApp::onFilesChanged);
-    
+    watcher.addPath(config.getConfigsFolder());
+    watcher.addPath(config.getVideosFolder());
     selectedPeerId = config.getID();
 
     // --- Create a demo texture (512x512) ---
@@ -49,7 +49,7 @@ void ofApp::setup()
     target->startThread();
     
 
-    auto client = std::make_unique<SyncClient>(
+    sync = std::make_unique<SyncClient>(
         config.getSyncedFolder(),
         [this]() -> const auto &
         { return coms.getPeers(); });
