@@ -11,7 +11,6 @@
 #include "freeport.h"
 #include "ofWatcher.h"
 
-
 #define MODE_PERFORM "0"
 #define MODE_MAPPING_MASTER "1"
 #define MODE_MAPPING_SLAVE "2"
@@ -37,12 +36,13 @@ public:
 	void windowResized(int w, int h) override;
 	void dragEvent(ofDragInfo dragInfo) override;
 	void gotMessage(ofMessage msg) override;
-	void onSyncEvent(tcp_file::SyncStatus &s);
+void onFilesChanged(std::vector<std::string>& paths);
+	void onSyncEvent(SyncStatus &s);
 	void afterDraw(ofEventArgs &);
 	Coms coms;
-	std::unique_ptr<tcp_file::SyncClient> sync;
+	std::unique_ptr<SyncClient> sync;
 
-	std::unique_ptr<tcp_file::Server> target;
+	std::unique_ptr<Server> target;
 	ofWarpStack warpStack;
 	TextureManager textureManager;
 	string settingsFileName = "settings.json";
@@ -51,8 +51,8 @@ public:
 	string selectedPeerId;
 	string mode = MODE_PERFORM;
 	bool autoSync = false;
-	float lastSaveTime = 0.0f;   // <-- add this
-	float lastSyncedTime = 0.0f;   // <-- add this
+	float lastSaveTime = 0.0f;	 // <-- add this
+	float lastSyncedTime = 0.0f; // <-- add this
 
 	// Variables exposed to ImGui
 	float numLines = 10;

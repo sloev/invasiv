@@ -146,7 +146,6 @@ const std::map<std::string, Peer> &Coms::getPeers() const
 {
 	return peers;
 }
-
 // Returns true on success, false on any parse error
 bool Coms::parseIpPort(std::string_view input, Peer &out)
 {

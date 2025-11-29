@@ -1,5 +1,5 @@
-#ifndef OF_BILINEAR_WARP_H
-#define OF_BILINEAR_WARP_H
+#define OF_USING_LAMBDA_LISTENERS   // ← REQUIRED
+
 
 #include "ofMain.h"
 #include "uid.h"
@@ -9,6 +9,9 @@
 #include <filesystem>
 #include "ofxImGui.h"
 #include "Coms.h"
+
+#ifndef OF_BILINEAR_WARP_H
+#define OF_BILINEAR_WARP_H
 
 class ofBilinearWarp
 {
@@ -338,8 +341,6 @@ public:
         }
     }
 
-  
-
     ofBilinearWarp &getWarp(string wId)
     {
         return warps.at(wId); // ← Use at() for non-const ref; add ;
@@ -389,8 +390,8 @@ public:
             ImGui::TableNextRow();
 
             ImGui::TableSetColumnIndex(0);
-
-            for (int n = 0; n < layernames.size(); ++n)
+            
+            for (std::size_t n = 0; n < layernames.size(); ++n)
             {
                 // Unique boolean for each item (required!)
                 bool selected = false;
@@ -539,7 +540,8 @@ public:
         selectedWarpId = "";
     }
 
-    bool isDirty(){
+    bool isDirty()
+    {
         return dirty;
     }
 
@@ -559,8 +561,6 @@ public:
         fromJson(ofLoadJson(path));
     }
 
-   
-    
     void drawEditmode(
         TextureManager &textureManager,
         float selectionRadius = 0.03f,
@@ -573,7 +573,9 @@ public:
         else if (selectedWarpId != "" && editMode == EDIT_MODE_MAPPING)
         {
             warps[selectedWarpId].draw(textureManager);
-        }else{
+        }
+        else
+        {
             draw(textureManager);
         }
 

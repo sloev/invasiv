@@ -68,8 +68,7 @@ public:
 	void sendBroadcastMessage(string command, string message = "");
 	bool parseIpPort(std::string_view input, Peer &out);
 	uint16_t getSyncPort();
-	const std::map<std::string, Peer> &getPeers();
-	
+const std::map<std::string, Peer> &getPeers() const;	
 	mutable std::mutex peersMutex; // mutable = can lock in const method
 
 	ofxUDPManager listener;

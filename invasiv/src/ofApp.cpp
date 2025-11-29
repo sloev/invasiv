@@ -5,9 +5,13 @@ void ofApp::setup()
 {
     config.setup();                 // supports --config "/path" or -c
     watcher.setCheckInterval(1.0f); // scan once per second
-    watcher.addPath(config.getVideosFolder(), this, &ofApp::onVideoFilesChanged);
-    watcher.addPath(config.getConfigsFolder(), this, &ofApp::onConfigFilesChanged);
 
+    watcher.addPath(config.getConfigsFolder());
+    watcher.addPath(config.getVideosFolder());
+
+    // Register listener (this is the correct modern way)
+    ofAddListener(watcher.filesChanged, this, &ofApp::onFilesChanged);
+    
     selectedPeerId = config.getID();
 
     // --- Create a demo texture (512x512) ---
@@ -41,36 +45,28 @@ void ofApp::setup()
 
     coms.setup(config.getID());
 
-    target = std::make_unique<tcp_file::Server>(coms.getSyncPort(), config.getSyncedFolder()); // Use OF data path
+    target = std::make_unique<Server>(coms.getSyncPort(), config.getSyncedFolder()); // Use OF data path
     target->startThread();
+    
 
-    // ---- sync client (master) ----
-    sync = std::make_unique<tcp_file::SyncClient>(config.getSyncedFolder(), [&coms] {
-        return coms.getPeers();
-    });
+    auto client = std::make_unique<SyncClient>(
+        config.getSyncedFolder(),
+        [this]() -> const auto &
+        { return coms.getPeers(); });
     ofAddListener(sync->syncEvent, this, &ofApp::onSyncEvent);
 }
 
-void ofApp::onConfigFilesChanged(const std::vector<std::string> &paths)
-{
-    ofLogNotice("ofApp") << paths.size() << " file(s) changed in configs folder";
-    for (const auto &p : paths)
-    {
-        ofLogNotice() << "  • " << p;
-    }
-}
-void ofApp::onVideoFilesChanged(const std::vector<std::string> &paths)
-{
-    ofLogNotice("ofApp") << paths.size() << " file(s) changed in videos folder";
+void ofApp::onFilesChanged(std::vector<std::string>& paths) {
+        ofLogNotice("ofApp") << paths.size() << " file(s) changed in configs folder";
     for (const auto &p : paths)
     {
         ofLogNotice() << "  • " << p;
     }
 }
 
-void ofApp::onSyncEvent(tcp_file::SyncStatus &s)
+void ofApp::onSyncEvent(SyncStatus &s)
 {
-    using State = tcp_file::SyncStatus::State;
+    using State = SyncStatus::State;
 
     std::string stateStr;
     std::string color = ""; // optional: for colored output in terminal (if supported)
@@ -133,11 +129,8 @@ void ofApp::update()
     vector<Message> new_messages = coms.process();
     for (Message m : new_messages)
     {
-        if (m.command == CMD_ANNOUNCE || m.command == CMD_ANNOUNCE_REPLY)
-        {
-            w
-        }
-        else if (m.command == CMD_SCRIPT_RELOAD)
+
+        if (m.command == CMD_SCRIPT_RELOAD)
         {
             // script reload
         }

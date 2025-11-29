@@ -1,171 +1,132 @@
-// ofWatcher.h
-// Modern OF-style recursive file watcher with one-liner callback registration
-// Fully compatible with openFrameworks 0.12.1+
-// Single header, MIT license
-
 #pragma once
 
 #include "ofMain.h"
+#include <filesystem>
+#include <chrono>
 #include <unordered_map>
 #include <unordered_set>
-#include <vector>
-#include <string>
+
+namespace fs = std::filesystem;
+
 
 class ofWatcher {
 public:
-    // Type of the event: passes const ref to vector of changed absolute paths
-    using ChangedEvent = ofEvent<const std::vector<std::string>&>;
+    void addPath(const std::string& path);
+    void removePath(const std::string& path);
+    void setCheckInterval(float seconds = 1.0f);
+    void update();  // call from ofApp::update()
 
-    ofWatcher() : checkInterval(1.0f), lastCheckTime(0.0f) {}
-    ~ofWatcher() = default;
-
-    // ONE-LINE USAGE: Add path + register callback in one go
-    template<typename T>
-    void addPath(const std::string& path, T* listener, void(T::*method)(const std::vector<std::string>&)) {
-        std::string absPath = ofFile(ofToDataPath(path, true)).getAbsolutePath();
-
-        if (!ofFile(absPath).exists()) {
-            ofLogWarning("ofWatcher") << "Path does not exist: " << path;
-            return;
-        }
-
-        // Ensure event exists for this root
-        auto& event = rootEvents[absPath];
-
-        // Register the listener method
-        ofAddListener(event, listener, method);
-
-        // First time we see this root? Start watching it
-        if (watchedRoots.insert(absPath).second) {
-            if (ofDirectory(absPath).exists()) {
-                addDirectoryRecursive(absPath);
-            } else {
-                watchedFiles[absPath] = ofFile(absPath).getPocoFile().getLastModified().rawTime();
-            }
-        }
-    }
-
-    // Optional: Add path without any listener (just for tracking)
-    void addPath(const std::string& path) {
-        std::string absPath = ofFile(ofToDataPath(path, true)).getAbsolutePath();
-        if (!ofFile(absPath).exists()) {
-            ofLogWarning("ofWatcher") << "Path does not exist: " << path;
-            return;
-        }
-        if (watchedRoots.insert(absPath).second) {
-            if (ofDirectory(absPath).exists()) {
-                addDirectoryRecursive(absPath);
-            } else {
-                watchedFiles[absPath] = ofFile(absPath).getPocoFile().getLastModified().rawTime();
-            }
-        }
-    }
-
-    // Remove path and all its listeners automatically
-    void removePath(const std::string& path) {
-        std::string absPath = ofFile(ofToDataPath(path, true)).get   
-        rootEvents.erase(absPath);
-        watchedRoots.erase(absPath);
-
-        auto it = watchedFiles.begin();
-        while (it != watchedFiles.end()) {
-            if (it->first.find(absPath) == 0) {
-                it = watchedFiles.erase(it);
-            } else {
-                ++it;
-            }
-        }
-    }
-
-    // Set scan interval (seconds)
-    void setCheckInterval(float seconds) {
-        checkInterval = std::max(0.1f, seconds);
-    }
-
-    // Call every frame
-    void update() {
-        float now = ofGetElapsedTimef();
-        if (now - lastCheckTime < checkInterval) return;
-        lastCheckTime = now;
-
-        std::unordered_map<std::string, std::vector<std::string>> changesPerRoot;
-
-        // 1. Check existing files
-        auto it = watchedFiles.begin();
-        while (it != watchedFiles.end()) {
-            const std::string& path = it->first;
-            ofFile file(path);
-
-            if (!file.exists()) {
-                for (const auto& root : watchedRoots) {
-                    if (path.find(root) == 0) {
-                        changesPerRoot[root].push_back(path);
-                        break;
-                    }
-                }
-                it = watchedFiles.erase(it);
-            } else {
-                auto newTime = file.getPocoFile().getLastModified().rawTime();
-                if (newTime != it->second) {
-                    for (const auto& root : watchedRoots) {
-                        if (path.find(root) == 0) {
-                            changesPerRoot[root].push_back(path);
-                            break;
-                        }
-                    }
-                    it->second = newTime;
-                }
-                ++it;
-            }
-        }
-
-        // 2. Discover new files
-        for (const auto& root : watchedRoots) {
-            ofFile rootFile(root);
-            if (!rootFile.isDirectory()) continue;
-
-            ofDirectory dir(root);
-            dir.allowExt("");
-            auto files = dir.getFiles(true);
-
-            for (const auto& f : files) {
-                if (f.isDirectory()) continue;
-                std::string abs = f.getAbsolutePath();
-                if (watchedFiles.find(abs) == watchedFiles.end()) {
-                    changesPerRoot[root].push_back(abs);
-                    watchedFiles[abs] = f.getPocoFile().getLastModified().rawTime();
-                }
-            }
-        }
-
-        // 3. Notify all listeners per root
-        for (const auto& pair : changesPerRoot) {
-            const std::string& root = pair.first;
-            const auto& changed = pair.second;
-
-            auto eventIt = rootEvents.find(root);
-            if (eventIt != rootEvents.end()) {
-                ofNotifyEvent(eventIt->second, changed, this);
-            }
-        }
-    }
+    // One global event – vector of changed file paths
+    ofEvent<std::vector<std::string>> filesChanged;
 
 private:
-    void addDirectoryRecursive(const std::string& dirPath) {
-        ofDirectory dir(dirPath);
-        dir.allowExt("");
-        auto files = dir.getFiles(true);
-        for (const auto& f : files) {
-            if (!f.isDirectory()) {
-                watchedFiles[f.getAbsolutePath()] = f.getPocoFile().getLastModified().rawTime();
-            }
+    std::unordered_set<std::string> watchedRoots;
+    std::unordered_map<std::string, std::uint64_t> watchedFiles;  // store milliseconds
+    float checkInterval = 1.0f;
+    float lastCheckTime = 0;
+
+    void addDirectoryRecursive(const std::string& dirPath);
+
+    static std::uint64_t fileTimeToMs(const fs::file_time_type& ft) {
+        auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+            ft - fs::file_time_type::clock::now() + std::chrono::system_clock::now());
+        return std::chrono::duration_cast<std::chrono::milliseconds>(sctp.time_since_epoch()).count();
+    }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+inline void ofWatcher::addPath(const std::string& path)
+{
+    std::string abs = ofFilePath::getAbsolutePath(ofToDataPath(path, true));
+    if (!watchedRoots.insert(abs).second) return;
+
+    ofDirectory dir(abs);
+    if (dir.exists() && dir.isDirectory()) {
+        addDirectoryRecursive(abs);
+    } else if (ofFile(abs).exists()) {
+        watchedFiles[abs] = fileTimeToMs(fs::last_write_time(abs));
+    }
+}
+
+inline void ofWatcher::removePath(const std::string& path)
+{
+    std::string abs = ofFilePath::getAbsolutePath(ofToDataPath(path, true));
+    watchedRoots.erase(abs);
+
+    auto it = watchedFiles.begin();
+    while (it != watchedFiles.end()) {
+        if (it->first.find(abs) == 0) it = watchedFiles.erase(it);
+        else ++it;
+    }
+}
+
+inline void ofWatcher::setCheckInterval(float seconds)
+{
+    checkInterval = std::max(0.1f, seconds);
+}
+
+inline void ofWatcher::update()
+{
+    if (ofGetElapsedTimef() - lastCheckTime < checkInterval) return;
+    lastCheckTime = ofGetElapsedTimef();
+
+    std::unordered_map<std::string, std::vector<std::string>> changes;
+
+    // Check existing files
+    auto it = watchedFiles.begin();
+    while (it != watchedFiles.end()) {
+        const std::string& p = it->first;
+
+        if (!fs::exists(p)) {
+            changes[ofFilePath::getEnclosingDirectory(p)].push_back(p);
+            it = watchedFiles.erase(it);
+            continue;
         }
+
+        auto newMs = fileTimeToMs(fs::last_write_time(p));
+        if (newMs != it->second) {
+            it->second = newMs;
+            changes[ofFilePath::getEnclosingDirectory(p)].push_back(p);
+        }
+        ++it;
     }
 
-    std::unordered_map<std::string, Poco::Timestamp::TimeVal> watchedFiles;
-    std::unordered_set<std::string> watchedRoots;
-    std::unordered_map<std::string, ChangedEvent> rootEvents;
+    // Discover new files
+    for (const auto& root : watchedRoots) {
+        try {
+            for (const auto& entry : fs::recursive_directory_iterator(root,
+                     fs::directory_options::skip_permission_denied)) {
+                if (entry.is_regular_file()) {
+                    std::string abs = entry.path().string();
+                    if (watchedFiles.count(abs) == 0) {
+                        watchedFiles[abs] = fileTimeToMs(entry.last_write_time());
+                        changes[root].push_back(abs);
+                    }
+                }
+            }
+        } catch (...) { }
+    }
 
-    float checkInterval;
-    float lastCheckTime;
-};
+    // Notify – collect all changed paths into one vector
+    std::vector<std::string> allChanged;
+    for (auto& pair : changes) {
+        allChanged.insert(allChanged.end(), pair.second.begin(), pair.second.end());
+    }
+    if (!allChanged.empty()) {
+        ofNotifyEvent(filesChanged, allChanged, this);
+    }
+}
+
+inline void ofWatcher::addDirectoryRecursive(const std::string& dirPath)
+{
+    try {
+        for (const auto& entry : fs::recursive_directory_iterator(dirPath,
+                 fs::directory_options::skip_permission_denied)) {
+            if (entry.is_regular_file()) {
+                std::string p = entry.path().string();
+                watchedFiles[p] = fileTimeToMs(entry.last_write_time());
+            }
+        }
+    } catch (...) { }
+}
+
