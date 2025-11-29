@@ -133,8 +133,18 @@ void ofApp::update()
     vector<Message> new_messages = coms.process();
     for (Message m : new_messages)
     {
-        if(m.command == CMD_ANNOUNCE || CMD_ANNOUNCE_REPLY){
-            sync->setPeers(coms.getPeers());
+        if(mode == MODE_MAPPING_MASTER && (m.command == CMD_ANNOUNCE || m.command==CMD_ANNOUNCE_REPLY)){
+            try
+            {
+                /* code */
+                            sync->setPeers(coms.getPeers());
+
+            }
+            catch(const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+            }
+            
         }
         if (m.command == CMD_ANNOUNCE && mode == MODE_MAPPING_MASTER)
         {
@@ -205,7 +215,7 @@ void ofApp::draw()
 
         string NodeToClose;
 
-        for (const auto &item : coms.peers)
+        for (const auto &item : coms.getPeers())
         {
             const string &peerId = item.first;
             const bool isSelf = item.second.is_self;

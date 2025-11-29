@@ -89,7 +89,7 @@ RUN cd of/apps/myApps/ofxImGui/ && make
 
 ADD ./invasiv of/apps/myApps/test
 RUN cd of/ && /of/apps/projectGenerator/commandLine/bin/projectGenerator -r -o"." apps/myApps/test/
-RUN cd of/apps/myApps/test/ && make
+RUN cd of/apps/myApps/test/ && make Debug
 
 
 # # WORKDIR /of/examples

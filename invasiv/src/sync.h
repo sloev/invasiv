@@ -794,7 +794,7 @@ public:
         localPeers = peers;
     };
 
-     std::map<std::string, Peer> getPeers() 
+    std::map<std::string, Peer> getPeers()
     {
         ofScopedLock lock(mutex);
 
@@ -946,127 +946,138 @@ public:
     void threadedFunction() override
     {
         initializeCache();
-
-        while (!canceled && isThreadRunning())
+        try
         {
-            auto localMapCopy = getLocalMap();
-            const auto &peers = getPeers();
-            bool anyPeerSynced = false;
 
-            for (const auto &item : peers)
+            while (!canceled && isThreadRunning())
             {
+                auto localMapCopy = getLocalMap();
+                const auto &peers = getPeers();
+                bool anyPeerSynced = false;
 
-                if (canceled)
+                if (true)
                 {
-                    break;
-                }
-                bool alreadySynced = false;
-
-                auto it = peerIsSynced.find(item.first);
-                if (it != peerIsSynced.end())
-                {
-                    alreadySynced = it->second;
-                }
-
-                if (item.second.is_self || alreadySynced)
-                {
-                    // cout << "already synced:" << alreadySynced << " is self?: " <<   item.second.is_self  << "\n";
-                    // peer is self or already synced
-                    continue;
-                }
-
-                notify(item.second.ip, item.second.syncPort, SyncStatus::Connecting, "Connecting...");
-                if (!client.connect(item.second.ip, item.second.syncPort))
-                {
-                    notify(item.second.ip, item.second.syncPort, SyncStatus::Error, "Failed to connect");
-                    break;
-                }
-                notify(item.second.ip, item.second.syncPort, SyncStatus::Connecting, "Connected");
-
-                bool changed = true;
-                int attempts = 0;
-                const int max_attempts = 10;
-
-                while (!canceled && changed && attempts++ < max_attempts && isThreadRunning())
-                {
-                    changed = false;
-
-                    auto remote_map = client.list();
-                    if (remote_map.empty() && !fs::exists(m_local_root))
+                    for (const auto &item : peers)
                     {
-                        notify(item.second.ip, item.second.syncPort, SyncStatus::Error, "Failed to list remote");
-                        return;
-                    }
 
-                    // Upload missing or different files
-                    for (const auto &local_entry : localMapCopy)
-                    {
                         if (canceled)
-                            break;
-                        const std::string &path = local_entry.first;
-                        auto remote_it = remote_map.find(path);
-
-                        bool need_upload = (remote_it == remote_map.end()) ||
-                                           (remote_it->second.second != local_entry.second.second);
-                        cout << "file: " << local_entry.first << "\nsame: " << (remote_it->second.second != local_entry.second.second) << "\nlocal: " << local_entry.second.second << "\nremote: " << remote_it->second.second << "\n";
-                        if (need_upload)
                         {
-                            std::string local_full = (m_local_root / path).string();
-                            uint64_t fsize = local_entry.second.first;
-                            notify(item.second.ip, item.second.syncPort, SyncStatus::Uploading, path, 0, fsize);
-                            if (client.upload(local_full, path))
+                            break;
+                        }
+                        bool alreadySynced = false;
+
+                        auto it = peerIsSynced.find(item.first);
+                        if (it != peerIsSynced.end())
+                        {
+                            alreadySynced = it->second;
+                        }
+
+                        if (item.second.is_self || alreadySynced)
+                        {
+                            // cout << "already synced:" << alreadySynced << " is self?: " <<   item.second.is_self  << "\n";
+                            // peer is self or already synced
+                            continue;
+                        }
+
+                        notify(item.second.ip, item.second.syncPort, SyncStatus::Connecting, "Connecting...");
+                        if (!client.connect(item.second.ip, item.second.syncPort))
+                        {
+                            notify(item.second.ip, item.second.syncPort, SyncStatus::Error, "Failed to connect");
+                            break;
+                        }
+                        notify(item.second.ip, item.second.syncPort, SyncStatus::Connecting, "Connected");
+
+                        bool changed = true;
+                        int attempts = 0;
+                        const int max_attempts = 10;
+
+                        while (!canceled && changed && attempts++ < max_attempts && isThreadRunning())
+                        {
+                            changed = false;
+
+                            auto remote_map = client.list();
+                            if (remote_map.empty() && !fs::exists(m_local_root))
                             {
-                                changed = true;
-                                notify(item.second.ip, item.second.syncPort, SyncStatus::Uploading, path, fsize, fsize);
+                                notify(item.second.ip, item.second.syncPort, SyncStatus::Error, "Failed to list remote");
+                                return;
                             }
-                            else
+
+                            // Upload missing or different files
+                            for (const auto &local_entry : localMapCopy)
                             {
-                                notify(item.second.ip, item.second.syncPort, SyncStatus::Error, "Upload failed: " + path);
+                                if (canceled)
+                                    break;
+                                const std::string &path = local_entry.first;
+                                auto remote_it = remote_map.find(path);
+
+                                bool need_upload = (remote_it == remote_map.end()) ||
+                                                   (remote_it->second.second != local_entry.second.second);
+                                cout << "file: " << local_entry.first << "\nsame: " << (remote_it->second.second != local_entry.second.second) << "\nlocal: " << local_entry.second.second << "\nremote: " << remote_it->second.second << "\n";
+                                if (need_upload)
+                                {
+                                    std::string local_full = (m_local_root / path).string();
+                                    uint64_t fsize = local_entry.second.first;
+                                    notify(item.second.ip, item.second.syncPort, SyncStatus::Uploading, path, 0, fsize);
+                                    if (client.upload(local_full, path))
+                                    {
+                                        changed = true;
+                                        notify(item.second.ip, item.second.syncPort, SyncStatus::Uploading, path, fsize, fsize);
+                                    }
+                                    else
+                                    {
+                                        notify(item.second.ip, item.second.syncPort, SyncStatus::Error, "Upload failed: " + path);
+                                    }
+                                }
+                            }
+
+                            // Delete files that exist remotely but not locally
+                            for (const auto &remote_entry : remote_map)
+                            {
+                                if (canceled)
+                                    break;
+
+                                const std::string &path = remote_entry.first;
+                                if (localMapCopy.count(path) == 0)
+                                {
+                                    notify(item.second.ip, item.second.syncPort, SyncStatus::Deleting, path, 0, 1);
+                                    if (client.remove(path))
+                                    {
+                                        changed = true;
+                                        notify(item.second.ip, item.second.syncPort, SyncStatus::Deleting, path, 1, 1);
+                                    }
+                                    else
+                                    {
+                                        notify(item.second.ip, item.second.syncPort, SyncStatus::Error, "Delete failed: " + path);
+                                    }
+                                }
+                            }
+
+                            if (!canceled && changed)
+                            {
+                                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                             }
                         }
+                        peerIsSynced[item.first] = attempts <= max_attempts;
+                        anyPeerSynced = true;
+
+                        notify(item.second.ip, item.second.syncPort, SyncStatus::Done, attempts <= max_attempts ? "Synced" : "Max attempts exceeded");
                     }
-
-                    // Delete files that exist remotely but not locally
-                    for (const auto &remote_entry : remote_map)
+                    if (anyPeerSynced)
                     {
-                        if (canceled)
-                            break;
-
-                        const std::string &path = remote_entry.first;
-                        if (localMapCopy.count(path) == 0)
-                        {
-                            notify(item.second.ip, item.second.syncPort, SyncStatus::Deleting, path, 0, 1);
-                            if (client.remove(path))
-                            {
-                                changed = true;
-                                notify(item.second.ip, item.second.syncPort, SyncStatus::Deleting, path, 1, 1);
-                            }
-                            else
-                            {
-                                notify(item.second.ip, item.second.syncPort, SyncStatus::Error, "Delete failed: " + path);
-                            }
-                        }
-                    }
-
-                    if (!canceled && changed)
-                    {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                        SyncStatus done;
+                        done.state = SyncStatus::Done;
+                        done.message = "All servers synchronized";
+                        ofNotifyEvent(syncEvent, done, this);
                     }
                 }
-                peerIsSynced[item.first] = attempts <= max_attempts;
-                anyPeerSynced = true;
-
-                notify(item.second.ip, item.second.syncPort, SyncStatus::Done, attempts <= max_attempts ? "Synced" : "Max attempts exceeded");
             }
-            if (anyPeerSynced)
-            {
-                SyncStatus done;
-                done.state = SyncStatus::Done;
-                done.message = "All servers synchronized";
-                ofNotifyEvent(syncEvent, done, this);
-            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(2000));
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+
+        catch (const std::exception &e)
+        {
+            std::cerr << e.what() << '\n';
+        }
     }
 };
 

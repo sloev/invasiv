@@ -18,7 +18,14 @@ test-debug: build
 	docker create --name extract ofxdocker_2204_of_0_12_1_loaf
 	docker cp extract:/of/apps/myApps/test/bin ./artifacts
 	docker rm extract
-	cd ./artifacts/bin/ && gdb -batch -ex "set pagination off" -ex "run" -ex "bt full" -ex "quit" --args test
+	cd ./artifacts/bin/ && gdb -q \
+      -batch \
+      -ex 'set print thread-events off' \
+      -ex 'handle SIGALRM nostop pass' \
+      -ex 'handle SIGCHLD nostop pass' \
+      -ex 'run' \
+      -ex 'thread apply all backtrace' \
+      --args test
 
 
 test: build

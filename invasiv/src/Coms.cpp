@@ -145,7 +145,7 @@ vector<Message> Coms::process()
 	}
 	return new_messages;
 }
-	
+
 const std::map<std::string, Peer> &Coms::getPeers() const
 {
 	return peers;
