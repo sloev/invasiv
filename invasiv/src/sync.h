@@ -23,6 +23,7 @@
 #include <memory>
 #include <unordered_map>
 #include <mutex>
+#include <deque>
 
 // ------------------------------------------------------------
 // openFrameworks: ofThread + ofEvent
@@ -51,6 +52,7 @@ using socklen_t = int;
 #include <ofEvent.h>
 #include <ofLog.h>
 #include "MD5.h" // <-- added
+#define UPDATE_ME "UPDATE_ME"
 
 namespace fs = std::filesystem;
 
@@ -208,7 +210,7 @@ private:
     {
         std::string key = full_path.string();
         {
-            std::lock_guard<std::mutex> lock(m_cache_mutex);
+            std::lock_guard<std::mutex> tryLock(m_cache_mutex);
             auto it = m_md5_cache.find(key);
             if (it != m_md5_cache.end())
                 return it->second;
@@ -233,7 +235,7 @@ private:
         }
 
         {
-            std::lock_guard<std::mutex> lock(m_cache_mutex);
+            std::lock_guard<std::mutex> tryLock(m_cache_mutex);
             m_md5_cache[key] = hash;
         }
         return hash;
@@ -241,7 +243,7 @@ private:
 
     void invalidate_md5(const std::string &key)
     {
-        std::lock_guard<std::mutex> lock(m_cache_mutex);
+        std::lock_guard<std::mutex> tryLock(m_cache_mutex);
         m_md5_cache.erase(key);
     }
 
@@ -771,18 +773,32 @@ public:
     ofEvent<SyncStatus> syncEvent;
     mutable bool canceled = false;
 
-    mutable std::unordered_map<std::string, std::pair<uint64_t, std::string>> local_map;
-    mutable std::mutex local_cache_mutex;
-    mutable std::unordered_map<std::string, std::string> local_md5_cache;
+    mutable std::unordered_map<std::string, std::pair<uint64_t, std::string>> cache;
+    std::deque<string> cacheChanges; // ← replace vector<string>
     mutable std::unordered_map<std::string, bool> peerIsSynced;
+    mutable std::map<std::string, Peer> localPeers;
+
+    ofMutex mutex;
 
     Client client;
-    std::function<const std::map<std::string, Peer> &()> peersGetter = {};
 
-    SyncClient(const std::string &local_root = ".", std::function<const std::map<std::string, Peer> &()> peersGetterFunc = {})
+    SyncClient(const std::string &local_root = ".")
         : m_local_root(fs::absolute(local_root))
     {
-        peersGetter = peersGetterFunc;
+    }
+
+    void setPeers(std::map<std::string, Peer> peers)
+    {
+        ofScopedLock lock(mutex);
+
+        localPeers = peers;
+    };
+
+     std::map<std::string, Peer> getPeers() 
+    {
+        ofScopedLock lock(mutex);
+
+        return localPeers;
     }
 
     void stop()
@@ -806,80 +822,27 @@ public:
         }
     }
 
-    std::string get_local_md5(const fs::path &p)
+    void pathsHasUpdated(std::vector<std::string> &paths, bool initialize = false)
     {
-        std::string key = p.string();
+
+        if (initialize)
         {
-            std::lock_guard<std::mutex> lock(local_cache_mutex);
-            auto it = local_md5_cache.find(key);
-            if (it != local_md5_cache.end())
-                return it->second;
-        }
-        std::string hash;
-        try
-        {
-            std::ifstream f(p, std::ios::binary);
-            if (f)
             {
-                f.seekg(0, std::ios::end);
-                auto sz = f.tellg();
-                f.seekg(0);
-                std::string buf(sz, '\0');
-                f.read(&buf[0], sz);
-                hash = MD5::hash(buf);
+                ofScopedLock lock(mutex);
+                cacheChanges.emplace_back(UPDATE_ME);
             }
         }
-        catch (...)
-        {
-        }
-        {
-            std::lock_guard<std::mutex> lock(local_cache_mutex);
-            local_md5_cache[key] = hash;
-        }
-        return hash;
-    };
-
-    void pathsHasUpdated(std::vector<std::string> &paths)
-    {
-        
         for (const auto &p : paths)
         {
-            fs::path entry = p;
-            fs::path rel = entry.lexically_relative(m_local_root);
-
-            std::string rel_str = rel.string();
-            std::lock_guard<std::mutex> lock(local_cache_mutex);
-
-            local_md5_cache.erase(rel_str);
-            // local_map.erase(rel_str);
-            if (!fs::exists(entry) || !fs::is_regular_file(entry))
             {
-
-                continue;
+                ofScopedLock lock(mutex);
+                cacheChanges.emplace_back(p);
             }
-
-            uint64_t sz = fs::file_size(entry);
-            std::string md5 = get_local_md5(entry);
-            local_map[rel_str] = {sz, md5};
         }
-        const auto &peers = peersGetter();
-
-        for (const auto &item : peers)
-        {
-            peerIsSynced[item.first] = false;
-        }
-    }
-
-    void clearCache()
-    {
-        std::lock_guard<std::mutex> lock(local_cache_mutex);
-        local_map.clear();
-        local_md5_cache.clear();
     }
 
     void initializeCache()
     {
-        clearCache();
         std::vector<std::string> paths;
         // Build local file map with MD5
 
@@ -892,14 +855,81 @@ public:
             }
             paths.push_back(entry.path().string());
         }
-        pathsHasUpdated(paths);
+        pathsHasUpdated(paths, true);
     }
 
     std::unordered_map<std::string, std::pair<uint64_t, std::string>> getLocalMap()
     {
-        std::lock_guard<std::mutex> lock(local_cache_mutex);
-        return local_map;
+        bool done = false;
+        while (!done)
+        {
+            string full_str;
+            {
+                ofScopedLock lock(mutex);
+                if (cacheChanges.empty())
+                {
+                    done = true;
+                    continue;
+                }
+                else
+                {
+                    full_str = std::move(cacheChanges.front());
+                    cacheChanges.pop_front();
+                }
+            }
+
+            if (full_str == UPDATE_ME)
+            {
+                cache.clear();
+                continue;
+            }
+
+            fs::path entry = full_str;
+            fs::path rel = entry.lexically_relative(m_local_root);
+
+            std::string rel_str = rel.string();
+
+            if (!fs::exists(entry))
+            {
+                cout << "file does not exist: " << rel_str << "\n";
+                cache.erase(rel_str);
+            }
+            else
+            {
+                std::string hash = "";
+
+                try
+                {
+                    std::ifstream f(entry, std::ios::binary);
+                    if (f)
+                    {
+                        f.seekg(0, std::ios::end);
+                        auto sz = f.tellg();
+                        f.seekg(0);
+                        std::string buf(sz, '\0');
+                        f.read(&buf[0], sz);
+                        hash = MD5::hash(buf);
+                    }
+                }
+                catch (...)
+                {
+                }
+                uint64_t sz = fs::file_size(entry);
+                cache[rel_str] = {sz, hash};
+
+                cout << "file exists: " << rel_str << "\n";
+            }
+        }
+
+        const auto &peers = getPeers();
+
+        for (const auto &item : peers)
+        {
+            peerIsSynced[item.first] = false;
+        }
+        return cache;
     }
+
     void notify(const std::string ip, const uint16_t port, SyncStatus::State state, const std::string &msg,
                 uint64_t bytes = 0, uint64_t total = 0, const std::string &filename = "")
     {
@@ -917,9 +947,10 @@ public:
     {
         initializeCache();
 
-        while (!canceled)
+        while (!canceled && isThreadRunning())
         {
-            const auto &peers = peersGetter();
+            auto localMapCopy = getLocalMap();
+            const auto &peers = getPeers();
             bool anyPeerSynced = false;
 
             for (const auto &item : peers)
@@ -955,7 +986,6 @@ public:
                 bool changed = true;
                 int attempts = 0;
                 const int max_attempts = 10;
-                auto localMapCopy = getLocalMap();
 
                 while (!canceled && changed && attempts++ < max_attempts && isThreadRunning())
                 {
@@ -978,7 +1008,7 @@ public:
 
                         bool need_upload = (remote_it == remote_map.end()) ||
                                            (remote_it->second.second != local_entry.second.second);
-                        cout << "file:" << local_entry.first << "local:" << local_entry.second.second << " remote:" << remote_it->second.second << "\n";
+                        cout << "file: " << local_entry.first << "\nsame: " << (remote_it->second.second != local_entry.second.second) << "\nlocal: " << local_entry.second.second << "\nremote: " << remote_it->second.second << "\n";
                         if (need_upload)
                         {
                             std::string local_full = (m_local_root / path).string();

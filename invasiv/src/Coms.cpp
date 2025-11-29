@@ -80,7 +80,6 @@ void Coms::sendBroadcastMessage(string command, string message)
 
 vector<Message> Coms::process()
 {
-	std::lock_guard<std::mutex> lock(peersMutex);
 	char udpMessage[max_message_size];
 	vector<Message> new_messages;
 
@@ -97,7 +96,9 @@ vector<Message> Coms::process()
 
 		if (from_uid != uid)
 		{
-			Peer p = peers[from_uid];
+			Peer p;
+
+			p = peers[from_uid];
 			p.uid = from_uid;
 			p.last_seen = now;
 			peers[from_uid] = p;
@@ -120,6 +121,7 @@ vector<Message> Coms::process()
 				if (command == CMD_ANNOUNCE)
 				{
 					parseIpPort(content, p);
+
 					peers[from_uid] = p;
 
 					string reply = std::format("{}:{}", pair.preferred, syncPort);
@@ -128,6 +130,7 @@ vector<Message> Coms::process()
 				else if (command == CMD_ANNOUNCE_REPLY)
 				{
 					parseIpPort(content, p);
+
 					peers[from_uid] = p;
 				}
 
@@ -142,6 +145,7 @@ vector<Message> Coms::process()
 	}
 	return new_messages;
 }
+	
 const std::map<std::string, Peer> &Coms::getPeers() const
 {
 	return peers;

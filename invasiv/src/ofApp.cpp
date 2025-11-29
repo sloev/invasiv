@@ -47,9 +47,7 @@ void ofApp::setup()
     target->startThread();
 
     sync = std::make_unique<SyncClient>(
-        config.getSyncedFolder(),
-        [this]() -> const auto &
-        { return coms.getPeers(); });
+        config.getSyncedFolder());
     ofAddListener(sync->syncEvent, this, &ofApp::onSyncEvent);
 }
 
@@ -135,6 +133,9 @@ void ofApp::update()
     vector<Message> new_messages = coms.process();
     for (Message m : new_messages)
     {
+        if(m.command == CMD_ANNOUNCE || CMD_ANNOUNCE_REPLY){
+            sync->setPeers(coms.getPeers());
+        }
         if (m.command == CMD_ANNOUNCE && mode == MODE_MAPPING_MASTER)
         {
             coms.sendMessage(m.from_uid, CMD_ANNOUNCE_MAPPING_MASTER_ON);
