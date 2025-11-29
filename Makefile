@@ -25,7 +25,7 @@ test-debug: build
       -ex 'handle SIGCHLD nostop pass' \
       -ex 'run' \
       -ex 'thread apply all backtrace' \
-      --args test
+      --args test_debug
 
 
 test: build

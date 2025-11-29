@@ -911,8 +911,9 @@ public:
                         hash = MD5::hash(buf);
                     }
                 }
-                catch (...)
+                catch (const std::exception &e)
                 {
+                    std::cerr << e.what() << '\n';
                 }
                 uint64_t sz = fs::file_size(entry);
                 cache[rel_str] = {sz, hash};
