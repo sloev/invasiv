@@ -4,7 +4,7 @@
 void ofApp::setup()
 {
     config.setup();                 // supports --config "/path" or -c
-    watcher.setCheckInterval(1.0f); // scan once per second
+    watcher.setCheckInterval(0.2f); // scan once per second
 
     // Register listener (this is the correct modern way)
     ofAddListener(watcher.filesChanged, this, &ofApp::onFilesChanged);
@@ -275,6 +275,7 @@ void ofApp::keyPressed(int key)
     {
         mode = MODE_MAPPING_MASTER;
         coms.sendBroadcastMessage(CMD_ANNOUNCE_MAPPING_MASTER_ON);
+        sync->setPeers(coms.getPeers());
         sync->start();
     }
     if (key == 'p')
@@ -283,6 +284,8 @@ void ofApp::keyPressed(int key)
         mode = MODE_PERFORM;
         coms.sendBroadcastMessage(CMD_ANNOUNCE_MAPPING_MASTER_OFF);
         sync->stop();
+                warpStack.loadFromFile(config.getMappingsPathForId(config.getID()));
+
     }
 }
 

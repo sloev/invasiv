@@ -1,5 +1,4 @@
-#define OF_USING_LAMBDA_LISTENERS   // ← REQUIRED
-
+#define OF_USING_LAMBDA_LISTENERS // ← REQUIRED
 
 #include "ofMain.h"
 #include "uid.h"
@@ -390,7 +389,7 @@ public:
             ImGui::TableNextRow();
 
             ImGui::TableSetColumnIndex(0);
-            
+
             for (std::size_t n = 0; n < layernames.size(); ++n)
             {
                 // Unique boolean for each item (required!)
@@ -553,12 +552,17 @@ public:
 
     void loadFromFile(const std::string &path)
     {
-        if (!std::filesystem::exists(path))
+
+        try
+        {
+            fromJson(ofLoadJson(path));
+        }
+        catch (...)
         {
             cout << "path does not exist to loadfromjson, creating now: " << path << "\n";
             ofSaveJson(path, toJson());
+            fromJson(ofLoadJson(path));
         }
-        fromJson(ofLoadJson(path));
     }
 
     void drawEditmode(
