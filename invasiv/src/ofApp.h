@@ -4,7 +4,7 @@
 #include "Identity.h"
 #include "Network.h"
 #include "WarpController.h"
-#include "Content.h"
+#include "MediaWatcher.h"
 
 class ofApp : public ofBaseApp{
 public:
@@ -17,16 +17,18 @@ public:
     void mouseReleased(int x, int y, int button);
     void keyPressed(int key);
     void reloadProject(string path);
-
+    void onFilesChanged(std::vector<std::string>& files);
+void exit();
     Identity identity;
     Network net;
-    Content content;
     WarpController warper;
+    MediaWatcher watcher;
     
     ofxImGui::Gui gui;
     void drawUI();
 
     string projectPath;
+    string mediaDir;
     char pathInputBuf[256];
 
     struct {
