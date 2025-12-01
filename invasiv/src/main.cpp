@@ -15,5 +15,4 @@ int main( ){
 	// ofRunMainLoop();
 	ofSetupOpenGL(1024, 768, OF_WINDOW);
     return ofRunApp(new ofApp());
-
 }
