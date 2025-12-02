@@ -18,7 +18,11 @@ public:
     void keyPressed(int key);
     void reloadProject(string path);
     void onFilesChanged(std::vector<std::string>& files);
-void exit();
+    void exit();
+
+    // -- NEW: Helper to sync everything to peers --
+    void syncFullState(); 
+    
     Identity identity;
     Network net;
     WarpController warper;

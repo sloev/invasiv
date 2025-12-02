@@ -22,6 +22,7 @@ enum EditMode : int {
 struct PacketHeader {
     uint8_t id = PACKET_ID;
     uint8_t type;
+    char senderId[9]; // Added sender ID to filter loopback packets
 };
 
 struct HeartbeatPacket {

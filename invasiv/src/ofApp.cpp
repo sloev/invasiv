@@ -36,7 +36,6 @@ void ofApp::reloadProject(string path)
     string configPath = ofFilePath::join(configsDir, "config.json");
     identity.setup(configPath);
 
-    // Only setup network if not running, otherwise update paths
     if (!net.isThreadRunning())
         net.setup(identity.myId, mediaDir);
     else
@@ -51,15 +50,35 @@ void ofApp::reloadProject(string path)
 
 void ofApp::onFilesChanged(std::vector<std::string> &files)
 {
-    ofLogNotice("MediaWatcher") << files.size() << " file(s) changed in " << mediaDir << "\n";
+    // Only the master should react to local file changes by offering them
+    if (!net.isMaster) return;
+
+    ofLogNotice("MediaWatcher") << files.size() << " file(s) changed in " << mediaDir;
     for (const auto &f : files)
     {
+        ofLogNotice("MediaWatcher") << " - offering file: " << f;
+        net.offerFile(f);
+    }
+}
 
-        ofLogNotice("MediaWatcher") << " - file changed: " << f << "\n";
-        if (net.isMaster)
-        {
-            net.offerFile(f);
-        }
+void ofApp::syncFullState()
+{
+    if (!net.isMaster) return;
+
+    ofLogNotice("Sync") << "Broadcasting full state to peers...";
+
+    // 1. Sync Warp Structure
+    string warpPath = ofFilePath::join(ofFilePath::join(projectPath, "configs"), "warps.json");
+    ofFile f(warpPath);
+    if(f.exists()){
+        string jsonStr = f.readToBuffer().getText();
+        net.sendStructure(jsonStr);
+    }
+
+    // 2. Offer All Files
+    vector<string> allFiles = watcher.getAllItems();
+    for(auto& file : allFiles) {
+        net.offerFile(file);
     }
 }
 
@@ -73,18 +92,29 @@ void ofApp::update()
     while ((size = net.receive(packetBuffer, 65535)) > 0)
     {
         PacketHeader *h = (PacketHeader *)packetBuffer;
-                ofLogNotice() << std::format("packet received, id: {} type: {}",h->id, h->type);
 
         if (h->id != PACKET_ID)
             continue;
 
+        // -- LOOPBACK PROTECTION --
+        // Ignore any packet sent by myself
+        if (strncmp(h->senderId, identity.myId.c_str(), 8) == 0) {
+            continue; 
+        }
+
         if (h->type == PKT_HEARTBEAT)
         {
             HeartbeatPacket *p = (HeartbeatPacket *)packetBuffer;
-            if (string(p->peerId) == identity.myId)
-                continue; // Ignore own echo
+            // Redundant check (covered by senderId) but harmless
+            if (string(p->peerId) == identity.myId) continue;
 
+            bool isNew = net.peers.find(p->peerId) == net.peers.end();
             net.peers[p->peerId] = {p->peerId, p->isMaster, ofGetElapsedTimef()};
+
+            if(isNew && net.isMaster) {
+                ofLogNotice("Network") << "New Peer Discovered: " << p->peerId << " -> Syncing State.";
+                syncFullState();
+            }
         }
         else if (h->type == PKT_WARP_DATA && !net.isMaster)
         {
@@ -93,21 +123,25 @@ void ofApp::update()
         }
         else if (h->type == PKT_STRUCT && !net.isMaster)
         {
-            string jStr(packetBuffer + 2, size - 2);
+            // Note: Header size increased, so offset is sizeof(PacketHeader)
+            string jStr(packetBuffer + sizeof(PacketHeader), size - sizeof(PacketHeader));
             string warpPath = ofFilePath::join(ofFilePath::join(projectPath, "configs"), "warps.json");
             ofBufferToFile(warpPath, ofBuffer(jStr.c_str(), jStr.length()));
             warper.loadJson(jStr);
+            ofLogNotice("Network") << "Received and applied Structure Sync";
         }
         else if (h->type == PKT_FILE_OFFER && !net.isMaster)
         {
             FileOfferPacket *p = (FileOfferPacket *)packetBuffer;
             string name = string(packetBuffer + sizeof(FileOfferPacket), p->nameLen);
-            string remoteHash = string(p->hash, 32);
+            string remoteHash = string(p->hash, 32); // Read 32 chars of hash
 
             string fullPath = ofFilePath::join(mediaDir, name);
             string localHash = TinyMD5::getFileMD5(fullPath);
 
+            // Simple diff logic
             if(localHash != remoteHash) {
+                ofLogNotice("Network") << "Accepting File: " << name;
                 incoming.active = true;
                 incoming.name = name;
                 incoming.total = p->totalSize;
@@ -131,11 +165,12 @@ void ofApp::update()
             string tmpPath = finalPath + ".tmp";
             ofBufferToFile(tmpPath, incoming.buf);
             ofFile(tmpPath).renameTo(finalPath, true, true);
-          // todo: refresh content players 
+            ofLogNotice("Network") << "File transfer complete: " << incoming.name;
         }
     }
 }
 
+// ... (Rest of ofApp.cpp: draw, drawUI, inputs, exit remains unchanged)
 void ofApp::draw()
 {
     warper.draw();
@@ -154,6 +189,13 @@ void ofApp::draw()
             {
                 float pct = (float)incoming.current / incoming.total * 100.0;
                 ofDrawBitmapStringHighlight("Syncing: " + ofToString(pct, 1) + "%", 10, 40);
+                
+                ofPushStyle();
+                ofNoFill();
+                ofDrawRectangle(10, 50, 200, 10);
+                ofFill();
+                ofDrawRectangle(10, 50, 200 * (pct/100.0), 10);
+                ofPopStyle();
             }
         }
     }
@@ -233,8 +275,9 @@ void ofApp::drawUI()
         }
 
         ImGui::Separator();
-        if (ImGui::Button("Sync Content"))
-            net.offerFile("content.mp4");
+        if (ImGui::Button("Sync Content")) {
+             syncFullState();
+        }
     }
     ImGui::End();
     gui.end();
@@ -262,14 +305,16 @@ void ofApp::mouseReleased(int x, int y, int button)
 
 void ofApp::keyPressed(int key)
 {
-    if (key == 'm')
+    if (key == 'm') {
         net.setRole(true);
-    if (key == 'p')
+        syncFullState();
+    }
+    if (key == 'p') {
         net.setRole(false);
+    }
 }
 
 void ofApp::exit()
 {
-    // Properly clean up listener
     ofRemoveListener(watcher.filesChanged, this, &ofApp::onFilesChanged);
 }

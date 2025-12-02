@@ -13,13 +13,19 @@ attribution:
 * [x] auto discover via udp
 * [x] udp networking via broadcast
 * [x] symetric, only one program
-* [x] folder sync
+* [x] media folder sync
 * [x] save mapping to json
 * [x] shared mapping setup  
-* [ ] when set to be master, a program should scan its media folder and offer all the files to all the peers
-* [ ] if master and a new peer announces, it should be offered the files
-* [ ] if master and mediafolder changes content, master should offer the changed files to peers
-* [ ] if in peer mode and  offered a file, check local file and see if it is the same (md5 like) if not, take the offer, overwrite local file
+* [x] only one program. user decides through button press "m" which instance is the current master on the network)
+* [x] uses the broadcast address of the network to communicate over a channel via udp
+* [x] has a simple interface that lets you create/delete warp surfaces on all peers from the master
+* [x] low latency sync of warp edits from master to peers
+* [x] master scans the media folder and syncs changes to peers
+* [x] master syncs to new peers when they announce themselves
+* [x] peers decides to take offered files and overwrite local ones based on simple md5 hash comparisons
+* [x] peers should show in their status ui (upper left corner) whether they are syncing and what they are syncing
+* [ ] master ui should have a list of files in media folder and whether they have been synced to all peers
+* [ ] master ui/instances should show wether a peer is synced or its sync progress if possible
 
 file hirachy
 

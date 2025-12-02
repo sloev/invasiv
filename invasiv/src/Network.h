@@ -22,12 +22,11 @@ public:
     string myId;
     string mediaPath;
 
-    // DESTRUCTOR FIX: Explicitly stop thread to prevent SIGABRT
     ~Network()
     {
         ofLogNotice("Network") << "Shutting down network thread...";
-        stopThread();        // Flag thread to stop
-        waitForThread(true); // Wait for it to actually finish
+        stopThread();
+        waitForThread(true);
     }
 
     void setup(string _id, string _mediaPath)
@@ -38,13 +37,11 @@ public:
         string broadcastIP = IPUtils::getBroadcastAddress();
         ofLogNotice("Network") << "Binding to Broadcast: " << broadcastIP;
 
-        // Listener: 0.0.0.0:9000
         listener.Create();
         listener.SetReuseAddress(true);
         listener.Bind(9000);
         listener.SetNonBlocking(true);
 
-        // Sender: BroadcastIP:9000
         sender.Create();
         sender.SetEnableBroadcast(true);
         sender.Connect(broadcastIP.c_str(), 9000);
@@ -84,7 +81,7 @@ public:
     void sendHeartbeat()
     {
         HeartbeatPacket p;
-        p.header.type = PKT_HEARTBEAT;
+        fillHeader(p.header, PKT_HEARTBEAT);
         p.isMaster = isMaster;
         strncpy(p.peerId, myId.c_str(), 8);
         p.peerId[8] = 0;
@@ -93,10 +90,9 @@ public:
 
     void sendWarp(string ownerId, int surfIdx, int mode, int ptIdx, float x, float y)
     {
-        if (!isMaster)
-            return;
+        if (!isMaster) return;
         WarpPacket p;
-        p.header.type = PKT_WARP_DATA;
+        fillHeader(p.header, PKT_WARP_DATA);
         strncpy(p.ownerId, ownerId.c_str(), 8);
         p.ownerId[8] = 0;
         p.surfaceIndex = surfIdx;
@@ -109,19 +105,22 @@ public:
 
     void sendStructure(string jsonStr)
     {
-        if (!isMaster)
-            return;
-        string p = "  ";
-        p[0] = PACKET_ID;
-        p[1] = PKT_STRUCT;
-        p += jsonStr;
-        sender.Send(p.c_str(), p.length());
+        if (!isMaster) return;
+        
+        PacketHeader h;
+        fillHeader(h, PKT_STRUCT);
+
+        // Construct buffer: Header + JSON string
+        vector<char> buf(sizeof(PacketHeader) + jsonStr.length());
+        memcpy(buf.data(), &h, sizeof(PacketHeader));
+        memcpy(buf.data() + sizeof(PacketHeader), jsonStr.c_str(), jsonStr.length());
+        
+        sender.Send(buf.data(), buf.size());
     }
 
     void offerFile(string filename)
     {
-        if (!isMaster)
-            return;
+        if (!isMaster) return;
         lock();
         pendingFiles.push(filename);
         unlock();
@@ -149,15 +148,21 @@ private:
     ofxUDPManager listener;
     std::queue<string> pendingFiles;
 
+    // Helper to fill ID, Type, and SenderID for every packet
+    void fillHeader(PacketHeader &h, uint8_t type) {
+        h.id = PACKET_ID;
+        h.type = type;
+        memset(h.senderId, 0, 9);
+        strncpy(h.senderId, myId.c_str(), 8);
+    }
+
     void threadedFunction()
     {
         while (isThreadRunning())
         {
-            // Heartbeat
             if (ofGetFrameNum() % 60 == 0)
                 sendHeartbeat();
 
-            // File Sync
             string filename = "";
             lock();
             if (!pendingFiles.empty())
@@ -180,26 +185,25 @@ private:
         string hash = TinyMD5::getFileMD5(fullPath);
         ofFile file(fullPath, ofFile::ReadOnly, true);
 
-        if (!file.exists())
-        {
-            ofLogNotice() << "transferFile, file: '" << fullPath << "'does not exist!\n";
-            return;
-        };
+        if (!file.exists()) return;
         uint32_t size = file.getSize();
-        ofLogNotice() << "transferFile, file: '" << fullPath << "'exists!\n";
-
+        
+        // 1. Send Offer
         int headSize = sizeof(FileOfferPacket);
         vector<char> buf(headSize + filename.length());
         FileOfferPacket *offer = (FileOfferPacket *)buf.data();
-        offer->header.type = PKT_FILE_OFFER;
+        
+        fillHeader(offer->header, PKT_FILE_OFFER);
         offer->totalSize = size;
         offer->nameLen = filename.length();
         strncpy(offer->hash, hash.c_str(), 32);
+        offer->hash[32] = 0; // Null terminate hash just in case
         memcpy(buf.data() + headSize, filename.c_str(), filename.length());
         sender.Send(buf.data(), buf.size());
 
         sleep(100);
 
+        // 2. Send Chunks
         ofBuffer fBuf = file.readToBuffer();
         uint32_t offset = 0;
         uint16_t chunk = 1024;
@@ -208,7 +212,8 @@ private:
             uint16_t cur = std::min((uint32_t)chunk, size - offset);
             vector<char> cBuf(sizeof(FileChunkPacket) + cur);
             FileChunkPacket *p = (FileChunkPacket *)cBuf.data();
-            p->header.type = PKT_FILE_CHUNK;
+            
+            fillHeader(p->header, PKT_FILE_CHUNK);
             p->offset = offset;
             p->size = cur;
             memcpy(cBuf.data() + sizeof(FileChunkPacket), fBuf.getData() + offset, cur);
@@ -217,8 +222,9 @@ private:
             sleep(2);
         }
 
+        // 3. Send End
         PacketHeader end;
-        end.type = PKT_FILE_END;
+        fillHeader(end, PKT_FILE_END);
         sender.Send((const char *)&end, sizeof(PacketHeader));
     }
 };
