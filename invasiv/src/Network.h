@@ -15,6 +15,11 @@ public:
         string id;
         bool isMaster;
         float lastSeen;
+        
+        // -- NEW: Peer Sync State --
+        bool isSyncing;
+        float syncProgress;
+        string syncingFile;
     };
 
     map<string, PeerData> peers;
@@ -67,6 +72,15 @@ public:
             ofLogNotice() << "Switched to PEER";
         unlock();
     }
+    
+    // -- NEW: Update local sync status for heartbeat --
+    void setLocalSyncStatus(bool syncing, string filename, float progress) {
+        lock();
+        myIsSyncing = syncing;
+        mySyncFile = filename;
+        mySyncProgress = progress;
+        unlock();
+    }
 
     bool hasActiveMaster()
     {
@@ -85,6 +99,15 @@ public:
         p.isMaster = isMaster;
         strncpy(p.peerId, myId.c_str(), 8);
         p.peerId[8] = 0;
+        
+        // -- NEW: Fill sync data --
+        lock();
+        p.isSyncing = myIsSyncing;
+        p.syncProgress = mySyncProgress;
+        memset(p.syncingFile, 0, 64);
+        strncpy(p.syncingFile, mySyncFile.c_str(), 63);
+        unlock();
+
         sender.Send((const char *)&p, sizeof(HeartbeatPacket));
     }
 
@@ -110,7 +133,6 @@ public:
         PacketHeader h;
         fillHeader(h, PKT_STRUCT);
 
-        // Construct buffer: Header + JSON string
         vector<char> buf(sizeof(PacketHeader) + jsonStr.length());
         memcpy(buf.data(), &h, sizeof(PacketHeader));
         memcpy(buf.data() + sizeof(PacketHeader), jsonStr.c_str(), jsonStr.length());
@@ -148,7 +170,11 @@ private:
     ofxUDPManager listener;
     std::queue<string> pendingFiles;
 
-    // Helper to fill ID, Type, and SenderID for every packet
+    // -- NEW: Internal sync state --
+    bool myIsSyncing = false;
+    string mySyncFile = "";
+    float mySyncProgress = 0.0f;
+
     void fillHeader(PacketHeader &h, uint8_t type) {
         h.id = PACKET_ID;
         h.type = type;
@@ -188,7 +214,6 @@ private:
         if (!file.exists()) return;
         uint32_t size = file.getSize();
         
-        // 1. Send Offer
         int headSize = sizeof(FileOfferPacket);
         vector<char> buf(headSize + filename.length());
         FileOfferPacket *offer = (FileOfferPacket *)buf.data();
@@ -197,13 +222,12 @@ private:
         offer->totalSize = size;
         offer->nameLen = filename.length();
         strncpy(offer->hash, hash.c_str(), 32);
-        offer->hash[32] = 0; // Null terminate hash just in case
+        offer->hash[32] = 0; 
         memcpy(buf.data() + headSize, filename.c_str(), filename.length());
         sender.Send(buf.data(), buf.size());
 
         sleep(100);
 
-        // 2. Send Chunks
         ofBuffer fBuf = file.readToBuffer();
         uint32_t offset = 0;
         uint16_t chunk = 1024;
@@ -222,7 +246,6 @@ private:
             sleep(2);
         }
 
-        // 3. Send End
         PacketHeader end;
         fillHeader(end, PKT_FILE_END);
         sender.Send((const char *)&end, sizeof(PacketHeader));

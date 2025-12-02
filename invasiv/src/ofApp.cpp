@@ -50,7 +50,6 @@ void ofApp::reloadProject(string path)
 
 void ofApp::onFilesChanged(std::vector<std::string> &files)
 {
-    // Only the master should react to local file changes by offering them
     if (!net.isMaster) return;
 
     ofLogNotice("MediaWatcher") << files.size() << " file(s) changed in " << mediaDir;
@@ -67,7 +66,6 @@ void ofApp::syncFullState()
 
     ofLogNotice("Sync") << "Broadcasting full state to peers...";
 
-    // 1. Sync Warp Structure
     string warpPath = ofFilePath::join(ofFilePath::join(projectPath, "configs"), "warps.json");
     ofFile f(warpPath);
     if(f.exists()){
@@ -75,7 +73,6 @@ void ofApp::syncFullState()
         net.sendStructure(jsonStr);
     }
 
-    // 2. Offer All Files
     vector<string> allFiles = watcher.getAllItems();
     for(auto& file : allFiles) {
         net.offerFile(file);
@@ -87,6 +84,11 @@ void ofApp::update()
     watcher.update();
     warper.update();
     net.updatePeers();
+    
+    // -- NEW: Update Network thread with my current sync status --
+    float pct = 0.0f;
+    if(incoming.total > 0) pct = (float)incoming.current / (float)incoming.total;
+    net.setLocalSyncStatus(incoming.active, incoming.name, pct);
 
     int size = 0;
     while ((size = net.receive(packetBuffer, 65535)) > 0)
@@ -96,8 +98,6 @@ void ofApp::update()
         if (h->id != PACKET_ID)
             continue;
 
-        // -- LOOPBACK PROTECTION --
-        // Ignore any packet sent by myself
         if (strncmp(h->senderId, identity.myId.c_str(), 8) == 0) {
             continue; 
         }
@@ -105,11 +105,20 @@ void ofApp::update()
         if (h->type == PKT_HEARTBEAT)
         {
             HeartbeatPacket *p = (HeartbeatPacket *)packetBuffer;
-            // Redundant check (covered by senderId) but harmless
             if (string(p->peerId) == identity.myId) continue;
 
             bool isNew = net.peers.find(p->peerId) == net.peers.end();
-            net.peers[p->peerId] = {p->peerId, p->isMaster, ofGetElapsedTimef()};
+            
+            // -- UPDATED: Store new sync fields --
+            Network::PeerData pd;
+            pd.id = p->peerId;
+            pd.isMaster = p->isMaster;
+            pd.lastSeen = ofGetElapsedTimef();
+            pd.isSyncing = p->isSyncing;
+            pd.syncProgress = p->syncProgress;
+            pd.syncingFile = string(p->syncingFile);
+            
+            net.peers[p->peerId] = pd;
 
             if(isNew && net.isMaster) {
                 ofLogNotice("Network") << "New Peer Discovered: " << p->peerId << " -> Syncing State.";
@@ -123,7 +132,6 @@ void ofApp::update()
         }
         else if (h->type == PKT_STRUCT && !net.isMaster)
         {
-            // Note: Header size increased, so offset is sizeof(PacketHeader)
             string jStr(packetBuffer + sizeof(PacketHeader), size - sizeof(PacketHeader));
             string warpPath = ofFilePath::join(ofFilePath::join(projectPath, "configs"), "warps.json");
             ofBufferToFile(warpPath, ofBuffer(jStr.c_str(), jStr.length()));
@@ -134,12 +142,11 @@ void ofApp::update()
         {
             FileOfferPacket *p = (FileOfferPacket *)packetBuffer;
             string name = string(packetBuffer + sizeof(FileOfferPacket), p->nameLen);
-            string remoteHash = string(p->hash, 32); // Read 32 chars of hash
+            string remoteHash = string(p->hash, 32); 
 
             string fullPath = ofFilePath::join(mediaDir, name);
             string localHash = TinyMD5::getFileMD5(fullPath);
 
-            // Simple diff logic
             if(localHash != remoteHash) {
                 ofLogNotice("Network") << "Accepting File: " << name;
                 incoming.active = true;
@@ -170,7 +177,6 @@ void ofApp::update()
     }
 }
 
-// ... (Rest of ofApp.cpp: draw, drawUI, inputs, exit remains unchanged)
 void ofApp::draw()
 {
     warper.draw();
@@ -188,12 +194,14 @@ void ofApp::draw()
             if (incoming.active)
             {
                 float pct = (float)incoming.current / incoming.total * 100.0;
-                ofDrawBitmapStringHighlight("Syncing: " + ofToString(pct, 1) + "%", 10, 40);
+                ofDrawBitmapStringHighlight("Syncing " + incoming.name + ": " + ofToString(pct, 1) + "%", 10, 40);
                 
                 ofPushStyle();
                 ofNoFill();
+                ofSetColor(255);
                 ofDrawRectangle(10, 50, 200, 10);
                 ofFill();
+                ofSetColor(0, 255, 0);
                 ofDrawRectangle(10, 50, 200 * (pct/100.0), 10);
                 ofPopStyle();
             }
@@ -209,26 +217,55 @@ void ofApp::drawUI()
 
     if (ImGui::Begin("invasiv", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
     {
-        if (ImGui::InputText("Project Path", pathInputBuf, 256))
-        {
-        }
+        if (ImGui::InputText("Project Path", pathInputBuf, 256)) {}
         ImGui::SameLine();
-        if (ImGui::Button("Reload"))
-            reloadProject(string(pathInputBuf));
+        if (ImGui::Button("Reload")) reloadProject(string(pathInputBuf));
 
+        ImGui::Separator();
+
+        // -- NEW: Master File Status List --
+        if (ImGui::TreeNode("Media Status")) {
+            vector<string> files = watcher.getAllItems();
+            if(files.empty()) ImGui::Text("No media files found.");
+            
+            for(const auto& f : files) {
+                // Check if anyone is syncing this file
+                bool anySyncing = false;
+                string syncDetails = "";
+                for(auto& p : net.peers) {
+                    if(p.second.isSyncing && p.second.syncingFile == f) {
+                        anySyncing = true;
+                        syncDetails += p.first + "(" + ofToString(p.second.syncProgress * 100.0, 0) + "%) ";
+                    }
+                }
+
+                if(anySyncing) {
+                    ImGui::TextColored(ImVec4(1, 0.5, 0, 1), "%s [Syncing: %s]", f.c_str(), syncDetails.c_str());
+                } else {
+                    ImGui::TextColored(ImVec4(0, 1, 0, 1), "%s [Synced]", f.c_str());
+                }
+            }
+            ImGui::TreePop();
+        }
+        
         ImGui::Separator();
 
         if (ImGui::TreeNode("Instances"))
         {
+            // ME
             string label = "[me] " + identity.myId;
-            if (ImGui::Selectable(label.c_str(), warper.targetPeerId == identity.myId))
-            {
-                warper.targetPeerId = identity.myId;
-            }
+            if (ImGui::Selectable(label.c_str(), warper.targetPeerId == identity.myId)) warper.targetPeerId = identity.myId;
 
+            // PEERS
             for (auto &p : net.peers)
             {
                 string plabel = "[" + string(p.second.isMaster ? "M" : "P") + "] " + p.first;
+                
+                // -- NEW: Show progress in instance list --
+                if(p.second.isSyncing) {
+                    plabel += " [Syncing " + ofToString(p.second.syncProgress * 100.0, 0) + "%]";
+                }
+                
                 if (ImGui::Selectable(plabel.c_str(), warper.targetPeerId == p.first))
                 {
                     warper.targetPeerId = p.first;
@@ -275,7 +312,7 @@ void ofApp::drawUI()
         }
 
         ImGui::Separator();
-        if (ImGui::Button("Sync Content")) {
+        if (ImGui::Button("Force Sync Content")) {
              syncFullState();
         }
     }

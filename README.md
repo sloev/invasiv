@@ -24,8 +24,10 @@ attribution:
 * [x] master syncs to new peers when they announce themselves
 * [x] peers decides to take offered files and overwrite local ones based on simple md5 hash comparisons
 * [x] peers should show in their status ui (upper left corner) whether they are syncing and what they are syncing
-* [ ] master ui should have a list of files in media folder and whether they have been synced to all peers
-* [ ] master ui/instances should show wether a peer is synced or its sync progress if possible
+* [x] master ui should have a list of files in media folder and whether they have been synced to all peers
+* [x] master ui/instances should show wether a peer is synced or its sync progress if possible
+* [ ] when a new item is added to the media folder i want the content manager in warpcontroller.h to check all the files in mediafolder and create videocontent for them (register) if they dont exist already. and delete the videocontents that are not in media folder.
+
 
 file hirachy
 
