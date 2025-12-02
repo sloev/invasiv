@@ -12,13 +12,14 @@ attribution:
 
 * [x] auto discover via udp
 * [x] udp networking via broadcast
-* [ ] symetric, only one program
-* [ ] http server, acts as http to udp vice versa
+* [x] symetric, only one program
 * [x] folder sync
 * [x] save mapping to json
-* [ ] shared mapping setup  
-* [ ] if file added or removed to directory, then sync
-
+* [x] shared mapping setup  
+* [ ] when set to be master, a program should scan its media folder and offer all the files to all the peers
+* [ ] if master and a new peer announces, it should be offered the files
+* [ ] if master and mediafolder changes content, master should offer the changed files to peers
+* [ ] if in peer mode and  offered a file, check local file and see if it is the same (md5 like) if not, take the offer, overwrite local file
 
 file hirachy
 
