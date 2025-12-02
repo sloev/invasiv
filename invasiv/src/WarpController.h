@@ -2,98 +2,105 @@
 #include "ofMain.h"
 #include "WarpSurface.h"
 #include "Network.h"
+#include <unordered_set>
 
 #define DEFAULT_CONTENT "default"
 
-class Content
+class TestTexture
 {
-
 public:
-    ofTexture tex;
-    void setup()
+    TestTexture(const TestTexture &) = delete;
+    void operator=(const TestTexture &) = delete;
+    static TestTexture &getInstance()
     {
-        ofPixels pix;
-        pix.allocate(256, 256, OF_PIXELS_RGB);
-        for (int y = 0; y < 256; ++y)
-        {
-            for (int x = 0; x < 256; ++x)
-            {
-                // gradient + red grid every 32 px
-                ofColor c = ofColor::fromHsb((x / 255.0f) * 255, 200, 255);
-                if ((x % 32) < 2 || (y % 32) < 2)
-                    c = ofColor::red;
-                pix.setColor(x, y, c);
-            }
-        }
-        tex.loadData(pix);
+        static TestTexture instance;
+        return instance;
     }
-
-    void start()
-    {
-    }
-    void stop()
-    {
-    }
-
-    void update()
-    {
-    }
-
     ofTexture getTexture()
     {
+        if (!tex.isAllocated())
+        {
+            ofPixels pix;
+            pix.allocate(256, 256, OF_PIXELS_RGB);
+            for (int y = 0; y < 256; ++y)
+            {
+                for (int x = 0; x < 256; ++x)
+                {
+                    ofColor c = ofColor::fromHsb((x / 255.0f) * 255, 200, 255);
+                    if ((x % 32) < 2 || (y % 32) < 2)
+                        c = ofColor::red;
+                    pix.setColor(x, y, c);
+                }
+            }
+            tex.loadData(pix);
+        }
         return tex;
+    }
+    ofTexture tex;
+private:
+    TestTexture() {}
+};
+
+class Content
+{
+public:
+    virtual ~Content() {} 
+    virtual void setup() {}
+    virtual void start() {}
+    virtual void stop() {}
+    virtual void update() {}
+
+    // -- FIX: Added 'virtual' keyword here --
+    virtual ofTexture getTexture()
+    {
+        return TestTexture::getInstance().getTexture();
     }
 };
 
-class VideoContent : Content
+class VideoContent : public Content
 {
 private:
     ofVideoPlayer video;
-
 public:
     void setup(string filename)
     {
-        // Use absolute path reference
         if (ofFile(filename, ofFile::Reference).exists())
         {
+            ofLogNotice("VideoContent") << "created video content for " << filename;
             video.load(filename);
-            video.play();
+            video.setLoopState(OF_LOOP_NORMAL);
+            video.play(); 
         }
-    }
-
-    void start()
-    {
-        if (!video.isPlaying())
+        else
         {
-            video.play();
+            ofLogNotice("VideoContent") << "error creating video content for " << filename << " doesnt exist!";
         }
     }
 
-    void stop()
+    void start() override
     {
-        if (video.isPlaying())
-        {
-            video.stop();
-        }
+        if (!video.isPlaying()) video.play();
     }
 
-    void update()
+    void stop() override
     {
-        if (video.isPlaying())
-        {
-            video.update();
-        }
+        if (video.isPlaying()) video.setPaused(true);
     }
 
-    ofTexture getTexture()
+    void update() override
     {
-        if (video.isLoaded())
+        video.update();
+    }
+    
+    ofTexture getTexture() override
+    {
+        if (video.isInitialized())
         {
             return video.getTexture();
         }
         else
         {
-            return tex;
+            return TestTexture::getInstance().getTexture();
         }
     }
 };
@@ -102,7 +109,9 @@ class ContentManager
 {
 private:
     std::map<std::string, std::shared_ptr<Content>> contents;
-    std::map<std::string, bool> contentPlaying;
+    
+    std::unordered_set<std::string> activeThisFrame; 
+    std::unordered_set<std::string> activeLastFrame; 
 
 public:
     void setup()
@@ -111,117 +120,126 @@ public:
         dtr->setup();
         registerContent(DEFAULT_CONTENT, dtr);
     }
+
     bool registerContent(std::string id, std::shared_ptr<Content> c)
     {
-        if (contents.count(id))
-        {
-            cout << "cant register content: " << id << " already exists!\n";
-            return false;
-        }
-        cout << "registered content: " << id << "\n";
-
+        if (contents.count(id)) return false;
+        ofLogNotice("ContentManager") << "Registered content: " << id;
         contents[id] = c;
         return true;
     }
 
-    ofTexture getTextureById(std::string id)
+    void refreshMedia(string mediaPath)
     {
-        if (!contents.count(id))
+        ofDirectory dir(mediaPath);
+        dir.allowExt("mp4"); dir.allowExt("mov"); dir.allowExt("avi"); dir.allowExt("mkv");
+        dir.listDir();
+
+        std::unordered_set<std::string> diskFiles;
+        for (auto &file : dir)
         {
-            id = DEFAULT_CONTENT;
+            diskFiles.insert(file.getFileName());
+            if (contents.find(file.getFileName()) == contents.end())
+            {
+                auto vc = std::make_shared<VideoContent>();
+                vc->setup(file.getAbsolutePath());
+                registerContent(file.getFileName(), vc);
+                ofLogNotice("ContentManager") << "Auto-registered new video: " << file.getFileName();
+            }
         }
 
-        contents[id]->start();
-        contentPlaying[id] = true;
+        for (auto it = contents.begin(); it != contents.end();)
+        {
+            if (it->first == DEFAULT_CONTENT) { ++it; continue; }
+            if (diskFiles.find(it->first) == diskFiles.end())
+            {
+                ofLogNotice("ContentManager") << "Removing deleted video: " << it->first;
+                it = contents.erase(it);
+            }
+            else { ++it; }
+        }
+    }
+
+    ofTexture getTextureById(std::string id)
+    {
+        if (!contents.count(id)) id = DEFAULT_CONTENT;
+        activeThisFrame.insert(id);
         return contents[id]->getTexture();
     }
 
     void update()
     {
-        for (const auto &item : contents)
+        for (const auto &id : activeLastFrame)
         {
-            item.second->update();
-        }
-    }
-    void pauseNotUsedTextures()
-    {
-        for (const auto &item : contents)
-        {
-            if (item.first != DEFAULT_CONTENT && contentPlaying.count(item.first) == 0)
-            {
-                item.second->stop();
+            if (contents.count(id)) {
+                contents[id]->start();
+                contents[id]->update();
             }
         }
-        contentPlaying.clear();
+
+        activeLastFrame = activeThisFrame;
+        activeThisFrame.clear(); 
+        
+        for(auto& kv : contents) {
+            if(kv.first == DEFAULT_CONTENT) continue;
+            if(activeLastFrame.find(kv.first) == activeLastFrame.end()) {
+                kv.second->stop();
+            }
+        }
     }
 };
+
 class WarpController
 {
 public:
     vector<shared_ptr<WarpSurface>> allSurfaces;
     ContentManager contents;
-
     int selectedIndex = 0;
     int editMode = EDIT_NONE;
     string savePath;
-
+    string mediaPath; 
     string myPeerId;
     string targetPeerId;
 
-    void setup(string _savePath, string _myId)
+    void setup(string _savePath, string _mediaPath, string _myId)
     {
-        contents.setup();
         savePath = _savePath;
+        mediaPath = _mediaPath;
         myPeerId = _myId;
         targetPeerId = _myId;
 
-        if (ofFile(savePath).exists())
-        {
-            loadJson(ofBufferFromFile(savePath).getText());
-        }
+        contents.setup();
+        contents.refreshMedia(mediaPath);
 
-        if (getSurfacesForPeer(myPeerId).empty())
-        {
-            addLayer(myPeerId, nullptr);
-        }
+        if (ofFile(savePath).exists()) loadJson(ofBufferFromFile(savePath).getText());
+        if (getSurfacesForPeer(myPeerId).empty()) addLayer(myPeerId, nullptr);
     }
+
+    void refreshContent() { contents.refreshMedia(mediaPath); }
 
     vector<shared_ptr<WarpSurface>> getSurfacesForPeer(string peerId)
     {
         vector<shared_ptr<WarpSurface>> subset;
-        for (auto &s : allSurfaces)
-        {
-            if (s->ownerId == peerId)
-                subset.push_back(s);
-        }
+        for (auto &s : allSurfaces) if (s->ownerId == peerId) subset.push_back(s);
         return subset;
     }
 
-    void update()
-    {
-        contents.update();
-    }
+    void update() { contents.update(); }
 
     void draw()
     {
-        for (auto &s : allSurfaces)
+        vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(targetPeerId);
+        for (size_t i = 0; i < subset.size(); i++)
         {
-            if (s->ownerId == myPeerId)
-            {
-                ofTexture tex = contents.getTextureById(s->getContentId());
-                s->draw(tex, ofGetWidth(), ofGetHeight());
-            }
+            ofTexture tex = contents.getTextureById(subset[i]->contentId);
+            subset[i]->draw(tex, ofGetWidth(), ofGetHeight());
         }
-        contents.pauseNotUsedTextures();
     }
 
     void drawDebug()
     {
         vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(targetPeerId);
-        for (auto &s : subset)
-        {
-            s->drawDebug(ofGetWidth(), ofGetHeight(), editMode);
-        }
+        for (auto &s : subset) s->drawDebug(ofGetWidth(), ofGetHeight(), editMode);
     }
 
     void addLayer(string owner, Network *net)
@@ -230,49 +248,40 @@ public:
         allSurfaces.push_back(s);
         vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(owner);
         selectedIndex = (int)subset.size() - 1;
-        if (net)
-            sync(*net);
+        if (net) sync(*net);
     }
 
     void removeLayer(string owner, Network *net)
     {
         vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(owner);
-        if (subset.empty())
-            return;
-
+        if (subset.empty()) return;
         if (selectedIndex >= 0 && selectedIndex < (int)subset.size())
         {
             string idToRemove = subset[selectedIndex]->id;
             for (auto it = allSurfaces.begin(); it != allSurfaces.end();)
             {
-                if ((*it)->id == idToRemove)
-                    it = allSurfaces.erase(it);
-                else
-                    ++it;
+                if ((*it)->id == idToRemove) it = allSurfaces.erase(it);
+                else ++it;
             }
             selectedIndex = max(0, selectedIndex - 1);
-            if (net)
-                sync(*net);
+            if (net) sync(*net);
         }
     }
 
     void mousePressed(int x, int y, Network &net)
     {
-        if (!net.isMaster)
-            return;
+        if (!net.isMaster) return;
         vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(targetPeerId);
         if (selectedIndex >= 0 && selectedIndex < (int)subset.size())
         {
             int hit = subset[selectedIndex]->getHit(x, y, ofGetWidth(), ofGetHeight(), editMode);
-            if (hit != -1)
-                subset[selectedIndex]->selectedPoint = hit;
+            if (hit != -1) subset[selectedIndex]->selectedPoint = hit;
         }
     }
 
     void mouseDragged(int x, int y, Network &net)
     {
-        if (!net.isMaster)
-            return;
+        if (!net.isMaster) return;
         vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(targetPeerId);
         if (selectedIndex >= 0 && selectedIndex < (int)subset.size())
         {
@@ -289,8 +298,7 @@ public:
 
     void mouseReleased(Network &net)
     {
-        if (!net.isMaster)
-            return;
+        if (!net.isMaster) return;
         vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(targetPeerId);
         if (selectedIndex >= 0 && selectedIndex < (int)subset.size())
         {
@@ -306,10 +314,8 @@ public:
     {
         ofJson root;
         map<string, ofJson> groups;
-        for (auto &s : allSurfaces)
-            groups[s->ownerId].push_back(s->toJson());
-        for (auto &kv : groups)
-            root["peers"][kv.first] = kv.second;
+        for (auto &s : allSurfaces) groups[s->ownerId].push_back(s->toJson());
+        for (auto &kv : groups) root["peers"][kv.first] = kv.second;
         string jStr = root.dump();
         ofSaveJson(savePath, root);
         net.sendStructure(jStr);
@@ -345,18 +351,12 @@ public:
             }
             selectedIndex = 0;
         }
-        catch (...)
-        {
-            ofLogError() << "JSON Parse Error";
-        }
+        catch (...) { ofLogError() << "JSON Parse Error"; }
     }
 
     void updatePeerPoint(string owner, int idx, int mode, int pt, float x, float y)
     {
         vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(owner);
-        if (idx < (int)subset.size())
-        {
-            subset[idx]->updatePoint(pt, x, y, mode);
-        }
+        if (idx < (int)subset.size()) subset[idx]->updatePoint(pt, x, y, mode);
     }
 };

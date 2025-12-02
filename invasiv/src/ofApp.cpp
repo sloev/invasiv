@@ -42,7 +42,7 @@ void ofApp::reloadProject(string path)
         net.setMediaPath(mediaDir);
 
     string warpPath = ofFilePath::join(configsDir, "warps.json");
-    warper.setup(warpPath, identity.myId);
+    warper.setup(warpPath, mediaDir, identity.myId);
 
     ofLogNotice("Project") << "Reloaded: " << path;
     watcher.setup(mediaDir);
@@ -50,6 +50,7 @@ void ofApp::reloadProject(string path)
 
 void ofApp::onFilesChanged(std::vector<std::string> &files)
 {
+    warper.refreshContent();
     if (!net.isMaster) return;
 
     ofLogNotice("MediaWatcher") << files.size() << " file(s) changed in " << mediaDir;
@@ -173,6 +174,7 @@ void ofApp::update()
             ofBufferToFile(tmpPath, incoming.buf);
             ofFile(tmpPath).renameTo(finalPath, true, true);
             ofLogNotice("Network") << "File transfer complete: " << incoming.name;
+            warper.refreshContent();
         }
     }
 }
@@ -279,7 +281,7 @@ void ofApp::drawUI()
             vector<shared_ptr<WarpSurface>> subset = warper.getSurfacesForPeer(warper.targetPeerId);
             for (size_t i = 0; i < subset.size(); i++)
             {
-                string sName = ofToString(i) + ": " + subset[i]->id;
+                string sName = ofToString(i) + ": " + subset[i]->id + " [" + subset[i]->contentId + "]";
                 if (ImGui::Selectable(sName.c_str(), warper.selectedIndex == (int)i))
                 {
                     warper.selectedIndex = (int)i;

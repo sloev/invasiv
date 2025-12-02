@@ -4,12 +4,12 @@
 
 class WarpSurface
 {
-private:
-    string contentId;
 
 public:
     string id;
     string ownerId;
+    string contentId;
+
     ofVboMesh renderMesh;
     ofMesh sourceMesh;
 
@@ -65,7 +65,7 @@ public:
     {
         contentId = id;
     }
-    
+
     string getContentId()
     {
         return contentId;
@@ -75,6 +75,8 @@ public:
     {
         if (mode == EDIT_NONE)
             return;
+        ofPushStyle();
+
         ofPushMatrix();
         ofScale(w, h, 1);
         auto &verts = (mode == EDIT_TEXTURE) ? sourceMesh.getVertices() : renderMesh.getVertices();
@@ -109,6 +111,7 @@ public:
             }
         }
         ofPopMatrix();
+        ofPopStyle();
     }
 
     void draw(ofTexture &tex, float w, float h)
@@ -120,6 +123,7 @@ public:
         }
         ofPushMatrix();
         ofScale(w, h, 1);
+        ofSetColor(255);
         tex.bind();
         renderMesh.draw();
         tex.unbind();

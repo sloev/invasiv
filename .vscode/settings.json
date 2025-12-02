@@ -82,6 +82,7 @@
         "queue": "cpp",
         "forward_list": "cpp",
         "list": "cpp",
-        "set": "cpp"
+        "set": "cpp",
+        "unordered_set": "cpp"
     }
 }
