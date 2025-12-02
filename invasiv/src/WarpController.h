@@ -50,7 +50,6 @@ public:
     virtual void stop() {}
     virtual void update() {}
 
-    // -- FIX: Added 'virtual' keyword here --
     virtual ofTexture getTexture()
     {
         return TestTexture::getInstance().getTexture();
@@ -66,14 +65,18 @@ public:
     {
         if (ofFile(filename, ofFile::Reference).exists())
         {
-            ofLogNotice("VideoContent") << "created video content for " << filename;
+            ofLogNotice("VideoContent") << "Loading video: " << filename;
+            
+            // OPTIMIZATION: Use RGBA to avoid heavy CPU YUV->RGB conversion
+            video.setPixelFormat(OF_PIXELS_RGBA); 
+            
             video.load(filename);
             video.setLoopState(OF_LOOP_NORMAL);
             video.play(); 
         }
         else
         {
-            ofLogNotice("VideoContent") << "error creating video content for " << filename << " doesnt exist!";
+            ofLogNotice("VideoContent") << "Error: " << filename << " doesnt exist!";
         }
     }
 
@@ -110,8 +113,9 @@ class ContentManager
 private:
     std::map<std::string, std::shared_ptr<Content>> contents;
     
-    std::unordered_set<std::string> activeThisFrame; 
-    std::unordered_set<std::string> activeLastFrame; 
+    // FIX: Use Frame Number tracking instead of swapping sets
+    // This prevents "flickering" play/pause states which cause stutter
+    std::map<std::string, uint64_t> lastUsedFrame; 
 
 public:
     void setup()
@@ -126,6 +130,7 @@ public:
         if (contents.count(id)) return false;
         ofLogNotice("ContentManager") << "Registered content: " << id;
         contents[id] = c;
+        lastUsedFrame[id] = ofGetFrameNum(); // Mark as used immediately so it starts
         return true;
     }
 
@@ -144,7 +149,6 @@ public:
                 auto vc = std::make_shared<VideoContent>();
                 vc->setup(file.getAbsolutePath());
                 registerContent(file.getFileName(), vc);
-                ofLogNotice("ContentManager") << "Auto-registered new video: " << file.getFileName();
             }
         }
 
@@ -154,6 +158,8 @@ public:
             if (diskFiles.find(it->first) == diskFiles.end())
             {
                 ofLogNotice("ContentManager") << "Removing deleted video: " << it->first;
+                // Clean up tracking map
+                lastUsedFrame.erase(it->first);
                 it = contents.erase(it);
             }
             else { ++it; }
@@ -163,27 +169,34 @@ public:
     ofTexture getTextureById(std::string id)
     {
         if (!contents.count(id)) id = DEFAULT_CONTENT;
-        activeThisFrame.insert(id);
+        
+        // Mark this content as "active" right now
+        lastUsedFrame[id] = ofGetFrameNum();
+
         return contents[id]->getTexture();
     }
 
     void update()
     {
-        for (const auto &id : activeLastFrame)
-        {
-            if (contents.count(id)) {
-                contents[id]->start();
-                contents[id]->update();
-            }
-        }
-
-        activeLastFrame = activeThisFrame;
-        activeThisFrame.clear(); 
+        uint64_t currentFrame = ofGetFrameNum();
         
-        for(auto& kv : contents) {
-            if(kv.first == DEFAULT_CONTENT) continue;
-            if(activeLastFrame.find(kv.first) == activeLastFrame.end()) {
-                kv.second->stop();
+        for (auto &kv : contents)
+        {
+            string id = kv.first;
+            // Always keep default alive
+            if (id == DEFAULT_CONTENT) {
+                kv.second->update();
+                continue;
+            }
+
+            // Check if used recently (within last 120 frames / 2 seconds)
+            // This buffer prevents stuttering if draw() skips a frame or logic lags
+            if (currentFrame - lastUsedFrame[id] < 120) {
+                kv.second->start(); // Ensure playing
+                kv.second->update(); // Decode next frame
+            } else {
+                // If not used for 2 seconds, pause to save CPU
+                kv.second->stop(); 
             }
         }
     }
