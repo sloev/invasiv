@@ -8,6 +8,7 @@ void ofApp::setup()
     ofSetFrameRate(60);
     ofSetVerticalSync(true);
     ofBackground(20);
+    gui.setup();
     ofAddListener(watcher.filesChanged, this, &ofApp::onFilesChanged);
 
     string cwd = std::filesystem::current_path().string();
@@ -54,11 +55,10 @@ void ofApp::onFilesChanged(std::vector<std::string> &files)
     for (const auto &f : files)
     {
 
-        string fileWithMedia = ofFilePath::join("media", f);
-        ofLogNotice("MediaWatcher") << " - file changed: " << fileWithMedia << "\n";
+        ofLogNotice("MediaWatcher") << " - file changed: " << f << "\n";
         if (net.isMaster)
         {
-            net.offerFile(fileWithMedia);
+            net.offerFile(f);
         }
     }
 }
@@ -73,6 +73,8 @@ void ofApp::update()
     while ((size = net.receive(packetBuffer, 65535)) > 0)
     {
         PacketHeader *h = (PacketHeader *)packetBuffer;
+                ofLogNotice() << std::format("packet received, id: {} type: {}",h->id, h->type);
+
         if (h->id != PACKET_ID)
             continue;
 
