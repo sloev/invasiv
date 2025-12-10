@@ -1,4 +1,4 @@
-![demo time](./codeberg/screencast.gif)
+![demo time](./.codeberg/screencast.gif)
 
 # invasiv
 
