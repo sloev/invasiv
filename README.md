@@ -36,5 +36,6 @@ vj and projection mapping software
 * [x] reset edit_mode in warp controller on change of surface etc
 * [x] use more efficient double mesh (one for control, one for render)
 * [ ] fix bug with shutdown and freeze (introduced after more efficient double mesh)
+* [ ] make the other surfaces visible, but 50% transparent during editing of a surface
 * [ ] introduce a new live_master mode for controlling all the instances and surfaces
 
