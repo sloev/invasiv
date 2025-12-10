@@ -1,15 +1,13 @@
 # invasiv
 
+vj and projection mapping software
 
+## attribution:
 
-attribution:
-
-* loaf_ingredients: MIT -> https://github.com/danomatika/loaf-ingredients
 * openframeworks: MIT -> https://github.com/openframeworks/openFrameworks
 * ofxlua: BSD Simplified License -> https://github.com/danomatika/ofxLua
 
-
-
+## FEATURES:
 
 * [x] auto discover via udp
 * [x] udp networking via broadcast
