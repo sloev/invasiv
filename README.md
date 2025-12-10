@@ -1,6 +1,9 @@
+![demo time](./codeberg/screencast.gif)
+
 # invasiv
 
 vj and projection mapping software
+
 
 ## attribution:
 
