@@ -2,6 +2,11 @@
 # Prerequisites
 *.d
 
+!artifacts/.gitkeep
+artifacts/*
+
+testing/*
+
 # Compiled Object files
 *.slo
 *.lo
