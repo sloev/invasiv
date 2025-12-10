@@ -1,0 +1,50 @@
+build:
+	docker build -t ofxdocker_2204_of_0_12_1_loaf .
+
+bash:
+	docker run --rm -it --entrypoint bash ofxdocker_2204_of_0_12_1_loaf
+
+copy: build
+	docker rm extract || true
+	docker create --name extract ofxdocker_2204_of_0_12_1_loaf
+	docker cp extract:/of/apps/myApps/loaf/bin ./artifacts
+	docker rm extract
+
+run:
+	./artifacts/bin/loaf ./invasiv/main.lua
+
+invasiv-debug: build
+	docker rm extract || true
+	docker create --name extract ofxdocker_2204_of_0_12_1_loaf
+	docker cp extract:/of/apps/myApps/invasiv/bin ./artifacts
+	docker rm extract
+	cd ./artifacts/bin/ && gdb -q \
+      -batch \
+      -ex 'set print thread-events off' \
+      -ex 'handle SIGALRM nostop pass' \
+      -ex 'handle SIGCHLD nostop pass' \
+      -ex 'run' \
+      -ex 'thread apply all backtrace' \
+      --args invasiv_debug
+
+
+invasiv: build
+	docker rm extract || true
+	docker create --name extract ofxdocker_2204_of_0_12_1_loaf
+	docker cp extract:/of/apps/myApps/invasiv/bin ./artifacts
+	docker rm extract
+	cd ./artifacts/bin/ && ./invasiv
+
+run-invasiv:
+	cd ./testing && ../artifacts/invasiv/test
+
+run-invasiv-debug:
+	cd ./testing && gdb -q \
+      -batch \
+      -ex 'set print thread-events off' \
+      -ex 'handle SIGALRM nostop pass' \
+      -ex 'handle SIGCHLD nostop pass' \
+      -ex 'run' \
+      -ex 'thread apply all backtrace' \
+      --args ../artifacts/bin/invasiv_debug
+

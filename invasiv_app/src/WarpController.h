@@ -1,0 +1,569 @@
+#pragma once
+#include "ofMain.h"
+#include "WarpSurface.h"
+#include "Network.h"
+#include <unordered_set>
+
+#define DEFAULT_CONTENT "default"
+
+class TestTexture
+{
+public:
+    TestTexture(const TestTexture &) = delete;
+    void operator=(const TestTexture &) = delete;
+    static TestTexture &getInstance()
+    {
+        static TestTexture instance;
+        return instance;
+    }
+    ofTexture getTexture()
+    {
+        if (!tex.isAllocated())
+        {
+            ofPixels pix;
+            pix.allocate(256, 256, OF_PIXELS_RGB);
+            for (int y = 0; y < 256; ++y)
+            {
+                for (int x = 0; x < 256; ++x)
+                {
+                    ofColor c = ofColor::fromHsb((x / 255.0f) * 255, 200, 255);
+                    if ((x % 32) < 2 || (y % 32) < 2)
+                        c = ofColor::red;
+                    pix.setColor(x, y, c);
+                }
+            }
+            tex.loadData(pix);
+        }
+        return tex;
+    }
+    ofTexture tex;
+
+private:
+    TestTexture() {}
+};
+
+class Content
+{
+public:
+    virtual ~Content() {}
+    virtual void setup() {}
+    virtual void start() {}
+    virtual void stop() {}
+    virtual void update() {}
+
+    virtual ofTexture getTexture()
+    {
+        return TestTexture::getInstance().getTexture();
+    }
+};
+
+class VideoContent : public Content
+{
+private:
+    ofVideoPlayer video;
+
+public:
+    void setup(string filename)
+    {
+        if (ofFile(filename, ofFile::Reference).exists())
+        {
+            ofLogNotice("VideoContent") << "Loading video: " << filename;
+
+            // OPTIMIZATION: Use RGBA to avoid heavy CPU YUV->RGB conversion
+            video.setPixelFormat(OF_PIXELS_RGBA);
+
+            video.load(filename);
+            video.setLoopState(OF_LOOP_NORMAL);
+            video.play();
+        }
+        else
+        {
+            ofLogNotice("VideoContent") << "Error: " << filename << " doesnt exist!";
+        }
+    }
+
+    void start() override
+    {
+        if (!video.isPlaying())
+            video.play();
+    }
+
+    void stop() override
+    {
+        if (video.isPlaying())
+            video.setPaused(true);
+    }
+
+    void update() override
+    {
+        video.update();
+    }
+
+    ofTexture getTexture() override
+    {
+        if (video.isInitialized())
+        {
+            return video.getTexture();
+        }
+        else
+        {
+            return TestTexture::getInstance().getTexture();
+        }
+    }
+};
+
+class ContentManager
+{
+private:
+    std::map<std::string, std::shared_ptr<Content>> contents;
+
+    // FIX: Use Frame Number tracking instead of swapping sets
+    // This prevents "flickering" play/pause states which cause stutter
+    std::map<std::string, uint64_t> lastUsedFrame;
+
+public:
+    void setup()
+    {
+        auto dtr = std::make_shared<Content>();
+        dtr->setup();
+        registerContent(DEFAULT_CONTENT, dtr);
+    }
+
+    vector<string> getContentNames()
+    {
+        vector<string> names;
+        for (auto const &kv : contents)
+            names.push_back(kv.first);
+        return names;
+    }
+
+    bool registerContent(std::string id, std::shared_ptr<Content> c)
+    {
+        if (contents.count(id))
+            return false;
+        ofLogNotice("ContentManager") << "Registered content: " << id;
+        contents[id] = c;
+        lastUsedFrame[id] = ofGetFrameNum(); // Mark as used immediately so it starts
+        return true;
+    }
+
+    void refreshMedia(string mediaPath)
+    {
+        ofDirectory dir(mediaPath);
+        dir.allowExt("mp4");
+        dir.allowExt("mov");
+        dir.allowExt("avi");
+        dir.allowExt("mkv");
+        dir.listDir();
+
+        std::unordered_set<std::string> diskFiles;
+        for (auto &file : dir)
+        {
+            diskFiles.insert(file.getFileName());
+            if (contents.find(file.getFileName()) == contents.end())
+            {
+                auto vc = std::make_shared<VideoContent>();
+                vc->setup(file.getAbsolutePath());
+                registerContent(file.getFileName(), vc);
+            }
+        }
+
+        for (auto it = contents.begin(); it != contents.end();)
+        {
+            if (it->first == DEFAULT_CONTENT)
+            {
+                ++it;
+                continue;
+            }
+            if (diskFiles.find(it->first) == diskFiles.end())
+            {
+                ofLogNotice("ContentManager") << "Removing deleted video: " << it->first;
+                // Clean up tracking map
+                lastUsedFrame.erase(it->first);
+                it = contents.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
+    }
+
+    ofTexture getTextureById(std::string id)
+    {
+        if (!contents.count(id))
+            id = DEFAULT_CONTENT;
+
+        // Mark this content as "active" right now
+        lastUsedFrame[id] = ofGetFrameNum();
+
+        return contents[id]->getTexture();
+    }
+
+    void update()
+    {
+        uint64_t currentFrame = ofGetFrameNum();
+
+        for (auto &kv : contents)
+        {
+            string id = kv.first;
+            // Always keep default alive
+            if (id == DEFAULT_CONTENT)
+            {
+                kv.second->update();
+                continue;
+            }
+
+            // Check if used recently (within last 120 frames / 2 seconds)
+            // This buffer prevents stuttering if draw() skips a frame or logic lags
+            if (currentFrame - lastUsedFrame[id] < 120)
+            {
+                kv.second->start();  // Ensure playing
+                kv.second->update(); // Decode next frame
+            }
+            else
+            {
+                // If not used for 2 seconds, pause to save CPU
+                kv.second->stop();
+            }
+        }
+    }
+};
+
+class WarpController
+{
+public:
+    vector<shared_ptr<WarpSurface>> allSurfaces;
+    ContentManager contents;
+    int selectedIndex = 0;
+    int editMode = EDIT_NONE;
+    glm::vec2 lastMouse;
+    string savePath;
+    string mediaPath;
+    string myPeerId;
+    string targetPeerId;
+
+    void setup(string _savePath, string _mediaPath, string _myId)
+    {
+        savePath = _savePath;
+        mediaPath = _mediaPath;
+        myPeerId = _myId;
+        targetPeerId = _myId;
+
+        contents.setup();
+        contents.refreshMedia(mediaPath);
+
+        if (ofFile(savePath).exists())
+            loadJson(ofBufferFromFile(savePath).getText());
+        if (getSurfacesForPeer(myPeerId).empty())
+            addLayer(myPeerId, nullptr);
+    }
+
+    void refreshContent() { contents.refreshMedia(mediaPath); }
+
+    vector<shared_ptr<WarpSurface>> getSurfacesForPeer(string peerId)
+    {
+        vector<shared_ptr<WarpSurface>> subset;
+        for (auto &s : allSurfaces)
+            if (s->ownerId == peerId)
+                subset.push_back(s);
+        return subset;
+    }
+
+    vector<string> getContentList()
+    {
+        return contents.getContentNames();
+    }
+
+    // [NEW] Set content and trigger sync
+    void setSurfaceContent(string peerId, int surfIdx, string contentId, Network &net)
+    {
+        vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(peerId);
+        if (surfIdx >= 0 && surfIdx < (int)subset.size())
+        {
+            subset[surfIdx]->setContentId(contentId);
+            sync(net); // Save to JSON and Broadcast Structure Packet
+        }
+    }
+
+    void update() { contents.update(); }
+
+    void draw()
+    {
+        vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(targetPeerId);
+        if (editMode == EDIT_NONE)
+        {
+            for (size_t i = 0; i < subset.size(); i++)
+            {
+                ofTexture tex = contents.getTextureById(subset[i]->contentId);
+                subset[i]->draw(tex, ofGetWidth(), ofGetHeight());
+            }
+        }
+        else if (editMode == EDIT_MAPPING && selectedIndex >= 0 && selectedIndex < (int)subset.size())
+        {
+            ofTexture tex = contents.getTextureById(subset[selectedIndex]->contentId);
+            subset[selectedIndex]->draw(tex, ofGetWidth(), ofGetHeight());
+        }
+        else if (editMode == EDIT_TEXTURE && selectedIndex >= 0 && selectedIndex < (int)subset.size())
+        {
+            ofTexture tex = contents.getTextureById(subset[selectedIndex]->contentId);
+            tex.draw(0, 0, ofGetWidth(), ofGetHeight());
+        }
+    }
+
+    void drawDebug()
+    {
+        vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(targetPeerId);
+
+        if (editMode != EDIT_NONE && selectedIndex >= 0 && selectedIndex < (int)subset.size())
+        {
+            subset[selectedIndex]->drawDebug(ofGetWidth(), ofGetHeight(), editMode);
+        }
+    }
+
+    // [NEW] Resize Surface
+    void resizeSurface(string peerId, int surfIdx, int dRow, int dCol, Network &net)
+    {
+        vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(peerId);
+        if (surfIdx >= 0 && surfIdx < (int)subset.size())
+        {
+            auto s = subset[surfIdx];
+            // Calculate new size
+            int nr = s->rows + dRow;
+            int nc = s->cols + dCol;
+
+            // Enforce logic: Min 1 (which UI displays as 0)
+            if (nr < 1)
+                nr = 1;
+            if (nc < 1)
+                nc = 1;
+
+            s->setGridSize(nr, nc);
+
+            // Important: Deselect point if it's now out of bounds to avoid crashes
+            s->selectedPoint = -1;
+
+            // Sync structure (Resizing is a structural change)
+            sync(net);
+        }
+    }
+
+    // Inside WarpController class
+    void swapLayerOrder(string owner, int index1, int index2, Network &net)
+    {
+        // 1. Get the current subset to identify which surfaces we are talking about
+        vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(owner);
+
+        // 2. Validate indices
+        if (index1 < 0 || index1 >= (int)subset.size() || index2 < 0 || index2 >= (int)subset.size())
+            return;
+
+        // 3. Find these specific surfaces in the main 'allSurfaces' list
+        auto it1 = std::find(allSurfaces.begin(), allSurfaces.end(), subset[index1]);
+        auto it2 = std::find(allSurfaces.begin(), allSurfaces.end(), subset[index2]);
+
+        // 4. Swap them if both exist
+        if (it1 != allSurfaces.end() && it2 != allSurfaces.end())
+        {
+            std::iter_swap(it1, it2);
+
+            // 5. Update selectedIndex so the highlight follows the item
+            if (selectedIndex == index1)
+                selectedIndex = index2;
+            else if (selectedIndex == index2)
+                selectedIndex = index1;
+
+            // 6. Sync changes to network and disk
+            sync(net);
+        }
+    }
+
+    void addLayer(string owner, Network *net)
+    {
+        auto s = make_shared<WarpSurface>(owner);
+        allSurfaces.push_back(s);
+        vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(owner);
+        selectedIndex = (int)subset.size() - 1;
+        if (net)
+            sync(*net);
+    }
+
+    void reset()
+    {
+        selectedIndex = 0;
+        editMode = EDIT_NONE;
+    }
+
+    void removeLayer(string owner, Network *net)
+    {
+        vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(owner);
+        if (subset.empty())
+            return;
+        if (selectedIndex >= 0 && selectedIndex < (int)subset.size())
+        {
+            string idToRemove = subset[selectedIndex]->id;
+            removeLayerById(idToRemove, net);
+        }
+    }
+
+    void removeLayerById(string idToRemove, Network *net)
+    {
+
+        for (auto it = allSurfaces.begin(); it != allSurfaces.end();)
+        {
+            if ((*it)->id == idToRemove)
+                it = allSurfaces.erase(it);
+            else
+                ++it;
+        }
+        selectedIndex = max(0, selectedIndex - 1);
+        if (net)
+            sync(*net);
+    }
+
+    void mousePressed(int x, int y, Network &net)
+    {
+        if (!net.isMaster)
+            return;
+        lastMouse = glm::vec2(x, y);
+
+        vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(targetPeerId);
+        if (selectedIndex >= 0 && selectedIndex < (int)subset.size())
+        {
+            auto s = subset[selectedIndex];
+
+            // 1. Try to hit a specific point
+            int hit = s->getHit(x, y, ofGetWidth(), ofGetHeight(), editMode);
+            if (hit != -1)
+            {
+                s->selectedPoint = hit;
+            }
+            // 2. If Modifier held + clicked inside body, select the "Whole Surface" (ID -2)
+            else if ((ofGetKeyPressed(OF_KEY_SHIFT) || ofGetKeyPressed(OF_KEY_ALT)) &&
+                     s->contains(x, y, ofGetWidth(), ofGetHeight(), editMode))
+            {
+                s->selectedPoint = -2;
+            }
+        }
+    }
+
+    void mouseDragged(int x, int y, Network &net)
+    {
+        if (!net.isMaster)
+            return;
+
+        vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(targetPeerId);
+        if (selectedIndex >= 0 && selectedIndex < (int)subset.size())
+        {
+            auto s = subset[selectedIndex];
+
+            // Allow drag if we grabbed a point OR the whole surface (-2)
+            if (s->selectedPoint != -1)
+            {
+                float dx = (x - lastMouse.x) / (float)ofGetWidth();
+                float dy = (y - lastMouse.y) / (float)ofGetHeight();
+
+                // --- MOVE ALL ---
+                if (ofGetKeyPressed(OF_KEY_SHIFT))
+                {
+                    s->moveAll(dx, dy, editMode);
+                    net.sendWarpMoveAll(s->ownerId, selectedIndex, editMode, dx, dy);
+                }
+                // --- SCALE ALL ---
+                else if (ofGetKeyPressed(OF_KEY_ALT))
+                {
+                    auto &verts = (editMode == EDIT_TEXTURE) ? s->sourceMesh.getVertices() : s->renderMesh.getVertices();
+                    glm::vec2 centroid(0, 0);
+                    for (auto &v : verts)
+                        centroid += glm::vec2(v.x, v.y);
+                    if (!verts.empty())
+                        centroid /= (float)verts.size();
+
+                    float scaleFactor = 1.0f + (dx + dy);
+                    s->scaleAll(scaleFactor, centroid, editMode);
+                    net.sendWarpScaleAll(s->ownerId, selectedIndex, editMode, scaleFactor, centroid.x, centroid.y);
+                }
+                // --- SINGLE POINT (Only if a real point index is selected) ---
+                else if (s->selectedPoint >= 0)
+                {
+                    float nx = ofClamp((float)x / ofGetWidth(), 0, 1);
+                    float ny = ofClamp((float)y / ofGetHeight(), 0, 1);
+                    s->updatePoint(s->selectedPoint, nx, ny, editMode);
+                    net.sendWarp(s->ownerId, selectedIndex, editMode, s->selectedPoint, nx, ny);
+                }
+            }
+        }
+        lastMouse = glm::vec2(x, y);
+    }
+
+    void mouseReleased(Network &net)
+    {
+        if (!net.isMaster)
+            return;
+        vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(targetPeerId);
+        if (selectedIndex >= 0 && selectedIndex < (int)subset.size())
+        {
+            if (subset[selectedIndex]->selectedPoint != -1)
+            {
+                subset[selectedIndex]->selectedPoint = -1;
+                sync(net);
+            }
+        }
+    }
+
+    void sync(Network &net)
+    {
+        ofJson root;
+        map<string, ofJson> groups;
+        for (auto &s : allSurfaces)
+            groups[s->ownerId].push_back(s->toJson());
+        for (auto &kv : groups)
+            root["peers"][kv.first] = kv.second;
+        string jStr = root.dump();
+        ofSaveJson(savePath, root);
+        net.sendStructure(jStr);
+    }
+
+    void loadJson(string jStr)
+    {
+        try
+        {
+            ofJson root = ofJson::parse(jStr);
+            allSurfaces.clear();
+            if (root.contains("peers"))
+            {
+                for (auto &peerItem : root["peers"].items())
+                {
+                    string owner = peerItem.key();
+                    for (auto &layerItem : peerItem.value())
+                    {
+                        auto s = make_shared<WarpSurface>(owner);
+                        s->fromJson(layerItem);
+                        allSurfaces.push_back(s);
+                    }
+                }
+            }
+            else if (root.contains("layers"))
+            {
+                for (auto &item : root["layers"])
+                {
+                    auto s = make_shared<WarpSurface>(myPeerId);
+                    s->fromJson(item);
+                    allSurfaces.push_back(s);
+                }
+            }
+            selectedIndex = 0;
+        }
+        catch (...)
+        {
+            ofLogError() << "JSON Parse Error";
+        }
+    }
+
+    void updatePeerPoint(string owner, int idx, int mode, int pt, float x, float y)
+    {
+        vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(owner);
+        if (idx < (int)subset.size())
+            subset[idx]->updatePoint(pt, x, y, mode);
+    }
+};
