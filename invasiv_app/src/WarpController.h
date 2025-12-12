@@ -61,6 +61,7 @@ class VideoContent : public Content
 {
 private:
     ofVideoPlayer video;
+    ofTexture tex;
 
 public:
     void setup(string filename)
@@ -70,6 +71,7 @@ public:
             ofLogNotice("VideoContent") << "Loading video: " << filename;
 
             // OPTIMIZATION: Use RGBA to avoid heavy CPU YUV->RGB conversion
+
             video.setPixelFormat(OF_PIXELS_RGBA);
 
             video.load(filename);
@@ -85,7 +87,9 @@ public:
     void start() override
     {
         if (!video.isPlaying())
+        {
             video.play();
+        }
     }
 
     void stop() override
@@ -96,14 +100,19 @@ public:
 
     void update() override
     {
+
         video.update();
+        if (video.isInitialized())
+        {
+            tex = video.getTexture();
+        }
     }
 
     ofTexture getTexture() override
     {
-        if (video.isInitialized())
+        if (tex.isAllocated())
         {
-            return video.getTexture();
+            return tex;
         }
         else
         {
@@ -291,18 +300,14 @@ public:
     void draw()
     {
         vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(targetPeerId);
-        if (editMode == EDIT_NONE)
+        if (editMode != EDIT_TEXTURE)
         {
             for (size_t i = 0; i < subset.size(); i++)
             {
+                bool faded = editMode == EDIT_MAPPING && selectedIndex != i;
                 ofTexture tex = contents.getTextureById(subset[i]->contentId);
-                subset[i]->draw(tex, ofGetWidth(), ofGetHeight());
+                subset[i]->draw(tex, ofGetWidth(), ofGetHeight(), faded);
             }
-        }
-        else if (editMode == EDIT_MAPPING && selectedIndex >= 0 && selectedIndex < (int)subset.size())
-        {
-            ofTexture tex = contents.getTextureById(subset[selectedIndex]->contentId);
-            subset[selectedIndex]->draw(tex, ofGetWidth(), ofGetHeight());
         }
         else if (editMode == EDIT_TEXTURE && selectedIndex >= 0 && selectedIndex < (int)subset.size())
         {
