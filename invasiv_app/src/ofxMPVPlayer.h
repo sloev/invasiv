@@ -17,7 +17,10 @@ public:
         mpv_set_option_string(ctx, "terminal", "yes");
         mpv_set_option_string(ctx, "msg-level", "all=warn");
         mpv_set_option_string(ctx, "vo", "libmpv");
-        mpv_set_option_string(ctx, "hwdec", "auto");
+        
+        // DEBUG: Force software decoding to bypass CUDA errors
+        mpv_set_option_string(ctx, "hwdec", "no");
+        
         mpv_set_option_string(ctx, "loop", "no");
 
         if (mpv_initialize(ctx) < 0) {
@@ -30,16 +33,9 @@ public:
     }
 
     bool load(std::string name) override {
-        if (!ctx) return false;
-        std::string path = ofToDataPath(name, true);
-        const char *cmd[] = {"loadfile", path.c_str(), NULL};
-        if (mpv_command(ctx, cmd) < 0) {
-            ofLogError("ofxMPVPlayer") << "Failed to load: " << path;
-            return false;
-        }
-        bLoaded = true; 
-        bPaused = false;
-        return true;
+        pendingURI = ofToDataPath(name, true);
+        bNeedToLoad = true;
+        return true; 
     }
 
     void loadAsync(std::string name) override {
@@ -61,10 +57,28 @@ public:
     void update() override {
         if (!ctx) return;
 
+        // Check for GL Context & Initialize if needed
         if (!mpv_gl) {
-            initGL();
+            if (glfwGetCurrentContext()) {
+                initGL();
+            }
         }
 
+        if (!mpv_gl) return;
+
+        // Process Pending Load
+        if (bNeedToLoad) {
+            const char *cmd[] = {"loadfile", pendingURI.c_str(), NULL};
+            if (mpv_command(ctx, cmd) < 0) {
+                ofLogError("ofxMPVPlayer") << "Failed to load: " << pendingURI;
+            } else {
+                bLoaded = true;
+                bPaused = false; 
+            }
+            bNeedToLoad = false;
+        }
+
+        // Handle Events
         while (true) {
             mpv_event *event = mpv_wait_event(ctx, 0); 
             if (event->event_id == MPV_EVENT_NONE) break;
@@ -73,21 +87,23 @@ public:
                 long w = 0, h = 0;
                 mpv_get_property(ctx, "width", MPV_FORMAT_INT64, &w);
                 mpv_get_property(ctx, "height", MPV_FORMAT_INT64, &h);
-                if (w > 0 && h > 0 && (fbo.getWidth() != w || fbo.getHeight() != h)) {
-                    fbo.allocate(w, h, GL_RGBA);
-                    fbo.getTexture().setTextureMinMagFilter(GL_LINEAR, GL_LINEAR);
+                
+                if (w > 0 && h > 0) {
+                    if (!fbo.isAllocated() || fbo.getWidth() != w || fbo.getHeight() != h) {
+                        fbo.allocate(w, h, GL_RGB);
+                        fbo.getTexture().setTextureMinMagFilter(GL_LINEAR, GL_LINEAR);
+                    }
                 }
             } 
         }
 
-        if (mpv_gl) {
-            uint64_t flags = mpv_render_context_update(mpv_gl);
-            if (flags & MPV_RENDER_UPDATE_FRAME) {
-                renderFrame();
-                bFrameNew = true;
-            } else {
-                bFrameNew = false;
-            }
+        // Render
+        uint64_t flags = mpv_render_context_update(mpv_gl);
+        if (flags & MPV_RENDER_UPDATE_FRAME) {
+            renderFrame();
+            bFrameNew = true;
+        } else {
+            bFrameNew = false;
         }
     }
 
@@ -164,11 +180,13 @@ public:
     float getWidth() const override { return fbo.getWidth(); }
     float getHeight() const override { return fbo.getHeight(); }
 
-    // ------------------------------------------------------------------
-    // FIX 1: Removed 'override' (not in base class)
-    // ------------------------------------------------------------------
     void draw(float x, float y, float w, float h) {
-        if (fbo.isAllocated()) fbo.draw(x, y, w, h);
+        if (fbo.isAllocated()) {
+            ofPushStyle();
+            ofEnableBlendMode(OF_BLENDMODE_DISABLED);
+            fbo.draw(x, y, w, h);
+            ofPopStyle();
+        }
     }
     
     void draw(float x, float y) {
@@ -179,18 +197,10 @@ public:
         return fbo.isAllocated() ? &fbo.getTexture() : nullptr;
     }
     
-    // ------------------------------------------------------------------
-    // FIX 2: Removed 'override' (not in base class)
-    // ------------------------------------------------------------------
     ofTexture& getTexture() {
         return fbo.getTexture();
     }
 
-    // ------------------------------------------------------------------
-    // FIX 3: Implemented Pure Virtuals from ofBaseHasPixels
-    // ------------------------------------------------------------------
-    
-    // Must be const and return const reference
     const ofPixels& getPixels() const override {
         static ofPixels dummy;
         return dummy; 
@@ -203,7 +213,7 @@ public:
 
     bool setPixelFormat(ofPixelFormat pixelFormat) override {
         internalPixelFormat = pixelFormat;
-        return true; // We accept it, even if we ignore it for texture rendering
+        return true;
     }
 
     ofPixelFormat getPixelFormat() const override {
@@ -219,7 +229,11 @@ private:
     bool bLoaded = false;
     bool bPaused = false;
     bool bFrameNew = false;
-    ofPixelFormat internalPixelFormat = OF_PIXELS_RGBA; // Default
+    
+    std::string pendingURI;
+    bool bNeedToLoad = false;
+    
+    ofPixelFormat internalPixelFormat = OF_PIXELS_RGB;
 
     static void *get_proc_address(void *ctx, const char *name) {
         (void)ctx;
@@ -227,6 +241,8 @@ private:
     }
 
     void initGL() {
+        if (!glfwGetCurrentContext()) return;
+
         mpv_opengl_init_params gl_init_params = {
             .get_proc_address = get_proc_address,
             .get_proc_address_ctx = nullptr,
@@ -247,8 +263,17 @@ private:
         if (!fbo.isAllocated()) return;
         
         fbo.begin();
+        
+        // DEBUG: Clear to RED. 
+        // If you see Red: MPV is failing to draw. 
+        // If you see Black: MPV is drawing black frames.
+        ofClear(255, 0, 0, 255); 
+        
+        // FIX: Pass the explicit FBO ID (int) instead of 0
+        int fbo_id = (int)fbo.getId();
+        
         mpv_opengl_fbo mpv_fbo = {
-            .fbo = (int)0, 
+            .fbo = fbo_id, 
             .w = (int)fbo.getWidth(),
             .h = (int)fbo.getHeight(),
             .internal_format = 0 
