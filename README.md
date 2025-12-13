@@ -45,9 +45,9 @@ sudo apt install libmpv2
 * [x] increment or decrement divisions for horisontal/vertical for each surface
 * [x] reset edit_mode in warp controller on change of surface etc
 * [x] use more efficient double mesh (one for control, one for render)
-* [ ] fix green flickr bug - https://github.com/openframeworks/openFrameworks/issues/8488
-* [ ] maybe move to using mpv player through libmpv
+* [x] fix green flickr bug - https://github.com/openframeworks/openFrameworks/issues/8488
+* [x] maybe move to using mpv player through libmpv
+* [x] make the other surfaces visible, but 50% transparent during editing of a surface
 * [ ] fix bug with shutdown and freeze (introduced after more efficient double mesh)
-* [ ] make the other surfaces visible, but 50% transparent during editing of a surface
 * [ ] introduce a new live_master mode for controlling all the instances and surfaces
 
