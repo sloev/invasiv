@@ -9,6 +9,13 @@ vj and projection mapping software
 
 * openframeworks: MIT -> https://github.com/openframeworks/openFrameworks
 * ofxlua: BSD Simplified License -> https://github.com/danomatika/ofxLua
+* ofxMPVPlayer: https://github.com/PeteHaughie/ofxMPVPlayer
+
+## install
+
+```
+sudo apt install libmpv2
+```
 
 ## FEATURES:
 
@@ -39,6 +46,7 @@ vj and projection mapping software
 * [x] reset edit_mode in warp controller on change of surface etc
 * [x] use more efficient double mesh (one for control, one for render)
 * [ ] fix green flickr bug - https://github.com/openframeworks/openFrameworks/issues/8488
+* [ ] maybe move to using mpv player through libmpv
 * [ ] fix bug with shutdown and freeze (introduced after more efficient double mesh)
 * [ ] make the other surfaces visible, but 50% transparent during editing of a surface
 * [ ] introduce a new live_master mode for controlling all the instances and surfaces

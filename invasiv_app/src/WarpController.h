@@ -3,6 +3,7 @@
 #include "WarpSurface.h"
 #include "Network.h"
 #include <unordered_set>
+#include "ofxMPVPlayer.h"
 
 #define DEFAULT_CONTENT "default"
 
@@ -16,7 +17,9 @@ public:
         static TestTexture instance;
         return instance;
     }
-    ofTexture getTexture()
+
+    // CHANGE: Returns reference now
+    ofTexture& getTexture()
     {
         if (!tex.isAllocated())
         {
@@ -51,7 +54,8 @@ public:
     virtual void stop() {}
     virtual void update() {}
 
-    virtual ofTexture getTexture()
+    // CHANGE: Virtual method now returns reference
+    virtual ofTexture& getTexture()
     {
         return TestTexture::getInstance().getTexture();
     }
@@ -60,8 +64,7 @@ public:
 class VideoContent : public Content
 {
 private:
-    ofVideoPlayer video;
-    ofTexture tex;
+    ofxMPVPlayer video;
 
 public:
     void setup(string filename)
@@ -70,9 +73,8 @@ public:
         {
             ofLogNotice("VideoContent") << "Loading video: " << filename;
 
-            // OPTIMIZATION: Use RGBA to avoid heavy CPU YUV->RGB conversion
-
-            video.setPixelFormat(OF_PIXELS_RGBA);
+            // NOTE: setPixelFormat is not needed/supported for this texture-only player.
+            // It runs natively in RGBA/RGB on the GPU.
 
             video.load(filename);
             video.setLoopState(OF_LOOP_NORMAL);
@@ -86,33 +88,33 @@ public:
 
     void start() override
     {
-        if (!video.isPlaying())
-        {
+        // Simply unpausing is safer than calling play() blindly
+        if (video.isPaused()) {
+            video.setPaused(false);
+        } else if (!video.isPlaying()) {
             video.play();
         }
     }
 
     void stop() override
     {
-        if (video.isPlaying())
+        if (video.isPlaying()) {
             video.setPaused(true);
+            video.setPosition(0); 
+        }
     }
 
     void update() override
     {
-
         video.update();
-        if (video.isInitialized())
-        {
-            tex = video.getTexture();
-        }
     }
 
-    ofTexture getTexture() override
+    // CHANGE: Returns reference and checks width
+    ofTexture& getTexture() override
     {
-        if (tex.isAllocated())
+        if (video.getWidth() > 0)
         {
-            return tex;
+            return video.getTexture();
         }
         else
         {
@@ -125,9 +127,6 @@ class ContentManager
 {
 private:
     std::map<std::string, std::shared_ptr<Content>> contents;
-
-    // FIX: Use Frame Number tracking instead of swapping sets
-    // This prevents "flickering" play/pause states which cause stutter
     std::map<std::string, uint64_t> lastUsedFrame;
 
 public:
@@ -152,7 +151,7 @@ public:
             return false;
         ofLogNotice("ContentManager") << "Registered content: " << id;
         contents[id] = c;
-        lastUsedFrame[id] = ofGetFrameNum(); // Mark as used immediately so it starts
+        lastUsedFrame[id] = ofGetFrameNum(); 
         return true;
     }
 
@@ -187,7 +186,6 @@ public:
             if (diskFiles.find(it->first) == diskFiles.end())
             {
                 ofLogNotice("ContentManager") << "Removing deleted video: " << it->first;
-                // Clean up tracking map
                 lastUsedFrame.erase(it->first);
                 it = contents.erase(it);
             }
@@ -198,12 +196,12 @@ public:
         }
     }
 
-    ofTexture getTextureById(std::string id)
+    // CHANGE: Returns reference
+    ofTexture& getTextureById(std::string id)
     {
         if (!contents.count(id))
             id = DEFAULT_CONTENT;
 
-        // Mark this content as "active" right now
         lastUsedFrame[id] = ofGetFrameNum();
 
         return contents[id]->getTexture();
@@ -223,16 +221,13 @@ public:
                 continue;
             }
 
-            // Check if used recently (within last 120 frames / 2 seconds)
-            // This buffer prevents stuttering if draw() skips a frame or logic lags
             if (currentFrame - lastUsedFrame[id] < 120)
             {
-                kv.second->start();  // Ensure playing
-                kv.second->update(); // Decode next frame
+                kv.second->start();  
+                kv.second->update(); 
             }
             else
             {
-                // If not used for 2 seconds, pause to save CPU
                 kv.second->stop();
             }
         }
@@ -284,14 +279,13 @@ public:
         return contents.getContentNames();
     }
 
-    // [NEW] Set content and trigger sync
     void setSurfaceContent(string peerId, int surfIdx, string contentId, Network &net)
     {
         vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(peerId);
         if (surfIdx >= 0 && surfIdx < (int)subset.size())
         {
             subset[surfIdx]->setContentId(contentId);
-            sync(net); // Save to JSON and Broadcast Structure Packet
+            sync(net); 
         }
     }
 
@@ -305,13 +299,18 @@ public:
             for (size_t i = 0; i < subset.size(); i++)
             {
                 bool faded = editMode == EDIT_MAPPING && selectedIndex != i;
-                ofTexture tex = contents.getTextureById(subset[i]->contentId);
+                
+                // CHANGE: Capture by reference to avoid copy
+                ofTexture& tex = contents.getTextureById(subset[i]->contentId);
+                
                 subset[i]->draw(tex, ofGetWidth(), ofGetHeight(), faded);
             }
         }
         else if (editMode == EDIT_TEXTURE && selectedIndex >= 0 && selectedIndex < (int)subset.size())
         {
-            ofTexture tex = contents.getTextureById(subset[selectedIndex]->contentId);
+            // CHANGE: Capture by reference to avoid copy
+            ofTexture& tex = contents.getTextureById(subset[selectedIndex]->contentId);
+            
             tex.draw(0, 0, ofGetWidth(), ofGetHeight());
         }
     }
@@ -326,59 +325,44 @@ public:
         }
     }
 
-    // [NEW] Resize Surface
     void resizeSurface(string peerId, int surfIdx, int dRow, int dCol, Network &net)
     {
         vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(peerId);
         if (surfIdx >= 0 && surfIdx < (int)subset.size())
         {
             auto s = subset[surfIdx];
-            // Calculate new size
             int nr = s->rows + dRow;
             int nc = s->cols + dCol;
 
-            // Enforce logic: Min 1 (which UI displays as 0)
-            if (nr < 1)
-                nr = 1;
-            if (nc < 1)
-                nc = 1;
+            if (nr < 1) nr = 1;
+            if (nc < 1) nc = 1;
 
             s->setGridSize(nr, nc);
-
-            // Important: Deselect point if it's now out of bounds to avoid crashes
             s->selectedPoint = -1;
 
-            // Sync structure (Resizing is a structural change)
             sync(net);
         }
     }
 
-    // Inside WarpController class
     void swapLayerOrder(string owner, int index1, int index2, Network &net)
     {
-        // 1. Get the current subset to identify which surfaces we are talking about
         vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(owner);
 
-        // 2. Validate indices
         if (index1 < 0 || index1 >= (int)subset.size() || index2 < 0 || index2 >= (int)subset.size())
             return;
 
-        // 3. Find these specific surfaces in the main 'allSurfaces' list
         auto it1 = std::find(allSurfaces.begin(), allSurfaces.end(), subset[index1]);
         auto it2 = std::find(allSurfaces.begin(), allSurfaces.end(), subset[index2]);
 
-        // 4. Swap them if both exist
         if (it1 != allSurfaces.end() && it2 != allSurfaces.end())
         {
             std::iter_swap(it1, it2);
 
-            // 5. Update selectedIndex so the highlight follows the item
             if (selectedIndex == index1)
                 selectedIndex = index2;
             else if (selectedIndex == index2)
                 selectedIndex = index1;
 
-            // 6. Sync changes to network and disk
             sync(net);
         }
     }
@@ -437,13 +421,11 @@ public:
         {
             auto s = subset[selectedIndex];
 
-            // 1. Try to hit a specific point
             int hit = s->getHit(x, y, ofGetWidth(), ofGetHeight(), editMode);
             if (hit != -1)
             {
                 s->selectedPoint = hit;
             }
-            // 2. If Modifier held + clicked inside body, select the "Whole Surface" (ID -2)
             else if ((ofGetKeyPressed(OF_KEY_SHIFT) || ofGetKeyPressed(OF_KEY_ALT)) &&
                      s->contains(x, y, ofGetWidth(), ofGetHeight(), editMode))
             {
@@ -462,19 +444,16 @@ public:
         {
             auto s = subset[selectedIndex];
 
-            // Allow drag if we grabbed a point OR the whole surface (-2)
             if (s->selectedPoint != -1)
             {
                 float dx = (x - lastMouse.x) / (float)ofGetWidth();
                 float dy = (y - lastMouse.y) / (float)ofGetHeight();
 
-                // --- MOVE ALL ---
                 if (ofGetKeyPressed(OF_KEY_SHIFT))
                 {
                     s->moveAll(dx, dy, editMode);
                     net.sendWarpMoveAll(s->ownerId, selectedIndex, editMode, dx, dy);
                 }
-                // --- SCALE ALL ---
                 else if (ofGetKeyPressed(OF_KEY_ALT))
                 {
                     auto &verts = (editMode == EDIT_TEXTURE) ? s->sourceMesh.getVertices() : s->renderMesh.getVertices();
@@ -488,7 +467,6 @@ public:
                     s->scaleAll(scaleFactor, centroid, editMode);
                     net.sendWarpScaleAll(s->ownerId, selectedIndex, editMode, scaleFactor, centroid.x, centroid.y);
                 }
-                // --- SINGLE POINT (Only if a real point index is selected) ---
                 else if (s->selectedPoint >= 0)
                 {
                     float nx = ofClamp((float)x / ofGetWidth(), 0, 1);

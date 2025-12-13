@@ -1,4 +1,5 @@
-FROM ubuntu:24.04
+FROM ubuntu:24.04@sha256:c35e29c9450151419d9448b0fd75374fec4fff364a27f176fb458d472dfc9e54
+# 24.04 @ Nov 15, 2025 at 1:04 pm
 
 RUN apt-get update -y && apt-get install -y software-properties-common && add-apt-repository universe
 # add missing dependencies needed by openframeworks
@@ -24,6 +25,9 @@ RUN \
     # and clean up the apt cache
     rm -rf /var/lib/apt/lists/*
 
+RUN apt-get update -y && apt-get install -y gcc
+RUN apt-get update -y && apt-get install -y swig
+RUN apt-get update -y && apt-get install -y libmpv-dev
 
 RUN curl -fsSL https://github.com/b1f6c1c4/git-get/releases/latest/download/git-get.tar.xz | /bin/tar -C /usr -xJv
 
@@ -44,24 +48,22 @@ RUN cd of/scripts/linux && ./compileOF.sh -j3
 RUN cd of/scripts/linux && ./compilePG.sh 
 RUN of/apps/projectGenerator/commandLine/bin/projectGenerator -r -o"./of" examples
 
-ARG OFXLUA_SHA=4a43956
+# ARG OFXLUA_SHA=4a43956
 
-RUN git gets -H -v -Y  https://github.com/danomatika/ofxLua/commit/${OFXLUA_SHA} -o /of/addons/ofxLua
-RUN cp -r of/addons/ofxLua/luaExample/ of/apps/myApps/luaExample/
+# RUN git gets -H -v -Y  https://github.com/danomatika/ofxLua/commit/${OFXLUA_SHA} -o /of/addons/ofxLua
+# RUN cp -r of/addons/ofxLua/luaExample/ of/apps/myApps/luaExample/
 
-RUN cd of/ && /of/apps/projectGenerator/commandLine/bin/projectGenerator -r -o"." apps/myApps/luaExample/
-RUN cd of/apps/myApps/luaExample/ && make
+# RUN cd of/ && /of/apps/projectGenerator/commandLine/bin/projectGenerator -r -o"." apps/myApps/luaExample/
+# RUN cd of/apps/myApps/luaExample/ && make
 
-ARG OFXZMQ_SHA=b46c8cd
+# ARG OFXZMQ_SHA=b46c8cd
 
-RUN git gets -H -v -Y  https://github.com/funatsufumiya/ofxZmq/commit/${OFXZMQ_SHA} -o /of/addons/ofxZmq
-RUN cp -r of/addons/ofxZmq/example-basic/ of/apps/myApps/zmqExample/
+# RUN git gets -H -v -Y  https://github.com/funatsufumiya/ofxZmq/commit/${OFXZMQ_SHA} -o /of/addons/ofxZmq
+# RUN cp -r of/addons/ofxZmq/example-basic/ of/apps/myApps/zmqExample/
 
-RUN apt-get install gcc
-RUN cd of/ && /of/apps/projectGenerator/commandLine/bin/projectGenerator -r -o"." apps/myApps/zmqExample/
-RUN cd of/apps/myApps/zmqExample/ && make
+# RUN cd of/ && /of/apps/projectGenerator/commandLine/bin/projectGenerator -r -o"." apps/myApps/zmqExample/
+# RUN cd of/apps/myApps/zmqExample/ && make
 
-RUN apt-get update -y && apt-get install -y swig
 
 # ADD ./loaf of/apps/myApps/loaf
 
