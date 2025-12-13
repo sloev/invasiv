@@ -3,29 +3,22 @@
 #include "ofMain.h"
 #include <mpv/client.h>
 #include <mpv/render_gl.h>
-#include <GLFW/glfw3.h> // Required for glfwGetProcAddress
-
-// ----------------------------------------------------------------------
-// ofxMPVPlayer: A high-performance, texture-only video player for OF
-// Wraps libmpv directly.
-// ----------------------------------------------------------------------
+#include <GLFW/glfw3.h> 
 
 class ofxMPVPlayer : public ofBaseVideoPlayer {
 public:
     ofxMPVPlayer() {
-        // 1. Create the basic mpv instance
         ctx = mpv_create();
         if (!ctx) {
             ofLogError("ofxMPVPlayer") << "Failed to create mpv instance";
             return;
         }
 
-        // 2. Set base options for performance
         mpv_set_option_string(ctx, "terminal", "yes");
         mpv_set_option_string(ctx, "msg-level", "all=warn");
         mpv_set_option_string(ctx, "vo", "libmpv");
-        mpv_set_option_string(ctx, "hwdec", "auto"); // Hardware decoding
-        mpv_set_option_string(ctx, "loop", "no");    // Default no loop
+        mpv_set_option_string(ctx, "hwdec", "auto");
+        mpv_set_option_string(ctx, "loop", "no");
 
         if (mpv_initialize(ctx) < 0) {
             ofLogError("ofxMPVPlayer") << "Failed to initialize mpv";
@@ -36,31 +29,21 @@ public:
         close();
     }
 
-    // ------------------------------------------------------------------
-    // Core ofBaseVideoPlayer Implementation
-    // ------------------------------------------------------------------
-
     bool load(std::string name) override {
         if (!ctx) return false;
-        
-        // Sanitize path (mpv expects absolute paths or correct relative ones)
         std::string path = ofToDataPath(name, true);
-        
         const char *cmd[] = {"loadfile", path.c_str(), NULL};
         if (mpv_command(ctx, cmd) < 0) {
             ofLogError("ofxMPVPlayer") << "Failed to load: " << path;
             return false;
         }
-
-        // We don't know if it's truly loaded until events fire, 
-        // but for API compatibility we assume yes if command sent.
         bLoaded = true; 
         bPaused = false;
         return true;
     }
 
     void loadAsync(std::string name) override {
-        load(name); // mpv is inherently async
+        load(name);
     }
 
     void close() override {
@@ -78,18 +61,15 @@ public:
     void update() override {
         if (!ctx) return;
 
-        // 1. Late Initialization of GL Context (Must happen in a thread with active GL context)
         if (!mpv_gl) {
             initGL();
         }
 
-        // 2. Handle MPV Events
         while (true) {
-            mpv_event *event = mpv_wait_event(ctx, 0); // 0 = non-blocking
+            mpv_event *event = mpv_wait_event(ctx, 0); 
             if (event->event_id == MPV_EVENT_NONE) break;
             
             if (event->event_id == MPV_EVENT_VIDEO_RECONFIG) {
-                // Resize FBO if video dimensions changed
                 long w = 0, h = 0;
                 mpv_get_property(ctx, "width", MPV_FORMAT_INT64, &w);
                 mpv_get_property(ctx, "height", MPV_FORMAT_INT64, &h);
@@ -97,14 +77,10 @@ public:
                     fbo.allocate(w, h, GL_RGBA);
                     fbo.getTexture().setTextureMinMagFilter(GL_LINEAR, GL_LINEAR);
                 }
-            } else if (event->event_id == MPV_EVENT_END_FILE) {
-               // Handle EOS if needed
-            }
+            } 
         }
 
-        // 3. Check if we need to redraw
         if (mpv_gl) {
-            // Tells mpv to render the frame if it has changed
             uint64_t flags = mpv_render_context_update(mpv_gl);
             if (flags & MPV_RENDER_UPDATE_FRAME) {
                 renderFrame();
@@ -136,8 +112,6 @@ public:
         bPaused = bPause;
     }
 
-    // MPV uses 0.0 to 1.0 for Position? No, MPV usually does seek by seconds or %
-    // ofBaseVideoPlayer expects 0.0 - 1.0
     void setPosition(float pct) override {
         if (!ctx) return;
         double duration = getDuration();
@@ -172,8 +146,6 @@ public:
 
     void setLoopState(ofLoopType state) override {
         if (!ctx) return;
-        // MPV supports "no" (none), "inf" (loop), "force" (force)
-        // Palindrome is not natively simple, defaulting to Loop for Normal/Palindrome
         std::string val = (state == OF_LOOP_NONE) ? "no" : "inf";
         mpv_set_option_string(ctx, "loop", val.c_str());
     }
@@ -184,23 +156,22 @@ public:
         mpv_set_property(ctx, "speed", MPV_FORMAT_DOUBLE, &s);
     }
 
-    // ------------------------------------------------------------------
-    // Texture & Drawing
-    // ------------------------------------------------------------------
-
     bool isFrameNew() const override { return bFrameNew; }
     bool isLoaded() const override { return bLoaded; }
-    bool isPlaying() const override { return !bPaused; } // Approximate
+    bool isPlaying() const override { return !bPaused; }
     bool isPaused() const override { return bPaused; }
 
     float getWidth() const override { return fbo.getWidth(); }
     float getHeight() const override { return fbo.getHeight(); }
 
-    void draw(float x, float y, float w, float h) override {
+    // ------------------------------------------------------------------
+    // FIX 1: Removed 'override' (not in base class)
+    // ------------------------------------------------------------------
+    void draw(float x, float y, float w, float h) {
         if (fbo.isAllocated()) fbo.draw(x, y, w, h);
     }
     
-    void draw(float x, float y) override {
+    void draw(float x, float y) {
         draw(x, y, getWidth(), getHeight());
     }
 
@@ -208,19 +179,37 @@ public:
         return fbo.isAllocated() ? &fbo.getTexture() : nullptr;
     }
     
-    ofTexture& getTexture() override {
+    // ------------------------------------------------------------------
+    // FIX 2: Removed 'override' (not in base class)
+    // ------------------------------------------------------------------
+    ofTexture& getTexture() {
         return fbo.getTexture();
     }
 
-    // This is a Texture-only player. Pixel access is slow and not implemented.
-    ofPixels& getPixels() override {
+    // ------------------------------------------------------------------
+    // FIX 3: Implemented Pure Virtuals from ofBaseHasPixels
+    // ------------------------------------------------------------------
+    
+    // Must be const and return const reference
+    const ofPixels& getPixels() const override {
         static ofPixels dummy;
         return dummy; 
     }
     
-    bool usePixels() { return false; } // Hint to OF that we don't use pixels
+    ofPixels& getPixels() override {
+        static ofPixels dummy;
+        return dummy;
+    }
 
-    // Access to raw MPV handle if needed for advanced commands
+    bool setPixelFormat(ofPixelFormat pixelFormat) override {
+        internalPixelFormat = pixelFormat;
+        return true; // We accept it, even if we ignore it for texture rendering
+    }
+
+    ofPixelFormat getPixelFormat() const override {
+        return internalPixelFormat;
+    }
+
     mpv_handle* getMPV() { return ctx; }
 
 private:
@@ -230,8 +219,8 @@ private:
     bool bLoaded = false;
     bool bPaused = false;
     bool bFrameNew = false;
+    ofPixelFormat internalPixelFormat = OF_PIXELS_RGBA; // Default
 
-    // Static wrapper for GLFW proc address
     static void *get_proc_address(void *ctx, const char *name) {
         (void)ctx;
         return (void *)glfwGetProcAddress(name);
@@ -258,17 +247,14 @@ private:
         if (!fbo.isAllocated()) return;
         
         fbo.begin();
-        // Don't clear alpha, let video fill it.
-        // Standard video is usually opaque, but if using alpha formats, be careful.
-        
         mpv_opengl_fbo mpv_fbo = {
-            .fbo = (int)0, // 0 because we are inside fbo.begin(), so 0 is the bound FBO
+            .fbo = (int)0, 
             .w = (int)fbo.getWidth(),
             .h = (int)fbo.getHeight(),
             .internal_format = 0 
         };
 
-        int flip_y = 1; // OF FBOs are usually flipped relative to what MPV expects
+        int flip_y = 1; 
 
         mpv_render_param params[] = {
             {MPV_RENDER_PARAM_OPENGL_FBO, &mpv_fbo},
