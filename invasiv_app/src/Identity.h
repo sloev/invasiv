@@ -4,6 +4,7 @@
 class Identity {
 public:
     string myId;
+    bool fullscreen = false;
     string configPath;
 
     void setup(string _configPath) {
@@ -16,6 +17,10 @@ public:
             if(config.contains("identity") && config["identity"].contains("id")) {
                 myId = config["identity"]["id"].get<string>();
             }
+            if(config.contains("fullscreen")) {
+                fullscreen = config["fullscreen"].get<bool>();
+                ofSetFullscreen(fullscreen);
+            }
         }
 
         if(myId.length() != 8) {
@@ -27,9 +32,16 @@ public:
         }
     }
     
+    void toggleFullscreen() {
+        fullscreen = !fullscreen;
+        ofSetFullscreen(fullscreen);
+        save();
+    }
+    
     void save() {
         ofJson config;
         config["identity"]["id"] = myId;
+        config["fullscreen"] = fullscreen;
         ofSaveJson(configPath, config);
     }
 

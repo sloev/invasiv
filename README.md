@@ -48,6 +48,8 @@ sudo apt install libmpv2
 * [x] fix green flickr bug - https://github.com/openframeworks/openFrameworks/issues/8488
 * [x] maybe move to using mpv player through libmpv
 * [x] make the other surfaces visible, but 50% transparent during editing of a surface
+* [x] always be either mapping editing or texture editing if in master mode
+* [x] implement persistant fullscreen toggle
 * [ ] fix bug with shutdown and freeze (introduced after more efficient double mesh)
 * [ ] introduce a new live_master mode for controlling all the instances and surfaces
 

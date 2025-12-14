@@ -19,7 +19,7 @@ public:
     }
 
     // CHANGE: Returns reference now
-    ofTexture& getTexture()
+    ofTexture &getTexture()
     {
         if (!tex.isAllocated())
         {
@@ -55,7 +55,7 @@ public:
     virtual void update() {}
 
     // CHANGE: Virtual method now returns reference
-    virtual ofTexture& getTexture()
+    virtual ofTexture &getTexture()
     {
         return TestTexture::getInstance().getTexture();
     }
@@ -89,18 +89,22 @@ public:
     void start() override
     {
         // Simply unpausing is safer than calling play() blindly
-        if (video.isPaused()) {
+        if (video.isPaused())
+        {
             video.setPaused(false);
-        } else if (!video.isPlaying()) {
+        }
+        else if (!video.isPlaying())
+        {
             video.play();
         }
     }
 
     void stop() override
     {
-        if (video.isPlaying()) {
+        if (video.isPlaying())
+        {
             video.setPaused(true);
-            video.setPosition(0); 
+            video.setPosition(0);
         }
     }
 
@@ -110,7 +114,7 @@ public:
     }
 
     // CHANGE: Returns reference and checks width
-    ofTexture& getTexture() override
+    ofTexture &getTexture() override
     {
         if (video.getWidth() > 0)
         {
@@ -151,7 +155,7 @@ public:
             return false;
         ofLogNotice("ContentManager") << "Registered content: " << id;
         contents[id] = c;
-        lastUsedFrame[id] = ofGetFrameNum(); 
+        lastUsedFrame[id] = ofGetFrameNum();
         return true;
     }
 
@@ -197,7 +201,7 @@ public:
     }
 
     // CHANGE: Returns reference
-    ofTexture& getTextureById(std::string id)
+    ofTexture &getTextureById(std::string id)
     {
         if (!contents.count(id))
             id = DEFAULT_CONTENT;
@@ -223,8 +227,8 @@ public:
 
             if (currentFrame - lastUsedFrame[id] < 120)
             {
-                kv.second->start();  
-                kv.second->update(); 
+                kv.second->start();
+                kv.second->update();
             }
             else
             {
@@ -240,7 +244,7 @@ public:
     vector<shared_ptr<WarpSurface>> allSurfaces;
     ContentManager contents;
     int selectedIndex = 0;
-    int editMode = EDIT_NONE;
+    int editMode = EDIT_MAPPING;
     glm::vec2 lastMouse;
     string savePath;
     string mediaPath;
@@ -285,7 +289,7 @@ public:
         if (surfIdx >= 0 && surfIdx < (int)subset.size())
         {
             subset[surfIdx]->setContentId(contentId);
-            sync(net); 
+            sync(net);
         }
     }
 
@@ -294,30 +298,39 @@ public:
     void draw()
     {
         vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(targetPeerId);
-        if (editMode != EDIT_TEXTURE)
+
+        for (size_t i = 0; i < subset.size(); i++)
         {
-            for (size_t i = 0; i < subset.size(); i++)
-            {
-                bool faded = editMode == EDIT_MAPPING && selectedIndex != i;
-                
-                // CHANGE: Capture by reference to avoid copy
-                ofTexture& tex = contents.getTextureById(subset[i]->contentId);
-                
-                subset[i]->draw(tex, ofGetWidth(), ofGetHeight(), faded);
-            }
-        }
-        else if (editMode == EDIT_TEXTURE && selectedIndex >= 0 && selectedIndex < (int)subset.size())
-        {
+
             // CHANGE: Capture by reference to avoid copy
-            ofTexture& tex = contents.getTextureById(subset[selectedIndex]->contentId);
-            
-            tex.draw(0, 0, ofGetWidth(), ofGetHeight());
+            ofTexture &tex = contents.getTextureById(subset[i]->contentId);
+
+            subset[i]->draw(tex, ofGetWidth(), ofGetHeight());
         }
     }
 
     void drawDebug()
     {
         vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(targetPeerId);
+        if (editMode != EDIT_TEXTURE)
+        {
+            for (size_t i = 0; i < subset.size(); i++)
+            {
+                bool faded = editMode == EDIT_MAPPING && selectedIndex != i;
+
+                // CHANGE: Capture by reference to avoid copy
+                ofTexture &tex = contents.getTextureById(subset[i]->contentId);
+
+                subset[i]->draw(tex, ofGetWidth(), ofGetHeight(), faded);
+            }
+        }
+        else if (editMode == EDIT_TEXTURE && selectedIndex >= 0 && selectedIndex < (int)subset.size())
+        {
+            // CHANGE: Capture by reference to avoid copy
+            ofTexture &tex = contents.getTextureById(subset[selectedIndex]->contentId);
+
+            tex.draw(0, 0, ofGetWidth(), ofGetHeight());
+        }
 
         if (editMode != EDIT_NONE && selectedIndex >= 0 && selectedIndex < (int)subset.size())
         {
@@ -334,8 +347,10 @@ public:
             int nr = s->rows + dRow;
             int nc = s->cols + dCol;
 
-            if (nr < 1) nr = 1;
-            if (nc < 1) nc = 1;
+            if (nr < 1)
+                nr = 1;
+            if (nc < 1)
+                nc = 1;
 
             s->setGridSize(nr, nc);
             s->selectedPoint = -1;
@@ -380,7 +395,7 @@ public:
     void reset()
     {
         selectedIndex = 0;
-        editMode = EDIT_NONE;
+        editMode = EDIT_MAPPING;
     }
 
     void removeLayer(string owner, Network *net)

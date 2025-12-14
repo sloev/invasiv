@@ -208,7 +208,6 @@ void ofApp::update()
 
 void ofApp::draw()
 {
-    warper.draw();
 
     if (net.isMaster)
     {
@@ -217,6 +216,8 @@ void ofApp::draw()
     }
     else
     {
+        warper.draw();
+
         if (net.hasActiveMaster())
         {
             ofDrawBitmapStringHighlight("Role: PEER | ID: " + identity.myId, 10, 20);
@@ -393,8 +394,8 @@ void ofApp::drawUI()
                 ImGui::EndCombo();
             }
 
-            if (ImGui::Selectable("no edit", warper.editMode == EDIT_NONE))
-                warper.editMode = EDIT_NONE;
+            // if (ImGui::Selectable("no edit", warper.editMode == EDIT_NONE))
+            //     warper.editMode = EDIT_NONE;
             if (ImGui::Selectable("edit texture", warper.editMode == EDIT_TEXTURE))
                 warper.editMode = EDIT_TEXTURE;
             if (ImGui::Selectable("edit mapping", warper.editMode == EDIT_MAPPING))
@@ -472,6 +473,10 @@ void ofApp::mouseReleased(int x, int y, int button)
 
 void ofApp::keyPressed(int key)
 {
+    if (key == 'f')
+    {
+        identity.toggleFullscreen();
+    }
     if (key == 'm')
     {
         warper.reset();
