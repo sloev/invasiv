@@ -18,8 +18,8 @@ public:
         mpv_set_option_string(ctx, "msg-level", "all=warn");
         mpv_set_option_string(ctx, "vo", "libmpv");
         
-        // DEBUG: Force software decoding to bypass CUDA errors
-        mpv_set_option_string(ctx, "hwdec", "no");
+        // CHANGED: Re-enabled Hardware Acceleration
+        mpv_set_option_string(ctx, "hwdec", "auto");
         
         mpv_set_option_string(ctx, "loop", "no");
 
@@ -89,6 +89,7 @@ public:
                 mpv_get_property(ctx, "height", MPV_FORMAT_INT64, &h);
                 
                 if (w > 0 && h > 0) {
+                    // Critical Fix: Use GL_RGB (No Alpha)
                     if (!fbo.isAllocated() || fbo.getWidth() != w || fbo.getHeight() != h) {
                         fbo.allocate(w, h, GL_RGB);
                         fbo.getTexture().setTextureMinMagFilter(GL_LINEAR, GL_LINEAR);
@@ -264,12 +265,10 @@ private:
         
         fbo.begin();
         
-        // DEBUG: Clear to RED. 
-        // If you see Red: MPV is failing to draw. 
-        // If you see Black: MPV is drawing black frames.
-        ofClear(255, 0, 0, 255); 
+        // Critical Fix: Opaque Background
+        ofClear(0, 0, 0, 255); 
         
-        // FIX: Pass the explicit FBO ID (int) instead of 0
+        // Critical Fix: Bind specific FBO ID
         int fbo_id = (int)fbo.getId();
         
         mpv_opengl_fbo mpv_fbo = {
