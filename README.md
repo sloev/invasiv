@@ -55,5 +55,6 @@ sudo apt install libmpv2
 * [x] make the current master mode into a MasterEdit mode
 * [x] create new MasterPerformance mode
 * [x] fix potential network blast issue `[ error ] ofxNetwork: ../../../addons/ofxNetwork/src/ofxUDPManager.cpp: 295 ENETUNREACH: the network of the given addr isn't reachable from this host`
+* [x] implement sketch for perform ui
 * [ ] make surface and instance id's editable
 

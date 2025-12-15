@@ -51,7 +51,7 @@ void ofApp::reloadProject(string path)
 void ofApp::onFilesChanged(std::vector<std::string> &files)
 {
     warper.refreshContent();
-    
+
     // -- UPDATED: Check Authority instead of just isMaster --
     if (!net.isAuthority())
         return;
@@ -123,7 +123,7 @@ void ofApp::update()
             pd.id = p->peerId;
             // -- UPDATED: Get Role --
             pd.role = (AppRole)p->role;
-            
+
             pd.lastSeen = ofGetElapsedTimef();
             pd.isSyncing = p->isSyncing;
             pd.syncProgress = p->syncProgress;
@@ -225,8 +225,8 @@ void ofApp::draw()
         else
         {
             // Perform Mode: Show clean content + UI
-            drawEditingUI();
-            
+            drawPerformUi();
+
             // Minimal indicator for operator
         }
     }
@@ -237,13 +237,13 @@ void ofApp::draw()
 
         // Check the master's state
         AppRole masterRole = net.getMasterRole();
-        
+
         // Only show debug/ID overlays if the master is in EDIT mode.
         // If master is in PERFORM mode, we show nothing (clean output).
         if (masterRole == ROLE_MASTER_EDIT)
         {
             ofDrawBitmapStringHighlight("Role: PEER | ID: " + identity.myId, 10, 20);
-            
+
             if (incoming.active)
             {
                 float pct = (float)incoming.current / incoming.total * 100.0;
@@ -261,16 +261,250 @@ void ofApp::draw()
         }
     }
 }
+void ofApp::drawPerformUi()
+{
+    // 1. Start the ImGui Frame
+    gui.begin();
+
+    // Set a window size constraint
+    ImGui::SetNextWindowSizeConstraints(ImVec2(800, 600), ImVec2(FLT_MAX, FLT_MAX));
+
+    if (ImGui::Begin("Invasiv Performance", nullptr))
+    {
+        // Create a 3-column table
+        if (ImGui::BeginTable("MainLayoutTable", 3, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg))
+        {
+            ImGui::TableSetupColumn("Instances", ImGuiTableColumnFlags_WidthStretch, 0.3f);
+            ImGui::TableSetupColumn("Sequencing", ImGuiTableColumnFlags_WidthStretch, 0.4f);
+            ImGui::TableSetupColumn("Settings", ImGuiTableColumnFlags_WidthStretch, 0.3f);
+            
+            // ---------------------------------------------------------
+            // COLUMN 1: INSTANCES & SURFACES
+            // ---------------------------------------------------------
+            ImGui::TableNextColumn();
+            
+            ImGui::TextDisabled("INSTANCES");
+            ImGui::Separator();
+            
+            struct InstanceRef { string id; bool isMe; };
+            vector<InstanceRef> instances;
+            instances.push_back({identity.myId, true});
+            for(auto &p : net.peers) instances.push_back({p.first, false});
+
+            for (auto &inst : instances)
+            {
+                ImGui::PushID(inst.id.c_str());
+
+                string headerName = (inst.isMe ? "[Me] " : "[Peer] ") + inst.id;
+                
+                if (ImGui::CollapsingHeader(headerName.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+                {
+                    vector<shared_ptr<WarpSurface>> surfaces = warper.getSurfacesForPeer(inst.id);
+                    
+                    if(surfaces.empty()) {
+                        ImGui::TextDisabled("No surfaces found.");
+                    } else {
+                        float windowVisibleX2 = ImGui::GetWindowPos().x + ImGui::GetContentRegionAvail().x;
+                        float buttonSz = 60.0f; 
+                        ImGuiStyle& style = ImGui::GetStyle();
+
+                        for (int i = 0; i < (int)surfaces.size(); i++)
+                        {
+                            ImGui::PushID(i);
+                            
+                            bool isSelected = (i % 2 == 0); 
+
+                            if(isSelected) {
+                                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.8f, 0.6f, 0.5f)); 
+                                ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.2f, 0.9f, 0.2f, 1.0f));
+                                ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 2.0f);
+                            }
+
+                            if (ImGui::Button(surfaces[i]->id.c_str(), ImVec2(buttonSz, buttonSz)))
+                            {
+                                ofLogNotice("UI") << "Clicked surface " << surfaces[i]->id;
+                            }
+
+                            if(isSelected) {
+                                ImGui::PopStyleVar();
+                                ImGui::PopStyleColor(2);
+                            }
+
+                            float lastButtonX2 = ImGui::GetItemRectMax().x;
+                            float nextButtonX2 = lastButtonX2 + style.ItemSpacing.x + buttonSz;
+                            if (i + 1 < (int)surfaces.size() && nextButtonX2 < windowVisibleX2)
+                                ImGui::SameLine();
+                            
+                            ImGui::PopID();
+                        }
+                    }
+                }
+                ImGui::PopID();
+                ImGui::Dummy(ImVec2(0, 10));
+            }
+
+            // ---------------------------------------------------------
+            // COLUMN 2: MEDIA BANK, STATES, TRIGGERS
+            // ---------------------------------------------------------
+            ImGui::TableNextColumn();
+            
+            ImGui::TextDisabled("MEDIABANK");
+            ImGui::Separator();
+            
+            if (ImGui::CollapsingHeader("Media Files", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                vector<string> files = watcher.getAllItems();
+                if(files.empty()) ImGui::TextDisabled("No media.");
+
+                float windowVisibleX2 = ImGui::GetWindowPos().x + ImGui::GetContentRegionAvail().x;
+                float itemSz = 70.0f; 
+                ImGuiStyle& style = ImGui::GetStyle();
+
+                for (int i = 0; i < (int)files.size(); i++)
+                {
+                    ImGui::PushID(i);
+                    if (ImGui::Button(files[i].c_str(), ImVec2(itemSz, itemSz))) {
+                    }
+                    
+                    float lastButtonX2 = ImGui::GetItemRectMax().x;
+                    float nextButtonX2 = lastButtonX2 + style.ItemSpacing.x + itemSz;
+                    if (i + 1 < (int)files.size() && nextButtonX2 < windowVisibleX2)
+                        ImGui::SameLine();
+                    
+                    ImGui::PopID();
+                }
+            }
+
+            ImGui::Dummy(ImVec2(0, 20));
+
+            // --- STATES ---
+            ImGui::AlignTextToFramePadding();
+            ImGui::Text("STATES");
+            ImGui::SameLine(ImGui::GetContentRegionAvail().x - 40);
+            if(ImGui::SmallButton("NEW##State")) {
+            }
+            ImGui::Separator();
+
+            if (ImGui::CollapsingHeader("Saved States", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                if (ImGui::BeginTable("StatesTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
+                {
+                    ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed, 30.0f);
+                    ImGui::TableSetupColumn("State Title");
+                    ImGui::TableHeadersRow();
+
+                    struct MockState { int id; string title; };
+                    static vector<MockState> mockStates = { {1, "Intro Scene"}, {2, "Blackout"}, {3, "Glitch Storm"} };
+
+                    for (auto &s : mockStates)
+                    {
+                        ImGui::TableNextRow();
+                        ImGui::TableNextColumn();
+                        ImGui::Text("%d", s.id);
+                        ImGui::TableNextColumn();
+                        if(ImGui::Selectable(s.title.c_str(), false, ImGuiSelectableFlags_SpanAllColumns)) {
+                        }
+                    }
+                    ImGui::EndTable();
+                }
+            }
+
+            ImGui::Dummy(ImVec2(0, 20));
+
+            // --- TRIGGERS ---
+            ImGui::AlignTextToFramePadding();
+            ImGui::Text("TRIGGERS");
+            ImGui::SameLine(ImGui::GetContentRegionAvail().x - 40);
+            if(ImGui::SmallButton("NEW##Trig")) {
+            }
+            ImGui::Separator();
+
+            if (ImGui::CollapsingHeader("Input Mapping", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                if (ImGui::BeginTable("TriggersTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
+                {
+                    ImGui::TableSetupColumn("State Target");
+                    ImGui::TableSetupColumn("Inputs (Key/Midi/OSC)");
+                    ImGui::TableHeadersRow();
+
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn(); ImGui::Text("Intro Scene");
+                    ImGui::TableNextColumn(); ImGui::Text("Key '1', MIDI CC 42");
+                    
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn(); ImGui::Text("Blackout");
+                    ImGui::TableNextColumn(); ImGui::Text("Spacebar");
+
+                    ImGui::EndTable();
+                }
+            }
+
+            // ---------------------------------------------------------
+            // COLUMN 3: SETTINGS (AUDIO & FX)
+            // ---------------------------------------------------------
+            ImGui::TableNextColumn();
+
+            if (ImGui::CollapsingHeader("Audio Input Settings", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::Dummy(ImVec2(0,5));
+                static float gain = 0.5f;
+                static int deviceId = 0;
+                static bool listen = true;
+                
+                ImGui::Combo("Device", &deviceId, "Default Input\0USB Mic\0Virtual Cable\0");
+                ImGui::SliderFloat("Gain", &gain, 0.0f, 1.0f);
+                ImGui::Checkbox("Monitor / Listen", &listen);
+                
+                ImGui::PlotHistogram("Levels", [](void*, int idx) -> float { 
+                    return sin(idx * 0.1f) * 0.5f + 0.5f; 
+                }, NULL, 50, 0, NULL, 0.0f, 1.0f, ImVec2(0, 60));
+                
+                ImGui::Dummy(ImVec2(0,10));
+            }
+
+            ImGui::Separator();
+
+            if (ImGui::CollapsingHeader("Surface Effects", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::Dummy(ImVec2(0,5));
+                static bool fxEnable = false;
+                static float colorRGB[3] = {1.0f, 1.0f, 1.0f};
+                static float noiseSpeed = 0.2f;
+
+                ImGui::Checkbox("Enable Global FX", &fxEnable);
+                if(fxEnable)
+                {
+                    ImGui::ColorEdit3("Tint", colorRGB);
+                    ImGui::SliderFloat("Noise", &noiseSpeed, 0.0f, 5.0f);
+                    
+                    ImGui::SeparatorText("Glitch Params");
+                    static float glitchAmt = 0.0f;
+                    ImGui::SliderFloat("Amount", &glitchAmt, 0.0f, 1.0f);
+                }
+                else
+                {
+                    ImGui::TextDisabled("Effects disabled.");
+                }
+            }
+
+            ImGui::EndTable();
+        }
+    }
+    ImGui::End();
+
+    // 2. End the ImGui Frame (Render)
+    gui.end(); 
+}
 
 void ofApp::drawEditingUI()
 {
     gui.begin();
     ImGuiStyle &style = ImGui::GetStyle();
-    
+
     // Color coding the title bar for quick visual status
-    if (net.isEditing()) 
+    if (net.isEditing())
         style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.8f, 0.2f, 0.3f, 1.0f); // Red for Edit
-    else 
+    else
         style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.2f, 0.6f, 0.3f, 1.0f); // Green for Perform
 
     if (ImGui::Begin("invasiv", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
@@ -329,9 +563,11 @@ void ofApp::drawEditingUI()
             {
                 // -- UPDATED: Show Role String --
                 string rStr = "P";
-                if(p.second.role == ROLE_MASTER_EDIT) rStr = "M(Edit)";
-                if(p.second.role == ROLE_MASTER_PERFORM) rStr = "M(Perf)";
-                
+                if (p.second.role == ROLE_MASTER_EDIT)
+                    rStr = "M(Edit)";
+                if (p.second.role == ROLE_MASTER_PERFORM)
+                    rStr = "M(Perf)";
+
                 string plabel = "[" + rStr + "] " + p.first;
 
                 if (p.second.isSyncing)
@@ -494,7 +730,7 @@ void ofApp::keyPressed(int key)
     {
         identity.toggleFullscreen();
     }
-    
+
     // -- NEW: State Switching --
     if (key == 'm') // Master Edit
     {

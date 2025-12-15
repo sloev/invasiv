@@ -30,7 +30,8 @@ public:
     
     ofxImGui::Gui gui;
     void drawEditingUI();
-
+        
+void drawPerformUi();
     string projectPath;
     string mediaDir;
     char pathInputBuf[256];
