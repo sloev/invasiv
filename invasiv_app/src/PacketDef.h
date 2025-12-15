@@ -3,6 +3,13 @@
 
 #define PACKET_ID 0xAA 
 
+// -- NEW: Define Roles --
+enum AppRole : uint8_t {
+    ROLE_PEER = 0,
+    ROLE_MASTER_EDIT = 1,
+    ROLE_MASTER_PERFORM = 2
+};
+
 enum PacketType : uint8_t {
     PKT_HEARTBEAT  = 1, 
     PKT_WARP_DATA  = 2, 
@@ -30,9 +37,11 @@ struct PacketHeader {
 struct HeartbeatPacket {
     PacketHeader header;
     char peerId[9]; 
-    bool isMaster;
     
-    // -- NEW: Sync Status --
+    // -- UPDATED: Replaced bool isMaster with role enum --
+    uint8_t role; 
+    
+    // -- Sync Status --
     bool isSyncing;
     float syncProgress; // 0.0 to 1.0
     char syncingFile[64]; // Truncated filename

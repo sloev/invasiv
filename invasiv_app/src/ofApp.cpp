@@ -51,7 +51,9 @@ void ofApp::reloadProject(string path)
 void ofApp::onFilesChanged(std::vector<std::string> &files)
 {
     warper.refreshContent();
-    if (!net.isMaster)
+    
+    // -- UPDATED: Check Authority instead of just isMaster --
+    if (!net.isAuthority())
         return;
 
     ofLogNotice("MediaWatcher") << files.size() << " file(s) changed in " << mediaDir;
@@ -64,7 +66,8 @@ void ofApp::onFilesChanged(std::vector<std::string> &files)
 
 void ofApp::syncFullState()
 {
-    if (!net.isMaster)
+    // -- UPDATED: Check Authority --
+    if (!net.isAuthority())
         return;
 
     ofLogNotice("Sync") << "Broadcasting full state to peers...";
@@ -90,7 +93,6 @@ void ofApp::update()
     warper.update();
     net.updatePeers();
 
-    // -- NEW: Update Network thread with my current sync status --
     float pct = 0.0f;
     if (incoming.total > 0)
         pct = (float)incoming.current / (float)incoming.total;
@@ -117,10 +119,11 @@ void ofApp::update()
 
             bool isNew = net.peers.find(p->peerId) == net.peers.end();
 
-            // -- UPDATED: Store new sync fields --
             Network::PeerData pd;
             pd.id = p->peerId;
-            pd.isMaster = p->isMaster;
+            // -- UPDATED: Get Role --
+            pd.role = (AppRole)p->role;
+            
             pd.lastSeen = ofGetElapsedTimef();
             pd.isSyncing = p->isSyncing;
             pd.syncProgress = p->syncProgress;
@@ -128,18 +131,18 @@ void ofApp::update()
 
             net.peers[p->peerId] = pd;
 
-            if (isNew && net.isMaster)
+            if (isNew && net.isAuthority())
             {
                 ofLogNotice("Network") << "New Peer Discovered: " << p->peerId << " -> Syncing State.";
                 syncFullState();
             }
         }
-        else if (h->type == PKT_WARP_DATA && !net.isMaster)
+        else if (h->type == PKT_WARP_DATA && !net.isAuthority())
         {
             WarpPacket *p = (WarpPacket *)packetBuffer;
             warper.updatePeerPoint(p->ownerId, p->surfaceIndex, p->mode, p->pointIndex, p->x, p->y);
         }
-        else if (h->type == PKT_STRUCT && !net.isMaster)
+        else if (h->type == PKT_STRUCT && !net.isAuthority())
         {
             string jStr(packetBuffer + sizeof(PacketHeader), size - sizeof(PacketHeader));
             string warpPath = ofFilePath::join(ofFilePath::join(projectPath, "configs"), "warps.json");
@@ -147,7 +150,7 @@ void ofApp::update()
             warper.loadJson(jStr);
             ofLogNotice("Network") << "Received and applied Structure Sync";
         }
-        else if (h->type == PKT_FILE_OFFER && !net.isMaster)
+        else if (h->type == PKT_FILE_OFFER && !net.isAuthority())
         {
             FileOfferPacket *p = (FileOfferPacket *)packetBuffer;
             string name = string(packetBuffer + sizeof(FileOfferPacket), p->nameLen);
@@ -185,7 +188,7 @@ void ofApp::update()
             ofLogNotice("Network") << "File transfer complete: " << incoming.name;
             warper.refreshContent();
         }
-        else if (h->type == PKT_WARP_MOVE_ALL && !net.isMaster)
+        else if (h->type == PKT_WARP_MOVE_ALL && !net.isAuthority())
         {
             WarpMoveAllPacket *p = (WarpMoveAllPacket *)packetBuffer;
             vector<shared_ptr<WarpSurface>> subset = warper.getSurfacesForPeer(p->ownerId);
@@ -194,7 +197,7 @@ void ofApp::update()
                 subset[p->surfaceIndex]->moveAll(p->dx, p->dy, p->mode);
             }
         }
-        else if (h->type == PKT_WARP_SCALE_ALL && !net.isMaster)
+        else if (h->type == PKT_WARP_SCALE_ALL && !net.isAuthority())
         {
             WarpScaleAllPacket *p = (WarpScaleAllPacket *)packetBuffer;
             vector<shared_ptr<WarpSurface>> subset = warper.getSurfacesForPeer(p->ownerId);
@@ -208,19 +211,39 @@ void ofApp::update()
 
 void ofApp::draw()
 {
+    // -- UPDATED: Role-based Drawing --
 
-    if (net.isMaster)
+    // 1. I AM AN AUTHORITY (Master)
+    if (net.isAuthority())
     {
-        warper.drawDebug();
-        drawUI();
+        if (net.isEditing())
+        {
+            // Edit Mode: Show all debug info
+            warper.drawDebug();
+            drawEditingUI();
+        }
+        else
+        {
+            // Perform Mode: Show clean content + UI
+            drawEditingUI();
+            
+            // Minimal indicator for operator
+        }
     }
+    // 2. I AM A PEER
     else
     {
         warper.draw();
 
-        if (net.hasActiveMaster())
+        // Check the master's state
+        AppRole masterRole = net.getMasterRole();
+        
+        // Only show debug/ID overlays if the master is in EDIT mode.
+        // If master is in PERFORM mode, we show nothing (clean output).
+        if (masterRole == ROLE_MASTER_EDIT)
         {
             ofDrawBitmapStringHighlight("Role: PEER | ID: " + identity.myId, 10, 20);
+            
             if (incoming.active)
             {
                 float pct = (float)incoming.current / incoming.total * 100.0;
@@ -239,11 +262,16 @@ void ofApp::draw()
     }
 }
 
-void ofApp::drawUI()
+void ofApp::drawEditingUI()
 {
     gui.begin();
     ImGuiStyle &style = ImGui::GetStyle();
-    style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.8f, 0.2f, 0.3f, 1.0f);
+    
+    // Color coding the title bar for quick visual status
+    if (net.isEditing()) 
+        style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.8f, 0.2f, 0.3f, 1.0f); // Red for Edit
+    else 
+        style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.2f, 0.6f, 0.3f, 1.0f); // Green for Perform
 
     if (ImGui::Begin("invasiv", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
     {
@@ -256,7 +284,6 @@ void ofApp::drawUI()
 
         ImGui::Separator();
 
-        // -- NEW: Master File Status List --
         if (ImGui::TreeNode("Media Status"))
         {
             vector<string> files = watcher.getAllItems();
@@ -265,7 +292,6 @@ void ofApp::drawUI()
 
             for (const auto &f : files)
             {
-                // Check if anyone is syncing this file
                 bool anySyncing = false;
                 string syncDetails = "";
                 for (auto &p : net.peers)
@@ -301,9 +327,13 @@ void ofApp::drawUI()
             // PEERS
             for (auto &p : net.peers)
             {
-                string plabel = "[" + string(p.second.isMaster ? "M" : "P") + "] " + p.first;
+                // -- UPDATED: Show Role String --
+                string rStr = "P";
+                if(p.second.role == ROLE_MASTER_EDIT) rStr = "M(Edit)";
+                if(p.second.role == ROLE_MASTER_PERFORM) rStr = "M(Perf)";
+                
+                string plabel = "[" + rStr + "] " + p.first;
 
-                // -- NEW: Show progress in instance list --
                 if (p.second.isSyncing)
                 {
                     plabel += " [Syncing " + ofToString(p.second.syncProgress * 100.0, 0) + "%]";
@@ -327,15 +357,12 @@ void ofApp::drawUI()
         {
             string sName = ofToString(i) + ": " + subset[i]->id + " [" + subset[i]->contentId + "]";
 
-            // 1. Draw the Selectable
             if (ImGui::Selectable(sName.c_str(), warper.selectedIndex == i, ImGuiSelectableFlags_AllowItemOverlap))
             {
                 warper.selectedIndex = i;
             }
 
-            // 2. Handle Reordering (Active + Dragged + Not Hovered)
-            // Only allow reordering if we are the master
-            if (net.isMaster && ImGui::IsItemActive() && !ImGui::IsItemHovered())
+            if (net.isAuthority() && ImGui::IsItemActive() && !ImGui::IsItemHovered())
             {
                 int i_next = i + (ImGui::GetMouseDragDelta(0).y < 0.f ? -1 : 1);
 
@@ -361,16 +388,10 @@ void ofApp::drawUI()
             ImGui::Text("Target: %s", warper.targetPeerId.c_str());
             ImGui::Text("Surface: %s", subset[warper.selectedIndex]->id.c_str());
 
-            // 1. Get List and Current ID
             vector<string> items = warper.getContentList();
             string currentId = subset[warper.selectedIndex]->contentId;
-
-            // 2. Determine "Preview Value"
-            // If the current ID exists in the list, show it.
-            // If it DOESN'T exist (file deleted?), show it anyway so the user knows what was there.
             const char *previewValue = currentId.c_str();
 
-            // 3. BeginCombo (Method 1)
             ImGui::Text("Content: ");
             ImGui::SameLine();
 
@@ -380,22 +401,17 @@ void ofApp::drawUI()
                 {
                     bool is_selected = (currentId == items[n]);
 
-                    // Display the item
                     if (ImGui::Selectable(items[n].c_str(), is_selected))
                     {
-                        // Update network if clicked
                         warper.setSurfaceContent(warper.targetPeerId, warper.selectedIndex, items[n], net);
                     }
 
-                    // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
                     if (is_selected)
                         ImGui::SetItemDefaultFocus();
                 }
                 ImGui::EndCombo();
             }
 
-            // if (ImGui::Selectable("no edit", warper.editMode == EDIT_NONE))
-            //     warper.editMode = EDIT_NONE;
             if (ImGui::Selectable("edit texture", warper.editMode == EDIT_TEXTURE))
                 warper.editMode = EDIT_TEXTURE;
             if (ImGui::Selectable("edit mapping", warper.editMode == EDIT_MAPPING))
@@ -453,21 +469,22 @@ void ofApp::drawUI()
 
 void ofApp::mousePressed(int x, int y, int button)
 {
-    if (!net.isMaster || ImGui::GetIO().WantCaptureMouse)
+    // -- UPDATED: Only pass input if Editing --
+    if (!net.isEditing() || ImGui::GetIO().WantCaptureMouse)
         return;
     warper.mousePressed(x, y, net);
 }
 
 void ofApp::mouseDragged(int x, int y, int button)
 {
-    if (!net.isMaster || ImGui::GetIO().WantCaptureMouse)
+    if (!net.isEditing() || ImGui::GetIO().WantCaptureMouse)
         return;
     warper.mouseDragged(x, y, net);
 }
 
 void ofApp::mouseReleased(int x, int y, int button)
 {
-    if (net.isMaster)
+    if (net.isEditing())
         warper.mouseReleased(net);
 }
 
@@ -477,17 +494,25 @@ void ofApp::keyPressed(int key)
     {
         identity.toggleFullscreen();
     }
-    if (key == 'm')
+    
+    // -- NEW: State Switching --
+    if (key == 'm') // Master Edit
     {
         warper.reset();
-        net.setRole(true);
+        net.setRole(ROLE_MASTER_EDIT);
         syncFullState();
     }
-    if (key == 'p')
+    if (key == 'n') // Master Performance
+    {
+        warper.reset();
+        net.setRole(ROLE_MASTER_PERFORM);
+        syncFullState();
+    }
+    if (key == 'p') // Peer
     {
         warper.reset();
         warper.targetPeerId = identity.myId;
-        net.setRole(false);
+        net.setRole(ROLE_PEER);
     }
 }
 

@@ -18,7 +18,6 @@ public:
         return instance;
     }
 
-    // CHANGE: Returns reference now
     ofTexture &getTexture()
     {
         if (!tex.isAllocated())
@@ -54,7 +53,6 @@ public:
     virtual void stop() {}
     virtual void update() {}
 
-    // CHANGE: Virtual method now returns reference
     virtual ofTexture &getTexture()
     {
         return TestTexture::getInstance().getTexture();
@@ -72,10 +70,6 @@ public:
         if (ofFile(filename, ofFile::Reference).exists())
         {
             ofLogNotice("VideoContent") << "Loading video: " << filename;
-
-            // NOTE: setPixelFormat is not needed/supported for this texture-only player.
-            // It runs natively in RGBA/RGB on the GPU.
-
             video.load(filename);
             video.setLoopState(OF_LOOP_NORMAL);
             video.play();
@@ -88,15 +82,10 @@ public:
 
     void start() override
     {
-        // Simply unpausing is safer than calling play() blindly
         if (video.isPaused())
-        {
             video.setPaused(false);
-        }
         else if (!video.isPlaying())
-        {
             video.play();
-        }
     }
 
     void stop() override
@@ -113,17 +102,12 @@ public:
         video.update();
     }
 
-    // CHANGE: Returns reference and checks width
     ofTexture &getTexture() override
     {
         if (video.getWidth() > 0)
-        {
             return video.getTexture();
-        }
         else
-        {
             return TestTexture::getInstance().getTexture();
-        }
     }
 };
 
@@ -200,7 +184,6 @@ public:
         }
     }
 
-    // CHANGE: Returns reference
     ofTexture &getTextureById(std::string id)
     {
         if (!contents.count(id))
@@ -301,10 +284,7 @@ public:
 
         for (size_t i = 0; i < subset.size(); i++)
         {
-
-            // CHANGE: Capture by reference to avoid copy
             ofTexture &tex = contents.getTextureById(subset[i]->contentId);
-
             subset[i]->draw(tex, ofGetWidth(), ofGetHeight());
         }
     }
@@ -314,8 +294,6 @@ public:
         vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(targetPeerId);
         for (size_t i = 0; i < subset.size(); i++)
         {
-
-            // CHANGE: Capture by reference to avoid copy
             ofTexture &tex = contents.getTextureById(subset[i]->contentId);
             if (editMode == EDIT_TEXTURE)
             {
@@ -347,10 +325,8 @@ public:
             int nr = s->rows + dRow;
             int nc = s->cols + dCol;
 
-            if (nr < 1)
-                nr = 1;
-            if (nc < 1)
-                nc = 1;
+            if (nr < 1) nr = 1;
+            if (nc < 1) nc = 1;
 
             s->setGridSize(nr, nc);
             s->selectedPoint = -1;
@@ -412,7 +388,6 @@ public:
 
     void removeLayerById(string idToRemove, Network *net)
     {
-
         for (auto it = allSurfaces.begin(); it != allSurfaces.end();)
         {
             if ((*it)->id == idToRemove)
@@ -427,8 +402,10 @@ public:
 
     void mousePressed(int x, int y, Network &net)
     {
-        if (!net.isMaster)
+        // -- UPDATED: Only allow in Edit Mode --
+        if (!net.isEditing())
             return;
+            
         lastMouse = glm::vec2(x, y);
 
         vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(targetPeerId);
@@ -451,7 +428,8 @@ public:
 
     void mouseDragged(int x, int y, Network &net)
     {
-        if (!net.isMaster)
+        // -- UPDATED: Only allow in Edit Mode --
+        if (!net.isEditing())
             return;
 
         vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(targetPeerId);
@@ -496,8 +474,10 @@ public:
 
     void mouseReleased(Network &net)
     {
-        if (!net.isMaster)
+        // -- UPDATED: Only allow in Edit Mode --
+        if (!net.isEditing())
             return;
+            
         vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(targetPeerId);
         if (selectedIndex >= 0 && selectedIndex < (int)subset.size())
         {

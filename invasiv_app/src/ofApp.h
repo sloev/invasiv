@@ -29,7 +29,7 @@ public:
     MediaWatcher watcher;
     
     ofxImGui::Gui gui;
-    void drawUI();
+    void drawEditingUI();
 
     string projectPath;
     string mediaDir;

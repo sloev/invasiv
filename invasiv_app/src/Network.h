@@ -13,17 +13,21 @@ public:
     struct PeerData
     {
         string id;
-        bool isMaster;
+        // -- UPDATED: Store role instead of bool --
+        AppRole role;
         float lastSeen;
 
-        // -- NEW: Peer Sync State --
+        // -- Peer Sync State --
         bool isSyncing;
         float syncProgress;
         string syncingFile;
     };
 
     map<string, PeerData> peers;
-    bool isMaster = false;
+
+    // -- UPDATED: State Management --
+    AppRole role = ROLE_PEER;
+
     string myId;
     string mediaPath;
 
@@ -62,18 +66,52 @@ public:
         unlock();
     }
 
-    void setRole(bool master)
+    // -- NEW: State Helpers --
+
+    void setRole(AppRole newRole)
     {
         lock();
-        isMaster = master;
-        if (isMaster)
-            ofLogNotice() << "Switched to MASTER";
+        role = newRole;
+        if (role == ROLE_MASTER_EDIT)
+            ofLogNotice() << "Switched to MASTER EDIT";
+        else if (role == ROLE_MASTER_PERFORM)
+            ofLogNotice() << "Switched to MASTER PERFORM";
         else
             ofLogNotice() << "Switched to PEER";
         unlock();
     }
 
-    // -- NEW: Update local sync status for heartbeat --
+    // Returns true if we are EITHER Edit or Performance master
+    // Used for determining if we should broadcast sync data/files
+    bool isAuthority()
+    {
+        return role != ROLE_PEER;
+    }
+
+    // Returns true ONLY if we are in Edit mode
+    // Used for enabling UI debug drawing and warping input
+    bool isEditing()
+    {
+        return role == ROLE_MASTER_EDIT;
+    }
+
+    bool isPerforming()
+    {
+        return role == ROLE_MASTER_PERFORM;
+    }
+
+    // Helper to check what the current active master is doing (from a Peer's perspective)
+    AppRole getMasterRole()
+    {
+        for (auto &p : peers)
+        {
+            if (p.second.role != ROLE_PEER)
+                return p.second.role;
+        }
+        return ROLE_PEER;
+    }
+
+    // -- Sync Status --
     void setLocalSyncStatus(bool syncing, string filename, float progress)
     {
         lock();
@@ -87,7 +125,7 @@ public:
     {
         for (auto &p : peers)
         {
-            if (p.second.isMaster)
+            if (p.second.role != ROLE_PEER)
                 return true;
         }
         return false;
@@ -97,11 +135,14 @@ public:
     {
         HeartbeatPacket p;
         fillHeader(p.header, PKT_HEARTBEAT);
-        p.isMaster = isMaster;
+
+        // -- UPDATED --
+        p.role = (uint8_t)role;
+
         strncpy(p.peerId, myId.c_str(), 8);
         p.peerId[8] = 0;
 
-        // -- NEW: Fill sync data --
+        // -- Fill sync data --
         lock();
         p.isSyncing = myIsSyncing;
         p.syncProgress = mySyncProgress;
@@ -111,11 +152,10 @@ public:
 
         sender.Send((const char *)&p, sizeof(HeartbeatPacket));
     }
-    // Add these public methods to the Network class
 
     void sendWarpMoveAll(string ownerId, int surfIdx, int mode, float dx, float dy)
     {
-        if (!isMaster)
+        if (!isAuthority())
             return;
         WarpMoveAllPacket p;
         fillHeader(p.header, PKT_WARP_MOVE_ALL);
@@ -130,7 +170,7 @@ public:
 
     void sendWarpScaleAll(string ownerId, int surfIdx, int mode, float factor, float cx, float cy)
     {
-        if (!isMaster)
+        if (!isAuthority())
             return;
         WarpScaleAllPacket p;
         fillHeader(p.header, PKT_WARP_SCALE_ALL);
@@ -146,7 +186,7 @@ public:
 
     void sendWarp(string ownerId, int surfIdx, int mode, int ptIdx, float x, float y)
     {
-        if (!isMaster)
+        if (!isAuthority())
             return;
         WarpPacket p;
         fillHeader(p.header, PKT_WARP_DATA);
@@ -162,7 +202,7 @@ public:
 
     void sendStructure(string jsonStr)
     {
-        if (!isMaster)
+        if (!isAuthority())
             return;
 
         PacketHeader h;
@@ -177,7 +217,7 @@ public:
 
     void offerFile(string filename)
     {
-        if (!isMaster)
+        if (!isAuthority())
             return;
         lock();
         pendingFiles.push(filename);
@@ -206,7 +246,7 @@ private:
     ofxUDPManager listener;
     std::queue<string> pendingFiles;
 
-    // -- NEW: Internal sync state --
+    // -- Internal sync state --
     bool myIsSyncing = false;
     string mySyncFile = "";
     float mySyncProgress = 0.0f;

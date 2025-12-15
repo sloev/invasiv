@@ -51,6 +51,8 @@ sudo apt install libmpv2
 * [x] always be either mapping editing or texture editing if in master mode
 * [x] implement persistant fullscreen toggle
 * [x] fix issue with texture editing being invisible
-* [ ] fix bug with shutdown and freeze (introduced after more efficient double mesh)
-* [ ] introduce a new live_master mode for controlling all the instances and surfaces
+* [x] fix bug with shutdown and freeze (introduced after more efficient double mesh)
+* [ ] make surface and instance id's editable
+* [x] make the current master mode into a MasterEdit mode
+* [x] create new MasterPerformance mode
 
