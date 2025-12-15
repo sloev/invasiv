@@ -486,6 +486,7 @@ void ofApp::keyPressed(int key)
     if (key == 'p')
     {
         warper.reset();
+        warper.targetPeerId = identity.myId;
         net.setRole(false);
     }
 }

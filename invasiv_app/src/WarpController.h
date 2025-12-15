@@ -312,24 +312,24 @@ public:
     void drawDebug()
     {
         vector<shared_ptr<WarpSurface>> subset = getSurfacesForPeer(targetPeerId);
-        if (editMode != EDIT_TEXTURE)
+        for (size_t i = 0; i < subset.size(); i++)
         {
-            for (size_t i = 0; i < subset.size(); i++)
+
+            // CHANGE: Capture by reference to avoid copy
+            ofTexture &tex = contents.getTextureById(subset[i]->contentId);
+            if (editMode == EDIT_TEXTURE)
             {
-                bool faded = editMode == EDIT_MAPPING && selectedIndex != i;
-
-                // CHANGE: Capture by reference to avoid copy
-                ofTexture &tex = contents.getTextureById(subset[i]->contentId);
-
+                if (selectedIndex == i)
+                {
+                    ofSetColor(255);
+                    tex.draw(0, 0, ofGetWidth(), ofGetHeight());
+                }
+            }
+            else if (editMode == EDIT_MAPPING)
+            {
+                bool faded = selectedIndex != i;
                 subset[i]->draw(tex, ofGetWidth(), ofGetHeight(), faded);
             }
-        }
-        else if (editMode == EDIT_TEXTURE && selectedIndex >= 0 && selectedIndex < (int)subset.size())
-        {
-            // CHANGE: Capture by reference to avoid copy
-            ofTexture &tex = contents.getTextureById(subset[selectedIndex]->contentId);
-
-            tex.draw(0, 0, ofGetWidth(), ofGetHeight());
         }
 
         if (editMode != EDIT_NONE && selectedIndex >= 0 && selectedIndex < (int)subset.size())

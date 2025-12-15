@@ -50,6 +50,7 @@ sudo apt install libmpv2
 * [x] make the other surfaces visible, but 50% transparent during editing of a surface
 * [x] always be either mapping editing or texture editing if in master mode
 * [x] implement persistant fullscreen toggle
+* [x] fix issue with texture editing being invisible
 * [ ] fix bug with shutdown and freeze (introduced after more efficient double mesh)
 * [ ] introduce a new live_master mode for controlling all the instances and surfaces
 
