@@ -52,7 +52,8 @@ sudo apt install libmpv2
 * [x] implement persistant fullscreen toggle
 * [x] fix issue with texture editing being invisible
 * [x] fix bug with shutdown and freeze (introduced after more efficient double mesh)
-* [ ] make surface and instance id's editable
 * [x] make the current master mode into a MasterEdit mode
 * [x] create new MasterPerformance mode
+* [x] fix potential network blast issue `[ error ] ofxNetwork: ../../../addons/ofxNetwork/src/ofxUDPManager.cpp: 295 ENETUNREACH: the network of the given addr isn't reachable from this host`
+* [ ] make surface and instance id's editable
 

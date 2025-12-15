@@ -13,21 +13,18 @@ public:
     struct PeerData
     {
         string id;
-        // -- UPDATED: Store role instead of bool --
-        AppRole role;
+        AppRole role; 
         float lastSeen;
-
-        // -- Peer Sync State --
         bool isSyncing;
         float syncProgress;
         string syncingFile;
     };
 
     map<string, PeerData> peers;
-
-    // -- UPDATED: State Management --
+    
+    // State Management
     AppRole role = ROLE_PEER;
-
+    
     string myId;
     string mediaPath;
 
@@ -42,21 +39,31 @@ public:
     {
         myId = _id;
         mediaPath = _mediaPath;
+        setupSocket();
+        startThread();
+    }
 
+    // Attempt to re-bind sockets if network comes back or changes
+    void setupSocket()
+    {
         string broadcastIP = IPUtils::getBroadcastAddress();
+        
+        // Basic check to see if we got a valid IP, otherwise default to standard local broadcast
+        if(broadcastIP == "0.0.0.0" || broadcastIP == "") broadcastIP = "192.168.1.255";
+
         ofLogNotice("Network") << "Binding to Broadcast: " << broadcastIP;
 
+        listener.Close();
         listener.Create();
         listener.SetReuseAddress(true);
         listener.Bind(9000);
         listener.SetNonBlocking(true);
 
+        sender.Close();
         sender.Create();
         sender.SetEnableBroadcast(true);
         sender.Connect(broadcastIP.c_str(), 9000);
         sender.SetNonBlocking(true);
-
-        startThread();
     }
 
     void setMediaPath(string _path)
@@ -66,52 +73,27 @@ public:
         unlock();
     }
 
-    // -- NEW: State Helpers --
-
     void setRole(AppRole newRole)
     {
         lock();
         role = newRole;
-        if (role == ROLE_MASTER_EDIT)
-            ofLogNotice() << "Switched to MASTER EDIT";
-        else if (role == ROLE_MASTER_PERFORM)
-            ofLogNotice() << "Switched to MASTER PERFORM";
-        else
-            ofLogNotice() << "Switched to PEER";
+        if (role == ROLE_MASTER_EDIT) ofLogNotice() << "Switched to MASTER EDIT";
+        else if (role == ROLE_MASTER_PERFORM) ofLogNotice() << "Switched to MASTER PERFORM";
+        else ofLogNotice() << "Switched to PEER";
         unlock();
     }
 
-    // Returns true if we are EITHER Edit or Performance master
-    // Used for determining if we should broadcast sync data/files
-    bool isAuthority()
-    {
-        return role != ROLE_PEER;
-    }
-
-    // Returns true ONLY if we are in Edit mode
-    // Used for enabling UI debug drawing and warping input
-    bool isEditing()
-    {
-        return role == ROLE_MASTER_EDIT;
-    }
-
-    bool isPerforming()
-    {
-        return role == ROLE_MASTER_PERFORM;
-    }
-
-    // Helper to check what the current active master is doing (from a Peer's perspective)
+    bool isAuthority() { return role != ROLE_PEER; }
+    bool isEditing() { return role == ROLE_MASTER_EDIT; }
+    
     AppRole getMasterRole()
     {
-        for (auto &p : peers)
-        {
-            if (p.second.role != ROLE_PEER)
-                return p.second.role;
+        for (auto &p : peers) {
+            if (p.second.role != ROLE_PEER) return p.second.role;
         }
         return ROLE_PEER;
     }
 
-    // -- Sync Status --
     void setLocalSyncStatus(bool syncing, string filename, float progress)
     {
         lock();
@@ -123,26 +105,24 @@ public:
 
     bool hasActiveMaster()
     {
-        for (auto &p : peers)
-        {
-            if (p.second.role != ROLE_PEER)
-                return true;
+        for (auto &p : peers) {
+            if (p.second.role != ROLE_PEER) return true;
         }
         return false;
     }
 
+    // --- Sending Functions (Wrapped) ---
+
     void sendHeartbeat()
     {
+        if(inErrorState) return;
+
         HeartbeatPacket p;
         fillHeader(p.header, PKT_HEARTBEAT);
-
-        // -- UPDATED --
         p.role = (uint8_t)role;
-
         strncpy(p.peerId, myId.c_str(), 8);
         p.peerId[8] = 0;
 
-        // -- Fill sync data --
         lock();
         p.isSyncing = myIsSyncing;
         p.syncProgress = mySyncProgress;
@@ -150,13 +130,12 @@ public:
         strncpy(p.syncingFile, mySyncFile.c_str(), 63);
         unlock();
 
-        sender.Send((const char *)&p, sizeof(HeartbeatPacket));
+        sendSafe((const char *)&p, sizeof(HeartbeatPacket));
     }
 
     void sendWarpMoveAll(string ownerId, int surfIdx, int mode, float dx, float dy)
     {
-        if (!isAuthority())
-            return;
+        if (!isAuthority() || inErrorState) return;
         WarpMoveAllPacket p;
         fillHeader(p.header, PKT_WARP_MOVE_ALL);
         strncpy(p.ownerId, ownerId.c_str(), 8);
@@ -165,13 +144,12 @@ public:
         p.mode = mode;
         p.dx = dx;
         p.dy = dy;
-        sender.Send((const char *)&p, sizeof(WarpMoveAllPacket));
+        sendSafe((const char *)&p, sizeof(WarpMoveAllPacket));
     }
 
     void sendWarpScaleAll(string ownerId, int surfIdx, int mode, float factor, float cx, float cy)
     {
-        if (!isAuthority())
-            return;
+        if (!isAuthority() || inErrorState) return;
         WarpScaleAllPacket p;
         fillHeader(p.header, PKT_WARP_SCALE_ALL);
         strncpy(p.ownerId, ownerId.c_str(), 8);
@@ -181,13 +159,12 @@ public:
         p.scaleFactor = factor;
         p.centroidX = cx;
         p.centroidY = cy;
-        sender.Send((const char *)&p, sizeof(WarpScaleAllPacket));
+        sendSafe((const char *)&p, sizeof(WarpScaleAllPacket));
     }
 
     void sendWarp(string ownerId, int surfIdx, int mode, int ptIdx, float x, float y)
     {
-        if (!isAuthority())
-            return;
+        if (!isAuthority() || inErrorState) return;
         WarpPacket p;
         fillHeader(p.header, PKT_WARP_DATA);
         strncpy(p.ownerId, ownerId.c_str(), 8);
@@ -197,28 +174,23 @@ public:
         p.pointIndex = ptIdx;
         p.x = x;
         p.y = y;
-        sender.Send((const char *)&p, sizeof(WarpPacket));
+        sendSafe((const char *)&p, sizeof(WarpPacket));
     }
 
     void sendStructure(string jsonStr)
     {
-        if (!isAuthority())
-            return;
-
+        if (!isAuthority() || inErrorState) return;
         PacketHeader h;
         fillHeader(h, PKT_STRUCT);
-
         vector<char> buf(sizeof(PacketHeader) + jsonStr.length());
         memcpy(buf.data(), &h, sizeof(PacketHeader));
         memcpy(buf.data() + sizeof(PacketHeader), jsonStr.c_str(), jsonStr.length());
-
-        sender.Send(buf.data(), buf.size());
+        sendSafe(buf.data(), buf.size());
     }
 
     void offerFile(string filename)
     {
-        if (!isAuthority())
-            return;
+        if (!isAuthority()) return;
         lock();
         pendingFiles.push(filename);
         unlock();
@@ -246,10 +218,14 @@ private:
     ofxUDPManager listener;
     std::queue<string> pendingFiles;
 
-    // -- Internal sync state --
     bool myIsSyncing = false;
     string mySyncFile = "";
     float mySyncProgress = 0.0f;
+
+    // -- Error Handling Vars --
+    bool inErrorState = false;
+    float errorRecoverTime = 0.0f;
+    const float ERROR_BACKOFF_SEC = 2.0f;
 
     void fillHeader(PacketHeader &h, uint8_t type)
     {
@@ -258,11 +234,37 @@ private:
         memset(h.senderId, 0, 9);
         strncpy(h.senderId, myId.c_str(), 8);
     }
+    
+    // Wrapper to catch ENETUNREACH and chill out
+    void sendSafe(const char* data, int size) {
+        if(inErrorState) return;
+
+        int result = sender.Send(data, size);
+        
+        if (result == -1) {
+            ofLogError("Network") << "Send failed (Network Unreachable?). Pausing network for " << ERROR_BACKOFF_SEC << "s";
+            inErrorState = true;
+            errorRecoverTime = ofGetElapsedTimef() + ERROR_BACKOFF_SEC;
+        }
+    }
 
     void threadedFunction()
     {
         while (isThreadRunning())
         {
+            // 1. Check if we are in a penalty box
+            if (inErrorState) {
+                if (ofGetElapsedTimef() > errorRecoverTime) {
+                    ofLogNotice("Network") << "Attempting to recover network...";
+                    setupSocket(); // Try to rebind
+                    inErrorState = false;
+                } else {
+                    sleep(100); // Sleep and do nothing
+                    continue; 
+                }
+            }
+
+            // 2. Normal Operation
             if (ofGetFrameNum() % 60 == 0)
                 sendHeartbeat();
 
@@ -284,12 +286,13 @@ private:
 
     void transferFile(string filename)
     {
+        if(inErrorState) return;
+
         string fullPath = ofFilePath::join(mediaPath, filename);
         string hash = TinyMD5::getFileMD5(fullPath);
         ofFile file(fullPath, ofFile::ReadOnly, true);
 
-        if (!file.exists())
-            return;
+        if (!file.exists()) return;
         uint32_t size = file.getSize();
 
         int headSize = sizeof(FileOfferPacket);
@@ -302,7 +305,9 @@ private:
         strncpy(offer->hash, hash.c_str(), 32);
         offer->hash[32] = 0;
         memcpy(buf.data() + headSize, filename.c_str(), filename.length());
-        sender.Send(buf.data(), buf.size());
+        
+        sendSafe(buf.data(), buf.size());
+        if(inErrorState) return; // Abort if fail
 
         sleep(100);
 
@@ -311,6 +316,8 @@ private:
         uint16_t chunk = 1024;
         while (offset < size)
         {
+            if(inErrorState) return; // Abort mid-transfer if network dies
+
             uint16_t cur = std::min((uint32_t)chunk, size - offset);
             vector<char> cBuf(sizeof(FileChunkPacket) + cur);
             FileChunkPacket *p = (FileChunkPacket *)cBuf.data();
@@ -319,13 +326,15 @@ private:
             p->offset = offset;
             p->size = cur;
             memcpy(cBuf.data() + sizeof(FileChunkPacket), fBuf.getData() + offset, cur);
-            sender.Send(cBuf.data(), cBuf.size());
+            
+            sendSafe(cBuf.data(), cBuf.size());
+            
             offset += cur;
             sleep(2);
         }
 
         PacketHeader end;
         fillHeader(end, PKT_FILE_END);
-        sender.Send((const char *)&end, sizeof(PacketHeader));
+        sendSafe((const char *)&end, sizeof(PacketHeader));
     }
 };
