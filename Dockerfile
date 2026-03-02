@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libx11-dev libxext-dev \
     libfontconfig1-dev libxkbcommon-dev \
     libusb-1.0-0-dev libopenal-dev libsndfile1-dev libmpg123-dev \
+    librtaudio-dev libjack-jackd2-dev \
     libflac-dev libvorbis-dev libmpv-dev libgtk-3-dev \
     libglfw3-dev libgles2-mesa-dev libglew-dev \
     libfreeimage-dev libfreetype-dev libcurl4-openssl-dev \
@@ -53,6 +54,7 @@ FROM ubuntu:24.04 AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libmpv2 libgl1-mesa-dri libgl1-mesa-glx libpulse0 \
     libglew2.2 libfreeimage3 libfreetype6 libasound2t64 libglfw3 \
+    librtaudio6 libjack-jackd2-0 \
     libx11-6 libxext6 libxinerama1 libxcursor1 libxi6 \
     libxrandr2 libxrender1 libxxf86vm1 \
     && rm -rf /var/lib/apt/lists/*
