@@ -1,50 +1,33 @@
+IMAGE_NAME=invasiv-builder
+CONTAINER_NAME=invasiv-extract
+
+.PHONY: all build extract clean help run
+
+all: build extract run
+
+help:
+	@echo "Invasiv Build System"
+	@echo ""
+	@echo "Targets:"
+	@echo "  build    - Build the Invasiv application using Docker"
+	@echo "  extract  - Extract the compiled binary from the Docker image to ./artifacts"
+	@echo "  clean    - Remove build artifacts and Docker images"
+	@echo "  run      - Run the extracted binary (requires local libmpv2)"
+
 build:
-	docker build -t ofxdocker_2204_of_0_12_1_loaf .
+	docker build -t $(IMAGE_NAME) --target builder .
 
-bash:
-	docker run --rm -it --entrypoint bash ofxdocker_2204_of_0_12_1_loaf
-
-copy: build
-	docker rm extract || true
-	docker create --name extract ofxdocker_2204_of_0_12_1_loaf
-	docker cp extract:/of/apps/myApps/loaf/bin ./artifacts
-	docker rm extract
+extract:
+	@mkdir -p artifacts
+	docker rm -f $(CONTAINER_NAME) 2>/dev/null || true
+	docker create --name $(CONTAINER_NAME) $(IMAGE_NAME)
+	docker cp $(CONTAINER_NAME):/of/apps/myApps/invasiv/bin/ ./artifacts/
+	docker rm -f $(CONTAINER_NAME)
+	@echo "Build artifacts extracted to ./artifacts/bin"
 
 run:
-	./artifacts/bin/loaf ./invasiv/main.lua
+	cd artifacts/bin && ./invasiv
 
-invasiv-debug: build
-	docker rm extract || true
-	docker create --name extract ofxdocker_2204_of_0_12_1_loaf
-	docker cp extract:/of/apps/myApps/invasiv/bin ./artifacts
-	docker rm extract
-	cd ./artifacts/bin/ && gdb -q \
-      -batch \
-      -ex 'set print thread-events off' \
-      -ex 'handle SIGALRM nostop pass' \
-      -ex 'handle SIGCHLD nostop pass' \
-      -ex 'run' \
-      -ex 'thread apply all backtrace' \
-      --args invasiv_debug
-
-
-invasiv: build
-	docker rm extract || true
-	docker create --name extract ofxdocker_2204_of_0_12_1_loaf
-	docker cp extract:/of/apps/myApps/invasiv/bin ./artifacts
-	docker rm extract
-	cd ./artifacts/bin/ && ./invasiv
-
-run-invasiv:
-	cd ./testing && ../artifacts/invasiv/test
-
-run-invasiv-debug:
-	cd ./testing && gdb -q \
-      -batch \
-      -ex 'set print thread-events off' \
-      -ex 'handle SIGALRM nostop pass' \
-      -ex 'handle SIGCHLD nostop pass' \
-      -ex 'run' \
-      -ex 'thread apply all backtrace' \
-      --args ../artifacts/bin/invasiv_debug
-
+clean:
+	rm -rf artifacts
+	docker rmi $(IMAGE_NAME) || true

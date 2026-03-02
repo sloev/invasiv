@@ -1,97 +1,59 @@
-FROM ubuntu:24.04@sha256:c35e29c9450151419d9448b0fd75374fec4fff364a27f176fb458d472dfc9e54
-# 24.04 @ Nov 15, 2025 at 1:04 pm
+# Stage 1: Base - System Dependencies and openFrameworks Core
+# Pinning to specific digest for absolute reproducibility
+FROM ubuntu:24.04@sha256:72297848457d5d37d126263012759e6d39d167305d369798ed3a2b07e14562fa AS of-base
 
-RUN apt-get update -y && apt-get install -y software-properties-common && add-apt-repository universe
-# add missing dependencies needed by openframeworks
-RUN apt-get update -y
-RUN \
-    # tzdata is installed later in install_dependencies script
-    # but with interactive choices, so we configure it here correct
-    DEBIAN_FRONTEND=noninteractive TZ=Europe/Berlin apt-get -y install \
-        tzdata \
-    # and also some other depedencies are missing
-        lsb-release \
-        make \
-        git \
-        curl \
-        wget \
-        bash \
-        libluajit-5.1-dev \
-        liblua5.1-dev \
-        xz-utils \
-        apt-utils \
-    # and to use sound also we need some more
-    && \
-    # and clean up the apt cache
-    rm -rf /var/lib/apt/lists/*
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Europe/Berlin
 
-RUN apt-get update -y && apt-get install -y gcc
-RUN apt-get update -y && apt-get install -y swig
-RUN apt-get update -y && apt-get install -y libmpv-dev
+# Install core tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    make git curl wget xz-utils gcc g++ ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN curl -fsSL https://github.com/b1f6c1c4/git-get/releases/latest/download/git-get.tar.xz | /bin/tar -C /usr -xJv
-
-
+# Download and Extract openFrameworks 0.12.1
 ARG OF_VERSION=0.12.1
+RUN wget -qO /of.tar.gz https://github.com/openframeworks/openFrameworks/releases/download/${OF_VERSION}/of_v${OF_VERSION}_linux64_gcc6_release.tar.gz \
+    && mkdir /of \
+    && tar -xf /of.tar.gz -C /of --strip-components=1 \
+    && rm /of.tar.gz
 
-RUN wget -O /of.tar.gz https://github.com/openframeworks/openFrameworks/releases/download/${OF_VERSION}/of_v${OF_VERSION}_linux64_gcc6_release.tar.gz
-RUN cd / && tar -xf of.tar.gz && rm of.tar.gz && mv of_v* of
+# Install oF system dependencies via its own script
+# This is a heavy layer, we do it before adding any custom code
+RUN /of/scripts/linux/ubuntu/install_dependencies.sh -y \
+    && apt-get install -y --no-install-recommends libmpv-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# install of openframeworks dependencies
-# RUN of/scripts/linux/download_libs.sh
-RUN of/scripts/linux/ubuntu/install_dependencies.sh
-RUN rm -rf /var/lib/apt/lists/*
+# Pre-compile openFrameworks core (The longest step)
+RUN cd /of/scripts/linux && ./compileOF.sh -j$(nproc)
 
+# Stage 2: Addons - Stable external dependencies
+FROM of-base AS addons
 
-# compile openframeworks
-RUN cd of/scripts/linux && ./compileOF.sh -j3
-RUN cd of/scripts/linux && ./compilePG.sh 
-RUN of/apps/projectGenerator/commandLine/bin/projectGenerator -r -o"./of" examples
-
-# ARG OFXLUA_SHA=4a43956
-
-# RUN git gets -H -v -Y  https://github.com/danomatika/ofxLua/commit/${OFXLUA_SHA} -o /of/addons/ofxLua
-# RUN cp -r of/addons/ofxLua/luaExample/ of/apps/myApps/luaExample/
-
-# RUN cd of/ && /of/apps/projectGenerator/commandLine/bin/projectGenerator -r -o"." apps/myApps/luaExample/
-# RUN cd of/apps/myApps/luaExample/ && make
-
-# ARG OFXZMQ_SHA=b46c8cd
-
-# RUN git gets -H -v -Y  https://github.com/funatsufumiya/ofxZmq/commit/${OFXZMQ_SHA} -o /of/addons/ofxZmq
-# RUN cp -r of/addons/ofxZmq/example-basic/ of/apps/myApps/zmqExample/
-
-# RUN cd of/ && /of/apps/projectGenerator/commandLine/bin/projectGenerator -r -o"." apps/myApps/zmqExample/
-# RUN cd of/apps/myApps/zmqExample/ && make
-
-
-# ADD ./loaf of/apps/myApps/loaf
-
-# # ARG LOAF_SHA=3ffce08
-
-# # RUN git gets -H -v -Y  https://github.com/danomatika/loaf/commit/${LOAF_SHA} -o of/apps/myApps/loaf
-# # RUN rm -rf of/apps/myApps/loaf/src/bindings/macos/*
-
-
-
-# RUN cd of/ && /of/apps/projectGenerator/commandLine/bin/projectGenerator -r -o"." apps/myApps/loaf/
-# RUN cd of/apps/myApps/loaf/ && ./scripts/generate_bindings.sh
-# RUN cd of/apps/myApps/loaf/ && make
-
-
-
+# Pin Addon SHAs for stability
 ARG OFXIMGUI_SHA=49318f0
+RUN git clone https://github.com/jvcleave/ofxImGui /of/addons/ofxImGui \
+    && cd /of/addons/ofxImGui \
+    && git checkout ${OFXIMGUI_SHA}
 
-RUN git gets -H -v -Y  https://github.com/jvcleave/ofxImGui/commit/${OFXIMGUI_SHA} -o /of/addons/ofxImGui
-RUN cp -r of/addons/ofxImGui/example-simple/ of/apps/myApps/ofxImGui/
+# Stage 3: App Builder - Application-specific compilation
+FROM addons AS builder
 
-RUN cd of/ && /of/apps/projectGenerator/commandLine/bin/projectGenerator -r -o"." apps/myApps/ofxImGui/
-RUN cd of/apps/myApps/ofxImGui/ && make
+# Add only the application source. 
+# Changes here will NOT trigger oF re-compilation.
+COPY ./invasiv_app /of/apps/myApps/invasiv
 
+# Generate Project and Build Release
+RUN /of/apps/projectGenerator/commandLine/bin/projectGenerator -r -o"/of" /of/apps/myApps/invasiv \
+    && cd /of/apps/myApps/invasiv \
+    && make Release -j$(nproc)
 
-ADD ./invasiv_app of/apps/myApps/invasiv
-RUN cd of/ && /of/apps/projectGenerator/commandLine/bin/projectGenerator -r -o"." apps/myApps/invasiv/
-RUN cd of/apps/myApps/invasiv/ && make Debug
+# Stage 4: Runtime - Minimal image for deployment/testing
+FROM ubuntu:24.04@sha256:72297848457d5d37d126263012759e6d39d167305d369798ed3a2b07e14562fa AS runtime
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libmpv-dev libgl1-mesa-dri libgl1-mesa-glx libpulse0 \
+    && rm -rf /var/lib/apt/lists/*
 
-# # WORKDIR /of/examples
+COPY --from=builder /of/apps/myApps/invasiv/bin /app
+WORKDIR /app
+ENTRYPOINT ["./invasiv"]

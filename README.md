@@ -1,60 +1,44 @@
 ![demo time](./.codeberg/screencast.gif)
 
-# invasiv
+# Invasiv
 
-vj and projection mapping software
+**Invasiv** is a high-performance VJ and projection mapping software built with [openFrameworks](https://openframeworks.cc/). It features real-time multi-peer synchronization, spline-based warping, and a robust media management system.
 
+## Key Features
+- **Symmetric Architecture**: Run the same binary on all machines; toggle roles (Master/Peer) on the fly.
+- **Dynamic Warping**: Advanced spline-based mesh manipulation for complex surfaces.
+- **Network Sync**: Automatic peer discovery and media synchronization over UDP broadcast.
+- **Modern Performance**: High-efficiency rendering with libmpv integration for video playback.
 
-## attribution:
+Full feature list available in [FEATURES.md](./FEATURES.md).
 
-* openframeworks: MIT -> https://github.com/openframeworks/openFrameworks
-* ofxlua: BSD Simplified License -> https://github.com/danomatika/ofxLua
-* ofxMPVPlayer: https://github.com/PeteHaughie/ofxMPVPlayer
+## Installation
 
-## install
+### Prerequisites
+- **Linux**: libmpv2
+  ```bash
+  sudo apt install libmpv-dev
+  ```
 
+### Building (Docker - Recommended)
+The easiest way to build Invasiv without managing openFrameworks dependencies manually is using Docker:
+
+```bash
+make build
+make extract
 ```
-sudo apt install libmpv2
-```
+The compiled binary will be available in the `artifacts/` directory.
 
-## FEATURES:
+## Development
 
-* [x] auto discover via udp
-* [x] udp networking via broadcast
-* [x] symetric, only one program
-* [x] media folder sync
-* [x] save mapping to json
-* [x] shared mapping setup  
-* [x] only one program. user decides through button press "m" which instance is the current master on the network)
-* [x] uses the broadcast address of the network to communicate over a channel via udp
-* [x] has a simple interface that lets you create/delete warp surfaces on all peers from the master
-* [x] low latency sync of warp edits from master to peers
-* [x] master scans the media folder and syncs changes to peers
-* [x] master syncs to new peers when they announce themselves
-* [x] peers decides to take offered files and overwrite local ones based on simple md5 hash comparisons
-* [x] peers should show in their status ui (upper left corner) whether they are syncing and what they are syncing
-* [x] master ui should have a list of files in media folder and whether they have been synced to all peers
-* [x] master ui/instances should show wether a peer is synced or its sync progress if possible
-* [x] when a new item is added to the media folder i want the content manager in warpcontroller.h to check all the files in 
-      mediafolder and create videocontent for them (register) if they dont exist already. and delete the videocontents that are not in media folder.
-* [x] when editing textures or mapping, only show the texture being edited
-* [x] when editing textures or mapping, allow the user to scale all control points at once
-* [x] when editing textures or mapping, allow the user to move all control points at once
-* [x] surfaces should be reorderable
-* [x] master should be able to select what content for each surface
-* [x] increment or decrement divisions for horisontal/vertical for each surface
-* [x] reset edit_mode in warp controller on change of surface etc
-* [x] use more efficient double mesh (one for control, one for render)
-* [x] fix green flickr bug - https://github.com/openframeworks/openFrameworks/issues/8488
-* [x] maybe move to using mpv player through libmpv
-* [x] make the other surfaces visible, but 50% transparent during editing of a surface
-* [x] always be either mapping editing or texture editing if in master mode
-* [x] implement persistant fullscreen toggle
-* [x] fix issue with texture editing being invisible
-* [x] fix bug with shutdown and freeze (introduced after more efficient double mesh)
-* [x] make the current master mode into a MasterEdit mode
-* [x] create new MasterPerformance mode
-* [x] fix potential network blast issue `[ error ] ofxNetwork: ../../../addons/ofxNetwork/src/ofxUDPManager.cpp: 295 ENETUNREACH: the network of the given addr isn't reachable from this host`
-* [x] implement sketch for perform ui
-* [ ] make surface and instance id's editable
+The project is structured as an openFrameworks app:
+- `invasiv_app/src`: Core C++ source code.
+- `invasiv_app/addons.make`: List of required oF addons.
 
+## License
+Distributed under the MIT License. See `LICENSE` for more information.
+
+### Attributions
+- **openFrameworks**: [MIT License](https://github.com/openframeworks/openFrameworks)
+- **ofxMPVPlayer**: Pete Haughie
+- **ofxImGui**: [MIT License](https://github.com/jvcleave/ofxImGui)

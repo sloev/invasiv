@@ -1,10 +1,10 @@
 #pragma once
 #include "ofMain.h"
-#include "ofxImGui.h"
 #include "Identity.h"
 #include "Network.h"
 #include "WarpController.h"
 #include "MediaWatcher.h"
+#include "GuiManager.h"
 
 class ofApp : public ofBaseApp{
 public:
@@ -20,18 +20,17 @@ public:
     void onFilesChanged(std::vector<std::string>& files);
     void exit();
 
-    // -- NEW: Helper to sync everything to peers --
+    void saveSettings(string path);
+    string loadSettings();
+
     void syncFullState(); 
     
     Identity identity;
     Network net;
     WarpController warper;
     MediaWatcher watcher;
+    GuiManager gui;
     
-    ofxImGui::Gui gui;
-    void drawEditingUI();
-        
-void drawPerformUi();
     string projectPath;
     string mediaDir;
     char pathInputBuf[256];
