@@ -84,13 +84,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Rust Pre-Invasiv
+      - name: Build Rust Skewer
         uses: docker/build-push-action@v5
         with:
           context: .
           target: rust-builder
           load: true
-          tags: pre-invasiv-builder:latest
+          tags: skewer-builder:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -140,10 +140,10 @@ jobs:
           docker cp extract-raw:/of/apps/myApps/invasiv/bin/invasiv release/raw/
           docker rm extract-raw
 
-          # Extract Pre-Invasiv binary
-          docker create --name extract-pre pre-invasiv-builder:latest
-          docker cp extract-pre:/app/target/release/pre-invasiv release/raw/
-          docker rm extract-pre
+          # Extract Skewer binary
+          docker create --name extract-skewer skewer-builder:latest
+          docker cp extract-skewer:/app/target/release/skewer release/raw/
+          docker rm extract-skewer
           
           # Extract AppImage
           docker create --name extract-bundle invasiv-bundler:latest
@@ -164,7 +164,7 @@ jobs:
           files: |
             release/Invasiv-x86_64.AppImage
             release/raw/invasiv
-            release/raw/pre-invasiv
+            release/raw/skewer
             invasiv-linux-x64.tar.gz
           body: |
             Rolling release build.
@@ -174,7 +174,7 @@ jobs:
             Artifacts:
             - **Invasiv-x86_64.AppImage**: Standalone bundle (recommended for most users)
             - **invasiv**: Core application raw binary
-            - **pre-invasiv**: Rhythmic warping utility (Rust)
+            - **skewer**: Rhythmic warping utility (Rust)
             - **invasiv-linux-x64.tar.gz**: Full bin folder including data/ assets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

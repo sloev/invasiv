@@ -27,7 +27,7 @@
 * [x] Video-Tempo Sync: Auto-align video loops to metronome beats via dynamic speed skewing
 * [x] Integration Test Suite: automated verification of networking and binary health in CI (see /tests)
 * [x] Automated Release Pipeline: AppImage bundle and raw binary artifacts generated on each release
-* [x] Pre-Invasiv: Rust-based rhythmic warping utility for media preparation
+* [x] Skewer: Rust-based rhythmic warping utility for media preparation
 
 ## Roadmap
 * [ ] ROLE_MASTER_PERFORM: expand triggers to OSC and MIDI input

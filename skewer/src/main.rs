@@ -87,7 +87,7 @@ impl BeatMapper {
 impl eframe::App for BeatMapper {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("PRE-INVASIV // Rhythmic Warper");
+            ui.heading("SKEWER // Rhythmic Warper");
             ui.add_space(10.0);
 
             ui.horizontal(|ui| {
@@ -200,7 +200,7 @@ fn main() -> eframe::Result<()> {
         ..Default::default()
     };
     eframe::run_native(
-        "PRE-INVASIV",
+        "SKEWER",
         options,
         Box::new(|_cc| Box::new(BeatMapper::default())),
     )

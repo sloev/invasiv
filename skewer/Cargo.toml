@@ -1,5 +1,5 @@
 [package]
-name = "pre-invasiv"
+name = "skewer"
 version = "0.1.0"
 edition = "2021"
 
