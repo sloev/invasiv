@@ -1,5 +1,8 @@
 #pragma once
+
+#ifndef TEST_MODE
 #include "ofMain.h"
+#endif
 
 class Metronome {
 public:
@@ -8,7 +11,7 @@ public:
     int beatsPerBar = 4;
     
     // Tap Tempo helper
-    vector<double> tapTimes;
+    std::vector<double> tapTimes;
 
     void setup() {
         referenceTime = ofGetElapsedTimeMillis();
@@ -38,12 +41,12 @@ public:
     }
 
     int getBeatInBar() {
-        return ((int)floor(getBeat()) % beatsPerBar) + 1;
+        return ((int)std::floor(getBeat()) % beatsPerBar) + 1;
     }
 
     float getPhase() {
         float beat = getBeat();
-        return beat - floor(beat);
+        return beat - std::floor(beat);
     }
 
     bool isBeatFirst() {

@@ -59,7 +59,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /of/apps/myApps/invasiv
 # Run C++ Unit Tests (Metronome logic)
-RUN g++ -O3 tests/unit_tests.cpp -I/of/libs/openFrameworks -o tests/unit_tests && ./tests/unit_tests
+RUN g++ -O3 tests/unit_tests.cpp -DTEST_MODE -o tests/unit_tests && ./tests/unit_tests
 # Smoke test - verify it launches and sends heartbeats
 RUN xvfb-run -a python3 tests/test_protocol.py
 
