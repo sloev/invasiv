@@ -3,294 +3,385 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>INVASIV // REDLINE_VISUALS</title>
+    <title>INVASIV — Decentralized Spatial Logic</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;300;400;900&display=swap');
 
         :root {
-            --bg: #000000;
-            --accent: #ff0000;
-            --text: #ffffff;
-            --text-dim: #444444;
-            --border: #222222;
+            --bg: #ffffff;
+            --text: #000000;
+            --text-dim: #888888;
+            --border: #eeeeee;
+            --accent: #000000;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; cursor: crosshair; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
             background-color: var(--bg);
             color: var(--text);
-            font-family: 'JetBrains Mono', monospace;
-            line-height: 1.2;
+            font-family: 'Inter', sans-serif;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
             overflow-x: hidden;
         }
 
-        /* Minimal Scrollbar */
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: var(--bg); }
-        ::-webkit-scrollbar-thumb { background: var(--accent); }
-
         .container { max-width: 1400px; margin: 0 auto; padding: 0 4rem; }
 
-        /* Status Bar */
-        .status-bar {
-            border-bottom: 1px solid var(--accent);
-            padding: 0.5rem 1rem;
-            position: fixed;
-            top: 0; width: 100%;
-            display: flex; justify-content: space-between;
-            font-size: 0.7rem;
-            background: var(--bg);
-            z-index: 1000;
-            letter-spacing: 2px;
+        /* Navigation */
+        nav {
+            padding: 2rem 0;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            font-weight: 300;
         }
 
         /* Hero */
         section.hero {
-            padding: 15vh 0 10vh 0;
-            border-bottom: 1px solid var(--border);
+            padding: 15vh 0;
         }
 
         h1 {
-            font-size: clamp(4rem, 18vw, 16rem);
-            font-weight: 800;
-            letter-spacing: -0.05em;
-            line-height: 0.75;
-            color: var(--accent);
+            font-size: clamp(4rem, 15vw, 14rem);
+            font-weight: 900;
+            letter-spacing: -0.04em;
+            line-height: 0.85;
             margin-bottom: 4rem;
+            text-transform: uppercase;
         }
 
-        .hero-meta {
+        .hero-layout {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 4rem;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 6rem;
             align-items: start;
         }
 
         .manifesto {
-            font-size: 1.8rem;
-            color: var(--text);
-            text-transform: uppercase;
-            font-weight: 800;
+            font-size: 2.5rem;
+            font-weight: 100;
+            line-height: 1.1;
+            letter-spacing: -0.02em;
         }
 
-        .technical-spec {
-            font-size: 0.8rem;
-            color: var(--text-dim);
-            border-top: 1px solid var(--accent);
-            padding-top: 1rem;
+        .cta-group {
+            margin-top: 4rem;
+            display: flex;
+            gap: 1rem;
         }
 
-        /* CTAs */
-        .cta-box { margin-top: 4rem; display: flex; gap: 1px; background: var(--accent); border: 1px solid var(--accent); }
         .btn {
-            background: var(--bg);
-            color: var(--accent);
-            padding: 2rem;
-            text-decoration: none;
-            flex: 1;
-            text-align: center;
-            font-weight: 800;
-            transition: 0.1s;
-        }
-        .btn:hover { background: var(--accent); color: var(--text); }
-
-        /* The Window */
-        section.demo { padding: 10vh 0; background: #050505; }
-        .red-box {
-            border: 1px solid var(--accent);
-            position: relative;
-            padding: 1px;
-        }
-        .red-box::before {
-            content: "LIVE_ENVIRONMENT_STREAM";
-            position: absolute;
-            top: -1.5rem; left: 0;
-            font-size: 0.6rem; color: var(--accent);
-        }
-        .red-box img { width: 100%; display: block; filter: saturate(1.5) contrast(1.2); }
-
-        /* Features - Log Style */
-        section.features { padding: 10vh 0; }
-        .log-entry {
-            display: grid;
-            grid-template-columns: 150px 1fr;
-            padding: 3rem 0;
-            border-bottom: 1px solid var(--border);
-        }
-        .log-time { color: var(--accent); font-size: 0.8rem; }
-        .log-content h3 { font-size: 2rem; margin-bottom: 1rem; text-transform: uppercase; }
-        .log-content p { color: var(--text-dim); max-width: 800px; font-size: 1.1rem; }
-
-        /* Comparison - Brutalist Table */
-        section.vs { padding: 10vh 0; }
-        .vs-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4rem;
-        }
-        .vs-header { font-size: 4rem; color: var(--text); margin-bottom: 2rem; }
-        .comparison-item {
-            padding: 1.5rem 0;
-            border-bottom: 1px solid var(--border);
-            display: flex; justify-content: space-between;
-        }
-        .val-invasiv { color: var(--accent); font-weight: 800; }
-        .val-other { color: var(--text-dim); text-decoration: line-through; }
-
-        /* Support Section */
-        section.support {
-            padding: 15vh 0;
-            border-top: 1px solid var(--accent);
-            text-align: center;
-        }
-        .support h2 { font-size: 5rem; margin-bottom: 2rem; color: var(--accent); }
-        .coffee-link {
-            font-size: 2rem;
+            display: inline-block;
+            padding: 1.2rem 2.5rem;
+            border: 1px solid var(--text);
             color: var(--text);
             text-decoration: none;
-            border: 2px solid var(--text);
-            padding: 1rem 3rem;
-            display: inline-block;
-            transition: 0.2s;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.2em;
+            font-weight: 400;
+            transition: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .coffee-link:hover { background: var(--accent); border-color: var(--accent); }
 
-        footer {
+        .btn:hover {
+            background: var(--text);
+            color: var(--bg);
+        }
+
+        .btn-black {
+            background: var(--text);
+            color: var(--bg);
+        }
+
+        .btn-black:hover {
+            background: transparent;
+            color: var(--text);
+        }
+
+        /* Demo */
+        section.demo {
+            padding-bottom: 15vh;
+        }
+
+        .media-window {
+            background: #fcfcfc;
+            border: 1px solid var(--border);
             padding: 4rem;
-            background: #000;
-            color: #222;
-            font-size: 0.6rem;
-            text-align: center;
+            position: relative;
+        }
+
+        .media-window img {
+            width: 100%;
+            display: block;
+            mix-blend-mode: multiply;
+            filter: grayscale(1);
+            transition: 0.5s ease;
+        }
+
+        .media-window:hover img {
+            filter: grayscale(0);
+        }
+
+        /* Features */
+        section.logic {
+            padding: 15vh 0;
             border-top: 1px solid var(--border);
         }
 
+        .logic-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 4rem;
+        }
+
+        .logic-card {
+            padding-top: 2rem;
+            border-top: 1px solid var(--text);
+        }
+
+        .logic-card span {
+            font-size: 0.7rem;
+            font-weight: 300;
+            letter-spacing: 0.3em;
+            color: var(--text-dim);
+            display: block;
+            margin-bottom: 1.5rem;
+        }
+
+        .logic-card h3 {
+            font-weight: 400;
+            text-transform: uppercase;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            letter-spacing: 0.05em;
+        }
+
+        .logic-card p {
+            font-weight: 300;
+            color: var(--text-dim);
+            font-size: 0.95rem;
+        }
+
+        /* Comparison */
+        section.comparison {
+            padding: 15vh 0;
+            background: #fafafa;
+        }
+
+        .comparison h2 {
+            font-size: 3rem;
+            font-weight: 100;
+            margin-bottom: 4rem;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+        }
+
+        .comp-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .comp-table th {
+            text-align: left;
+            padding: 1.5rem 0;
+            font-weight: 300;
+            font-size: 0.7rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .comp-table td {
+            padding: 2.5rem 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 1.1rem;
+            font-weight: 300;
+        }
+
+        .comp-val-invasiv { font-weight: 600; text-transform: uppercase; font-size: 0.9rem; letter-spacing: 0.1em; }
+        .comp-val-legacy { color: var(--text-dim); text-decoration: line-through; }
+
+        /* Participate */
+        section.community {
+            padding: 15vh 0;
+            text-align: center;
+        }
+
+        .comm-intro {
+            font-size: 2rem;
+            font-weight: 100;
+            max-width: 800px;
+            margin: 0 auto 4rem auto;
+        }
+
+        .links {
+            display: flex;
+            justify-content: center;
+            gap: 4rem;
+            margin-bottom: 8rem;
+        }
+
+        .links a {
+            color: var(--text);
+            text-decoration: none;
+            font-size: 0.8rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            border-bottom: 1px solid transparent;
+            transition: 0.2s;
+        }
+
+        .links a:hover { border-bottom-color: var(--text); }
+
+        .support-box {
+            background: #000;
+            color: #fff;
+            padding: 6rem;
+        }
+
+        footer {
+            padding: 4rem 0;
+            font-size: 0.6rem;
+            font-weight: 300;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            text-align: center;
+            color: var(--text-dim);
+        }
+
+        @media (max-width: 1024px) {
+            .hero-layout { grid-template-columns: 1fr; gap: 4rem; }
+            .container { padding: 0 2rem; }
+        }
+
         @media (max-width: 768px) {
-            .container { padding: 0 1.5rem; }
-            h1 { font-size: 6rem; }
-            .log-entry { grid-template-columns: 1fr; gap: 1rem; }
-            .vs-grid { grid-template-columns: 1fr; }
-            .support h2 { font-size: 3rem; }
+            h1 { font-size: 5rem; }
+            .manifesto { font-size: 1.8rem; }
+            .links { flex-direction: column; gap: 2rem; }
         }
     </style>
 </head>
 <body>
 
-    <div class="status-bar">
-        <div>SYSTEM: ONLINE // VERSION: 0.1.14_ALPHA</div>
-        <div>STABILITY: HIGH // TARGET: VJS_AND_GEEKS</div>
-        <div>[REDLINE_ACTIVE]</div>
-    </div>
+    <nav class="container">
+        <div>Invasiv — 0.1.14 Alpha</div>
+        <div style="display:flex; gap: 2rem;">
+            <a href="https://github.com/nihil/invasiv" style="color:inherit; text-decoration:none;">Repo</a>
+            <a href="https://github.com/nihil/invasiv/wiki" style="color:inherit; text-decoration:none;">Wiki</a>
+        </div>
+    </nav>
 
     <section class="hero container">
-        <h1>INVASIV</h1>
-        <div class="hero-meta">
+        <h1>Invasiv</h1>
+        <div class="hero-layout">
             <div class="manifesto">
-                The show is live. Your software shouldn't be a liability. Decentralized dominance for the digital stage.
+                Performance is not a premium feature. It is the baseline. 
+                Decentralized spatial intelligence for the expressive stage.
             </div>
-            <div class="technical-spec">
-                // LANGUAGE: C++20<br>
-                // ENGINE: OPENFRAMEWORKS<br>
-                // SYNC: PHASE-LOCKED LOOP (PLL)<br>
-                // DISCOVERY: UDP BROADCAST<br>
-                // COST: $0 (MIT)
+            <div>
+                <p style="font-weight: 300; color: var(--text-dim); margin-bottom: 2rem;">
+                    Legacy software scales with price. Invasiv scales with logic. 
+                    A symmetric, C++ powered engine designed to own the physical space without the proprietary weight.
+                </p>
+                <div class="cta-group">
+                    <a href="https://github.com/nihil/invasiv/releases" class="btn btn-black">Download AppImage</a>
+                    <a href="https://github.com/nihil/invasiv/releases" class="btn">Get Skewer</a>
+                </div>
             </div>
-        </div>
-        <div class="cta-box">
-            <a href="https://github.com/nihil/invasiv/releases" class="btn">GET_APPIMAGE</a>
-            <a href="https://github.com/nihil/invasiv/releases" class="btn">GET_SKEWER</a>
         </div>
     </section>
 
     <section class="demo container">
-        <div class="red-box">
-            <img src="../.github/screencast.gif" alt="Invasiv System Preview">
+        <div class="media-window">
+            <img src="../.github/screencast.gif" alt="System Preview">
         </div>
     </section>
 
-    <section class="features container">
-        <div class="log-entry">
-            <div class="log-time">[00:00:01]</div>
-            <div class="log-content">
-                <h3>Symmetric Intelligence</h3>
-                <p>We deleted the concept of "Client" vs "Server". In INVASIV, every node is identical. Master and Peer are just software flags. If the master dies, the peer takes the crown. The show never stops breathing.</p>
+    <section class="logic container">
+        <div class="logic-grid">
+            <div class="logic-card">
+                <span>ARCHITECTURE</span>
+                <h3>Symmetric Nodes</h3>
+                <p>Deleted the hierarchy. Every instance is an authority. Every instance is a peer. Plug in, discover, and synchronize. The network becomes the instrument.</p>
             </div>
-        </div>
-        <div class="log-entry">
-            <div class="log-time">[00:00:02]</div>
-            <div class="log-content">
-                <h3>The Rhythmic Skew</h3>
-                <p>Looping is for amateurs. SKEWER preps your media to a 2-second grid, and INVASIV's skew engine micro-adjusts playback speed in real-time to keep your frames phase-locked to the beat. Not "near" the beat. ON it.</p>
+            <div class="logic-card">
+                <span>PRECISION</span>
+                <h3>Phase-Locked Sync</h3>
+                <p>Looping is approximation. Our Phase-Locked Loop (PLL) engine micro-warps video playback speed to align frames with the master metronome. Absolute rhythmic cohesion.</p>
             </div>
-        </div>
-        <div class="log-entry">
-            <div class="log-time">[00:00:03]</div>
-            <div class="log-content">
-                <h3>Brutalist Performance</h3>
-                <p>No installers. No Java. No bloat. An AppImage that just runs. Built for artists who care about CPU cycles and sub-millisecond network latency.</p>
+            <div class="logic-card">
+                <span>PERFORMANCE</span>
+                <h3>Architectural Lean</h3>
+                <p>No installers. No bloat. Pure C++20 and hardware-direct rendering. Built for environments where sub-millisecond latency is the only acceptable metric.</p>
             </div>
         </div>
     </section>
 
-    <section class="vs container">
-        <h2 class="vs-header">REALITY CHECK</h2>
-        <div class="vs-grid">
-            <div>
-                <div class="comparison-item">
-                    <span>LICENSE</span>
-                    <span class="val-invasiv">MIT (FOREVER)</span>
-                </div>
-                <div class="comparison-item">
-                    <span>NETWORK</span>
-                    <span class="val-invasiv">DECENTRALIZED</span>
-                </div>
-                <div class="comparison-item">
-                    <span>SYNC</span>
-                    <span class="val-invasiv">PHASE-LOCKED</span>
-                </div>
-            </div>
-            <div style="opacity: 0.5;">
-                <div class="comparison-item">
-                    <span>LICENSE</span>
-                    <span class="val-other">PROPRIETARY ($$$)</span>
-                </div>
-                <div class="comparison-item">
-                    <span>NETWORK</span>
-                    <span class="val-other">FRAGILE MASTER/CLIENT</span>
-                </div>
-                <div class="comparison-item">
-                    <span>SYNC</span>
-                    <span class="val-other">JUMPY BPM TRIGGERS</span>
-                </div>
-            </div>
+    <section class="comparison">
+        <div class="container">
+            <h2>The Weight of Legacy</h2>
+            <table class="comp-table">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Invasiv</th>
+                        <th>Commercial Standard</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Licensing</td>
+                        <td class="comp-val-invasiv">MIT / Open</td>
+                        <td class="comp-val-legacy">Subscription / Dongle</td>
+                    </tr>
+                    <tr>
+                        <td>Topology</td>
+                        <td class="comp-val-invasiv">Symmetric P2P</td>
+                        <td class="comp-val-legacy">Centralized / Fragile</td>
+                    </tr>
+                    <tr>
+                        <td>Sync Method</td>
+                        <td class="comp-val-invasiv">Continuous PLL</td>
+                        <td class="comp-val-legacy">Jumpy BPM Trigger</td>
+                    </tr>
+                    <tr>
+                        <td>Binary Weight</td>
+                        <td class="comp-val-invasiv">~20MB</td>
+                        <td class="comp-val-legacy">~2GB+</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </section>
 
-    <section class="support container">
-        <p style="color: var(--accent); margin-bottom: 1rem;">// LOG: DEVELOPMENT_FUEL_LOW //</p>
-        <h2>FEED THE INVADER</h2>
-        <p style="color: var(--text-dim); margin-bottom: 3rem; max-width: 600px; margin: 0 auto 3rem auto;">
-            Invasiv is built by artists who hate commercial bloat. If it saves your night, keep the development alive.
-        </p>
-        <a href="https://buymeacoffee.com/sloev" class="coffee-link">BUY_A_COFFEE</a>
-    </section>
+    <section class="community container">
+        <div class="comm-intro">
+            Invasiv is an open system. We invite participation from those who value precise engineering over commercial bloat.
+        </div>
+        
+        <div class="links">
+            <a href="https://github.com/nihil/invasiv/issues">Report Intel</a>
+            <a href="https://github.com/nihil/invasiv/pulls">Contribute Code</a>
+            <a href="https://github.com/nihil/invasiv/discussions">Architecture Discussion</a>
+        </div>
 
-    <section class="container" style="padding-bottom: 10vh;">
-        <div class="log-entry" style="border-top: 1px solid var(--border);">
-            <div class="log-time">[INTEL]</div>
-            <div class="log-content">
-                <h3 style="font-size: 1.2rem;">PARTICIPATE</h3>
-                <div style="display:flex; gap: 2rem;">
-                    <a href="https://github.com/nihil/invasiv/issues" style="color: var(--accent);">REPORT_BUGS</a>
-                    <a href="https://github.com/nihil/invasiv/pulls" style="color: var(--accent);">PUSH_CODE</a>
-                    <a href="https://github.com/nihil/invasiv/discussions" style="color: var(--accent);">CHAT</a>
-                </div>
-            </div>
+        <div class="support-box">
+            <h2 style="font-weight: 100; margin-bottom: 2rem;">Fuel the Development</h2>
+            <p style="font-weight: 300; opacity: 0.6; margin-bottom: 3rem; max-width: 500px; margin-left: auto; margin-right: auto;">
+                Independent software survives on independent support. Keep the logic clean and the development active.
+            </p>
+            <a href="https://buymeacoffee.com/sloev" class="btn" style="border-color: #fff; color: #fff;">Buy a coffee</a>
         </div>
     </section>
 
     <footer>
-        // INVASIV_OS // END_OF_LOG // 2026 // NO_BULLSHIT_VISUALS //
+        Invasiv System — Est. 2026 — Built with openFrameworks
     </footer>
 
 </body>
