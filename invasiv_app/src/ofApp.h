@@ -5,6 +5,7 @@
 #include "WarpController.h"
 #include "MediaWatcher.h"
 #include "GuiManager.h"
+#include "StateManager.h"
 
 class ofApp : public ofBaseApp{
 public:
@@ -29,6 +30,7 @@ public:
     Network net;
     WarpController warper;
     MediaWatcher watcher;
+    StateManager stateMgr;
     GuiManager gui;
     
     string projectPath;

@@ -82,6 +82,9 @@ void ofApp::reloadProject(string path)
     string warpPath = ofFilePath::join(configsDir, "warps.json");
     warper.setup(warpPath, mediaDir, identity.myId);
 
+    string statesPath = ofFilePath::join(configsDir, "states.json");
+    stateMgr.setup(statesPath);
+
     ofLogNotice("Project") << "Reloaded: " << path;
     watcher.setup(mediaDir);
 }
@@ -251,7 +254,7 @@ void ofApp::draw()
              ofDrawBitmapStringHighlight("MASTER: PERFORMANCE MODE", 10, 20, ofColor::black, ofColor::green);
         }
 
-        gui.draw(identity, net, warper, watcher, pathInputBuf, projectPath);
+        gui.draw(identity, net, warper, watcher, stateMgr, pathInputBuf, projectPath);
     }
     else
     {
@@ -299,6 +302,10 @@ void ofApp::mouseReleased(int x, int y, int button)
 
 void ofApp::keyPressed(int key)
 {
+    if (!net.isEditing()) {
+        stateMgr.processKey(key, warper, net);
+    }
+
     if (key == 'f')
     {
         identity.toggleFullscreen();

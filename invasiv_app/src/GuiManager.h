@@ -9,10 +9,15 @@
 class GuiManager {
 public:
     void setup();
-    void draw(Identity &identity, Network &net, WarpController &warper, MediaWatcher &watcher, char* pathInputBuf, string &projectPath);
+    void draw(Identity &identity, Network &net, WarpController &warper, MediaWatcher &watcher, StateManager &stateMgr, char* pathInputBuf, string &projectPath);
 
 private:
     ofxImGui::Gui gui;
-    void drawPerformUi(Identity &identity, Network &net, WarpController &warper, MediaWatcher &watcher);
-    void drawEditingUI(Identity &identity, Network &net, WarpController &warper, MediaWatcher &watcher, char* pathInputBuf, string &projectPath);
+    char idInputBuf[64] = "";
+    char surfaceIdInputBuf[64] = "";
+    string lastIdOwner = "";
+    string lastSurfaceId = "";
+
+    void drawPerformUi(Identity &identity, Network &net, WarpController &warper, MediaWatcher &watcher, StateManager &stateMgr);
+    void drawEditingUI(Identity &identity, Network &net, WarpController &warper, MediaWatcher &watcher, StateManager &stateMgr, char* pathInputBuf, string &projectPath);
 };

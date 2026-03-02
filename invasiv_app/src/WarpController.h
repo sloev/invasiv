@@ -35,6 +35,9 @@ public:
     void reset();
     void removeLayer(string owner, Network *net);
     void removeLayerById(string idToRemove, Network *net);
+    
+    void updatePeerId(string oldId, string newId, Network &net);
+    void updateSurfaceId(string oldId, string newId, Network &net);
 
     void mousePressed(int x, int y, Network &net);
     void mouseDragged(int x, int y, Network &net);

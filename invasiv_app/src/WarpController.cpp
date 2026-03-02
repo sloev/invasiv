@@ -166,6 +166,34 @@ void WarpController::removeLayerById(string idToRemove, Network *net)
         sync(*net);
 }
 
+void WarpController::updatePeerId(string oldId, string newId, Network &net)
+{
+    if (oldId == newId || newId == "") return;
+    
+    for (auto &s : allSurfaces) {
+        if (s->ownerId == oldId) {
+            s->ownerId = newId;
+        }
+    }
+    
+    if (myPeerId == oldId) myPeerId = newId;
+    if (targetPeerId == oldId) targetPeerId = newId;
+    
+    sync(net);
+}
+
+void WarpController::updateSurfaceId(string oldId, string newId, Network &net)
+{
+    if (oldId == newId || newId == "") return;
+    
+    for (auto &s : allSurfaces) {
+        if (s->id == oldId) {
+            s->id = newId;
+        }
+    }
+    sync(net);
+}
+
 void WarpController::mousePressed(int x, int y, Network &net)
 {
     if (!net.isEditing())

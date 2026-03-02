@@ -20,9 +20,11 @@
 * [x] Spline-based warping with efficient double mesh system
 * [x] Persistent fullscreen toggle
 * [x] Modern Performance UI sketch implemented
+* [x] Editable surface and instance IDs
+* [x] State management system (save/recall full mapping/content snapshots)
+* [x] Keyboard-based trigger system for state transitions
 
 ## Roadmap
-* [ ] Make surface and instance IDs editable
-* [ ] ROLE_MASTER_PERFORM: introduce states that can hold all the settings of invasis
-* [ ] ROLE_MASTER_PERFORM: then introduce triggers where a trigger can trigger a state transition
-* [ ] ROLE_MASTER_PERFORM: edit map input like computer keyboard and osc to triggers 
+* [ ] ROLE_MASTER_PERFORM: expand triggers to OSC and MIDI input
+* [ ] ROLE_MASTER_PERFORM: add transition times (fade) between states
+* [ ] ROLE_MASTER_PERFORM: add audio analysis triggers (beat/envelope)

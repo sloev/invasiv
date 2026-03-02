@@ -4,17 +4,17 @@ void GuiManager::setup() {
     gui.setup();
 }
 
-void GuiManager::draw(Identity &identity, Network &net, WarpController &warper, MediaWatcher &watcher, char* pathInputBuf, string &projectPath) {
+void GuiManager::draw(Identity &identity, Network &net, WarpController &warper, MediaWatcher &watcher, StateManager &stateMgr, char* pathInputBuf, string &projectPath) {
     if (net.isAuthority()) {
         if (net.isEditing()) {
-            drawEditingUI(identity, net, warper, watcher, pathInputBuf, projectPath);
+            drawEditingUI(identity, net, warper, watcher, stateMgr, pathInputBuf, projectPath);
         } else {
-            drawPerformUi(identity, net, warper, watcher);
+            drawPerformUi(identity, net, warper, watcher, stateMgr);
         }
     }
 }
 
-void GuiManager::drawPerformUi(Identity &identity, Network &net, WarpController &warper, MediaWatcher &watcher)
+void GuiManager::drawPerformUi(Identity &identity, Network &net, WarpController &warper, MediaWatcher &watcher, StateManager &stateMgr)
 {
     gui.begin();
     ImGui::SetNextWindowSizeConstraints(ImVec2(800, 600), ImVec2(FLT_MAX, FLT_MAX));
@@ -117,27 +117,37 @@ void GuiManager::drawPerformUi(Identity &identity, Network &net, WarpController 
             ImGui::AlignTextToFramePadding();
             ImGui::Text("STATES");
             ImGui::SameLine(ImGui::GetContentRegionAvail().x - 40);
-            if(ImGui::SmallButton("NEW##State")) {}
+            if(ImGui::SmallButton("NEW##State")) {
+                string name = "State " + ofToString(stateMgr.states.size() + 1);
+                stateMgr.saveState(name, warper);
+            }
             ImGui::Separator();
 
             if (ImGui::CollapsingHeader("Saved States", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                if (ImGui::BeginTable("StatesTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
+                if (ImGui::BeginTable("StatesTable", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
                 {
                     ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed, 30.0f);
                     ImGui::TableSetupColumn("State Title");
+                    ImGui::TableSetupColumn("Actions", ImGuiTableColumnFlags_WidthFixed, 60.0f);
                     ImGui::TableHeadersRow();
 
-                    struct MockState { int id; string title; };
-                    static vector<MockState> mockStates = { {1, "Intro Scene"}, {2, "Blackout"}, {3, "Glitch Storm"} };
-
-                    for (auto &s : mockStates)
+                    for (int i = 0; i < (int)stateMgr.states.size(); i++)
                     {
                         ImGui::TableNextRow();
                         ImGui::TableNextColumn();
-                        ImGui::Text("%d", s.id);
+                        ImGui::Text("%d", i);
                         ImGui::TableNextColumn();
-                        if(ImGui::Selectable(s.title.c_str(), false, ImGuiSelectableFlags_SpanAllColumns)) {}
+                        bool isCurrent = (stateMgr.currentStateIndex == i);
+                        if(ImGui::Selectable(stateMgr.states[i].name.c_str(), isCurrent, ImGuiSelectableFlags_SpanAllColumns)) {
+                            stateMgr.applyState(i, warper, net);
+                        }
+                        ImGui::TableNextColumn();
+                        ImGui::PushID(i);
+                        if(ImGui::SmallButton("DEL")) {
+                            stateMgr.removeState(i);
+                        }
+                        ImGui::PopID();
                     }
                     ImGui::EndTable();
                 }
@@ -147,25 +157,59 @@ void GuiManager::drawPerformUi(Identity &identity, Network &net, WarpController 
             ImGui::AlignTextToFramePadding();
             ImGui::Text("TRIGGERS");
             ImGui::SameLine(ImGui::GetContentRegionAvail().x - 40);
-            if(ImGui::SmallButton("NEW##Trig")) {}
+            
+            static int selectedStateForTrigger = 0;
+            static char keyInput[2] = "";
+
+            if(ImGui::SmallButton("NEW##Trig")) {
+                if(keyInput[0] != '\0' && !stateMgr.states.empty()) {
+                    stateMgr.addTrigger(keyInput[0], selectedStateForTrigger);
+                    keyInput[0] = '\0';
+                }
+            }
             ImGui::Separator();
 
             if (ImGui::CollapsingHeader("Input Mapping", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                if (ImGui::BeginTable("TriggersTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
+                ImGui::Text("Add Key Trigger:");
+                ImGui::SetNextItemWidth(40);
+                ImGui::InputText("Key", keyInput, 2);
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(120);
+                if(ImGui::BeginCombo("State", stateMgr.states.empty() ? "No States" : stateMgr.states[selectedStateForTrigger].name.c_str())) {
+                    for(int n=0; n < (int)stateMgr.states.size(); n++) {
+                        if(ImGui::Selectable(stateMgr.states[n].name.c_str(), selectedStateForTrigger == n))
+                            selectedStateForTrigger = n;
+                    }
+                    ImGui::EndCombo();
+                }
+
+                if (ImGui::BeginTable("TriggersTable", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
                 {
                     ImGui::TableSetupColumn("State Target");
-                    ImGui::TableSetupColumn("Inputs (Key/Midi/OSC)");
+                    ImGui::TableSetupColumn("Inputs (Key)");
+                    ImGui::TableSetupColumn("Actions", ImGuiTableColumnFlags_WidthFixed, 60.0f);
                     ImGui::TableHeadersRow();
 
-                    ImGui::TableNextRow();
-                    ImGui::TableNextColumn(); ImGui::Text("Intro Scene");
-                    ImGui::TableNextColumn(); ImGui::Text("Key '1', MIDI CC 42");
-                    
-                    ImGui::TableNextRow();
-                    ImGui::TableNextColumn(); ImGui::Text("Blackout");
-                    ImGui::TableNextColumn(); ImGui::Text("Spacebar");
+                    for (int i = 0; i < (int)stateMgr.triggers.size(); i++)
+                    {
+                        ImGui::TableNextRow();
+                        ImGui::TableNextColumn();
+                        int sIdx = stateMgr.triggers[i].stateIndex;
+                        string sName = (sIdx >= 0 && sIdx < (int)stateMgr.states.size()) ? stateMgr.states[sIdx].name : "Unknown";
+                        ImGui::Text("%s", sName.c_str());
+                        
+                        ImGui::TableNextColumn();
+                        char kChar = (char)stateMgr.triggers[i].key;
+                        ImGui::Text("Key '%c'", kChar);
 
+                        ImGui::TableNextColumn();
+                        ImGui::PushID(i);
+                        if(ImGui::SmallButton("DEL")) {
+                            stateMgr.removeTrigger(i);
+                        }
+                        ImGui::PopID();
+                    }
                     ImGui::EndTable();
                 }
             }
@@ -220,7 +264,7 @@ void GuiManager::drawPerformUi(Identity &identity, Network &net, WarpController 
     gui.end(); 
 }
 
-void GuiManager::drawEditingUI(Identity &identity, Network &net, WarpController &warper, MediaWatcher &watcher, char* pathInputBuf, string &projectPath)
+void GuiManager::drawEditingUI(Identity &identity, Network &net, WarpController &warper, MediaWatcher &watcher, StateManager &stateMgr, char* pathInputBuf, string &projectPath)
 {
     gui.begin();
     ImGuiStyle &style = ImGui::GetStyle();
@@ -277,6 +321,23 @@ void GuiManager::drawEditingUI(Identity &identity, Network &net, WarpController 
 
         if (ImGui::TreeNode("Instances"))
         {
+            if (lastIdOwner != identity.myId) {
+                strncpy(idInputBuf, identity.myId.c_str(), 63);
+                lastIdOwner = identity.myId;
+            }
+            
+            if (ImGui::InputText("My ID", idInputBuf, 64, ImGuiInputTextFlags_EnterReturnsTrue)) {
+                string newId = string(idInputBuf);
+                if (newId != identity.myId && newId != "") {
+                    string oldId = identity.myId;
+                    identity.myId = newId;
+                    identity.save();
+                    net.myId = newId;
+                    warper.updatePeerId(oldId, newId, net);
+                    lastIdOwner = newId;
+                }
+            }
+
             string label = "[me] " + identity.myId;
             if (ImGui::Selectable(label.c_str(), warper.targetPeerId == identity.myId))
                 warper.targetPeerId = identity.myId;
@@ -337,8 +398,20 @@ void GuiManager::drawEditingUI(Identity &identity, Network &net, WarpController 
 
         if (warper.selectedIndex < (int)subset.size())
         {
+            auto currentSurface = subset[warper.selectedIndex];
+            if (lastSurfaceId != currentSurface->id) {
+                strncpy(surfaceIdInputBuf, currentSurface->id.c_str(), 63);
+                lastSurfaceId = currentSurface->id;
+            }
+
             ImGui::Text("Target: %s", warper.targetPeerId.c_str());
-            ImGui::Text("Surface: %s", subset[warper.selectedIndex]->id.c_str());
+            if (ImGui::InputText("Surface ID", surfaceIdInputBuf, 64, ImGuiInputTextFlags_EnterReturnsTrue)) {
+                string newSId = string(surfaceIdInputBuf);
+                if (newSId != currentSurface->id && newSId != "") {
+                    warper.updateSurfaceId(currentSurface->id, newSId, net);
+                    lastSurfaceId = newSId;
+                }
+            }
 
             vector<string> items = warper.getContentList();
             string currentId = subset[warper.selectedIndex]->contentId;
