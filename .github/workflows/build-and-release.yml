@@ -59,6 +59,7 @@ jobs:
 
   # Job 2: Build the Application from the Base
   build:
+    needs: base
     # Always run the build job, it will pull the latest base image from GHCR
     runs-on: ubuntu-latest
     permissions:
