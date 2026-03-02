@@ -38,6 +38,8 @@ RUN git clone https://github.com/jvcleave/ofxImGui /of/addons/ofxImGui \
 # Stage 3: App Builder - Application-specific compilation
 FROM addons AS builder
 
+ARG VERSION_NAME=dev
+
 # Add only the application source. 
 # Changes here will NOT trigger oF re-compilation.
 COPY ./invasiv_app /of/apps/myApps/invasiv
@@ -45,7 +47,7 @@ COPY ./invasiv_app /of/apps/myApps/invasiv
 # Generate Project and Build Release
 RUN /of/apps/projectGenerator/commandLine/bin/projectGenerator -r -o"/of" /of/apps/myApps/invasiv \
     && cd /of/apps/myApps/invasiv \
-    && make Release -j$(nproc)
+    && make Release -j$(nproc) PROJECT_CFLAGS="-DVERSION_NAME='\"${VERSION_NAME}\"'"
 
 # Stage 4: Runtime - Minimal image for deployment/testing
 FROM ubuntu:24.04@sha256:72297848457d5d37d126263012759e6d39d167305d369798ed3a2b07e14562fa AS runtime

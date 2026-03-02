@@ -3,11 +3,16 @@
 #include "TinyMD5.h"
 #include <filesystem>
 
+#ifndef VERSION_NAME
+#define VERSION_NAME "dev"
+#endif
+
 void ofApp::setup()
 {
     ofSetFrameRate(60);
     ofSetVerticalSync(true);
     ofBackground(20);
+    ofSetWindowTitle("invasiv " + string(VERSION_NAME));
     gui.setup();
     ofAddListener(watcher.filesChanged, this, &ofApp::onFilesChanged);
 
