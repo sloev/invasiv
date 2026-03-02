@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1-mesa-dev libglu1-mesa-dev libraw1394-dev libudev-dev \
     libdrm-dev libgbm-dev libxrender-dev libxrandr-dev libxinerama-dev \
     libxcursor-dev libxi-dev libxml2-dev libssl-dev libpulse-dev \
-    libx11-dev libxext-dev \
+    libx11-dev libxext-dev zlib1g-dev \
     libfontconfig1-dev libxkbcommon-dev \
     libusb-1.0-0-dev libopenal-dev libsndfile1-dev libmpg123-dev \
     librtaudio-dev libjack-jackd2-dev \
@@ -29,8 +29,10 @@ RUN wget -qO /of.tar.gz https://github.com/openframeworks/openFrameworks/release
     && tar -xf /of.tar.gz -C /of --strip-components=1 \
     && rm /of.tar.gz
 
-# Pre-compile openFrameworks core
-RUN cd /of/scripts/linux && ./compileOF.sh -j$(nproc)
+# Pre-compile openFrameworks core and Project Generator
+RUN cd /of/scripts/linux && ./compileOF.sh -j$(nproc) \
+    && cd /of/apps/projectGenerator/commandLine && make -j$(nproc) OF_ROOT=/of \
+    && ln -s /of/apps/projectGenerator/commandLine/bin/projectGenerator /usr/local/bin/projectGenerator
 
 # Stage 2: Addons - Stable external dependencies
 FROM of-base AS addons
@@ -45,7 +47,7 @@ RUN git clone https://github.com/jvcleave/ofxImGui /of/addons/ofxImGui \
 FROM addons AS builder
 ARG VERSION_NAME=dev
 COPY ./invasiv_app /of/apps/myApps/invasiv
-RUN /of/apps/projectGenerator/commandLine/bin/projectGenerator -r -o"/of" /of/apps/myApps/invasiv \
+RUN projectGenerator -r -o"/of" /of/apps/myApps/invasiv \
     && cd /of/apps/myApps/invasiv \
     && make Release -j$(nproc) PROJECT_CFLAGS="-DVERSION_NAME='\"${VERSION_NAME}\"'"
 
@@ -57,6 +59,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     librtaudio6 libjack-jackd2-0 \
     libx11-6 libxext6 libxinerama1 libxcursor1 libxi6 \
     libxrandr2 libxrender1 libxxf86vm1 \
+    libfontconfig1 zlib1g libxkbcommon0 \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /of/apps/myApps/invasiv/bin /app
 WORKDIR /app

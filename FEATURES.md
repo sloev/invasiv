@@ -23,5 +23,6 @@
 
 ## Roadmap
 * [ ] Make surface and instance IDs editable
-* [ ] Advanced sequencing and state management
-* [ ] MIDI/OSC input mapping
+* [ ] ROLE_MASTER_PERFORM: introduce states that can hold all the settings of invasis
+* [ ] ROLE_MASTER_PERFORM: then introduce triggers where a trigger can trigger a state transition
+* [ ] ROLE_MASTER_PERFORM: edit map input like computer keyboard and osc to triggers 
