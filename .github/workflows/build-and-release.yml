@@ -57,10 +57,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # Job 2: Build the Application from the Base
+  # Job 2: Build the Application, Run Tests, and Bundle
   build:
     needs: base
-    # Always run the build job, it will pull the latest base image from GHCR
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -94,7 +93,6 @@ jobs:
           tags: invasiv-builder:latest
           build-args: |
             VERSION_NAME=${{ steps.version.outputs.VERSION }}
-          # This pulls the 'addons' stage from GHCR to use as a base
           cache-from: |
             type=gha
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
@@ -106,30 +104,60 @@ jobs:
           context: .
           target: tester
           load: true
-          # Cache from the builder stage we just built
           cache-from: |
             type=gha
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           build-args: |
             VERSION_NAME=${{ steps.version.outputs.VERSION }}
 
-      - name: Extract Binary from Docker
+      - name: Build AppImage
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: bundler
+          load: true
+          tags: invasiv-bundler:latest
+          cache-from: |
+            type=gha
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Extract Artifacts from Docker
         run: |
-          mkdir -p release
-          docker create --name extract invasiv-builder:latest
-          docker cp extract:/of/apps/myApps/invasiv/bin/ release/
-          docker rm extract
-          cd release && tar -czvf ../invasiv-linux-x64.tar.gz .
+          mkdir -p release/raw
+          
+          # Extract raw binary
+          docker create --name extract-raw invasiv-builder:latest
+          docker cp extract-raw:/of/apps/myApps/invasiv/bin/invasiv release/raw/
+          docker rm extract-raw
+          
+          # Extract AppImage
+          docker create --name extract-bundle invasiv-bundler:latest
+          docker cp extract-bundle:/of/apps/myApps/invasiv/Invasiv-x86_64.AppImage release/
+          docker rm extract-bundle
+          
+          # Prepare tarball of bin folder (includes data/ and potential libs)
+          docker create --name extract-bin invasiv-builder:latest
+          docker cp extract-bin:/of/apps/myApps/invasiv/bin/ release/bin-folder
+          docker rm extract-bin
+          cd release && tar -czvf ../invasiv-linux-x64.tar.gz bin-folder/
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.VERSION }}
           name: Invasiv ${{ steps.version.outputs.VERSION }}
-          files: invasiv-linux-x64.tar.gz
+          files: |
+            release/Invasiv-x86_64.AppImage
+            release/raw/invasiv
+            invasiv-linux-x64.tar.gz
           body: |
             Rolling release build.
             Version: ${{ steps.version.outputs.VERSION }}
             Commit: ${{ github.sha }}
+            
+            Artifacts:
+            - **Invasiv-x86_64.AppImage**: Standalone bundle (recommended for most users)
+            - **invasiv**: Raw binary (requires libmpv2 installed on host)
+            - **invasiv-linux-x64.tar.gz**: Full bin folder including data/ assets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

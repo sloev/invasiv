@@ -63,7 +63,28 @@ RUN g++ -O3 tests/unit_tests.cpp -I/of/libs/openFrameworks -o tests/unit_tests &
 # Smoke test - verify it launches and sends heartbeats
 RUN xvfb-run -a python3 tests/test_protocol.py
 
-# Stage 7: Runtime
+# Stage 7: Bundler - Create AppImage
+FROM builder AS bundler
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    file libglib2.0-0 libfuse2 desktop-file-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Download linuxdeploy and its AppImage plugin
+RUN wget -qO /linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage \
+    && chmod +x /linuxdeploy \
+    && wget -qO /linuxdeploy-plugin-appimage https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage \
+    && chmod +x /linuxdeploy-plugin-appimage
+
+WORKDIR /of/apps/myApps/invasiv
+# Use --appimage-extract-and-run to avoid FUSE issues in Docker
+RUN mkdir -p AppDir \
+    && /linuxdeploy --appimage-extract-and-run --app-dir AppDir \
+       -e bin/invasiv \
+       -i resources/icon.svg \
+       -d resources/invasiv.desktop \
+    && OUTPUT=Invasiv-x86_64.AppImage /linuxdeploy-plugin-appimage --appimage-extract-and-run --app-dir AppDir
+
+# Stage 8: Runtime
 FROM ubuntu:24.04 AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libmpv2 libgl1-mesa-dri libgl1-mesa-glx libpulse0 \

@@ -14,7 +14,15 @@ Full feature list available in [FEATURES.md](./FEATURES.md).
 
 ## Installation
 
-### Prerequisites
+### Releases (Recommended)
+Download the latest **Invasiv-x86_64.AppImage** from the [Releases](https://github.com/nihil/invasiv/releases) page. This is a standalone bundle that includes all necessary dependencies.
+
+```bash
+chmod +x Invasiv-x86_64.AppImage
+./Invasiv-x86_64.AppImage
+```
+
+### Prerequisites (for building/raw binary)
 - **Linux**: libmpv2
   ```bash
   sudo apt install libmpv-dev

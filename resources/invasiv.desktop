@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Invasiv
+Comment=High-performance VJ and projection mapping software
+Exec=invasiv
+Icon=invasiv
+Terminal=false
+Categories=AudioVideo;Video;Graphics;
