@@ -16,7 +16,7 @@ struct BeatMapper {
     beats: Vec<Beat>,
     current_time: f64,
     duration: f64,
-    is_playing: bool,
+    _is_playing: bool,
     exporting: bool,
     export_progress: f32,
 }
@@ -28,7 +28,7 @@ impl Default for BeatMapper {
             beats: vec![Beat { time: 0.0 }],
             current_time: 0.0,
             duration: 10.0, // Default until loaded
-            is_playing: false,
+            _is_playing: false,
             exporting: false,
             export_progress: 0.0,
         }
@@ -105,12 +105,11 @@ impl eframe::App for BeatMapper {
             ui.add_space(20.0);
 
             // Timeline Visualization
-            let (rect, response) = ui.allocate_at_least(
+            let (rect, _response) = ui.allocate_at_least(
                 egui::vec2(ui.available_width(), 100.0),
                 egui::Sense::click_and_drag()
             );
             
-            let visuals = ui.style().interact(&response);
             ui.painter().rect_filled(rect, 2.0, var_surface_color());
             
             // Draw ticks every 1 second
