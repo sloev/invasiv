@@ -118,7 +118,7 @@ impl eframe::App for BeatMapper {
                 let x = rect.left() + (sec as f32 / self.duration as f32) * rect.width();
                 ui.painter().line_segment(
                     [egui::pos2(x, rect.top()), egui::pos2(x, rect.top() + 10.0)],
-                    (var_text_dim(), 1.0)
+                    (1.0, var_text_dim())
                 );
             }
 
