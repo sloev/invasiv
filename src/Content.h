@@ -27,7 +27,7 @@ class Content
 {
 public:
     virtual ~Content() {}
-    virtual void setup() {}
+    virtual void setup(string id = "") {}
     virtual void start() {}
     virtual void stop() {}
     virtual void update() {}

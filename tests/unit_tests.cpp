@@ -20,7 +20,7 @@ namespace of {
 #define ofGetElapsedTimeMillis of::getElapsedTimeMillis
 
 // Include the class under test
-#include "../invasiv_app/src/Metronome.h"
+#include "../src/Metronome.h"
 
 void test_metronome_logic() {
     Metronome m;
