@@ -1,7 +1,11 @@
 IMAGE_NAME=invasiv-builder
 CONTAINER_NAME=invasiv-extract
+REGISTRY=ghcr.io
+# Dynamically get the lowercased repository owner
+REPO_OWNER=$(shell echo $(USER) | tr '[:upper:]' '[:lower:]')
+BASE_IMAGE=$(REGISTRY)/$(REPO_OWNER)/invasiv-base:latest
 
-.PHONY: all build extract clean help run
+.PHONY: all build extract clean help run pull-base
 
 all: build extract run
 
@@ -9,12 +13,18 @@ help:
 	@echo "Invasiv Build System"
 	@echo ""
 	@echo "Targets:"
-	@echo "  build    - Build the Invasiv application using Docker"
-	@echo "  extract  - Extract the compiled binary from the Docker image to ./artifacts"
-	@echo "  clean    - Remove build artifacts and Docker images"
-	@echo "  run      - Run the extracted binary (requires local libmpv2)"
+	@echo "  pull-base - Pull the pre-compiled base image from GHCR (fastest)"
+	@echo "  build     - Build the Invasiv application using Docker (uses local cache if available)"
+	@echo "  extract   - Extract the compiled binary from the Docker image to ./artifacts"
+	@echo "  clean     - Remove build artifacts"
+	@echo "  run       - Run the extracted binary (requires local libmpv2)"
+
+pull-base:
+	docker pull $(BASE_IMAGE)
+	docker tag $(BASE_IMAGE) invasiv-base:latest
 
 build:
+	# Attempt to build using the local cache or pulled base image
 	docker build -t $(IMAGE_NAME) --target builder .
 
 extract:
@@ -30,4 +40,3 @@ run:
 
 clean:
 	rm -rf artifacts
-	docker rmi $(IMAGE_NAME) || true

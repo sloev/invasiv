@@ -21,11 +21,12 @@ Full feature list available in [FEATURES.md](./FEATURES.md).
   ```
 
 ### Building (Docker - Recommended)
-The easiest way to build Invasiv without managing openFrameworks dependencies manually is using Docker:
+The easiest way to build Invasiv is using Docker. You can pull a pre-compiled base image to save about 10-15 minutes of build time:
 
 ```bash
-make build
-make extract
+make pull-base  # (Optional) Pulls pre-compiled openFrameworks core from GHCR
+make build      # Compiles the application source
+make extract    # Copies the binary to ./artifacts
 ```
 The compiled binary will be available in the `artifacts/` directory.
 
