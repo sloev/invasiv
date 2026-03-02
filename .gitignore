@@ -1,39 +1,51 @@
-# ---> C++
-# Prerequisites
-*.d
-
-!artifacts/.gitkeep
-artifacts/*
-
-testing/*
-
-# Compiled Object files
-*.slo
-*.lo
+# openFrameworks
+bin/
+obj/
 *.o
 *.obj
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Compiled Dynamic libraries
+*.exe
+*.app
 *.so
 *.dylib
 *.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
 *.la
-*.a
-*.lib
+*.lai
+*.lo
+*.slo
+*.d
+*.gch
+*.pch
 
-# Executables
-*.exe
-*.out
-*.app
+# Project Specific
+media/
+media2/
+configs/
+*.json
+# Wait, the user said configs should not be part of history.
+# But identity.json and warps.json might be needed as templates?
+# Actually, the user said "all the 'media' 'media2' and 'config' folders should not be part of the git history as they are usage oriented"
+# So I should ignore them completely.
 
+# Ignore all media and configs
+**/media/
+**/media2/
+**/configs/
+
+# Build artifacts
+artifacts/
+!artifacts/.gitkeep
+
+# Testing
+testing/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Temporary files
+*.tmp
+*.log
+GEMINI.md
