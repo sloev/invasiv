@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invasiv | High-Performance VJ & Projection Mapping</title>
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --surface: #1a1a1a;
+            --accent: #ff3b30;
+            --text: #f5f5f7;
+            --text-dim: #a1a1a6;
+            --neon-glow: 0 0 10px rgba(255, 59, 48, 0.5);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .container { max-width: 1000px; margin: 0 auto; padding: 0 2rem; }
+
+        /* Hero Section */
+        section.hero {
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            background: radial-gradient(circle at center, #1a1a1a 0%, #0a0a0a 100%);
+        }
+
+        h1 {
+            font-size: 5rem;
+            letter-spacing: -2px;
+            text-transform: uppercase;
+            color: var(--accent);
+            text-shadow: var(--neon-glow);
+            margin-bottom: 1rem;
+            animation: pulse 4s infinite ease-in-out;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(0.98); }
+        }
+
+        .hero p {
+            font-size: 1.5rem;
+            max-width: 600px;
+            color: var(--text-dim);
+            margin-bottom: 2.5rem;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 1rem 2.5rem;
+            background-color: var(--accent);
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+            border-radius: 4px;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--neon-glow);
+            filter: brightness(1.1);
+        }
+
+        /* Features */
+        section.features { padding: 8rem 0; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+        .card {
+            background: var(--surface);
+            padding: 2.5rem;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+        .card h3 { color: var(--accent); margin-bottom: 1rem; font-size: 1.5rem; }
+
+        /* Comparison */
+        section.compare { padding: 8rem 0; background: #0f0f0f; }
+        .compare h2 { text-align: center; margin-bottom: 4rem; font-size: 2.5rem; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--surface);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th, td { padding: 1.5rem; text-align: left; border-bottom: 1px solid #333; }
+        th { background: #252525; color: var(--accent); text-transform: uppercase; font-size: 0.8rem; }
+        .check { color: #4cd964; font-weight: bold; }
+        .cross { color: #ff3b30; opacity: 0.5; }
+
+        /* Support */
+        section.support {
+            padding: 8rem 0;
+            text-align: center;
+            border-top: 1px solid #333;
+        }
+        .coffee-btn {
+            background: #FFDD00;
+            color: #000000;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-size: 1.2rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            font-weight: 700;
+            margin-top: 2rem;
+        }
+
+        footer { padding: 4rem 0; text-align: center; color: var(--text-dim); font-size: 0.9rem; }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 3rem; }
+            .hero p { font-size: 1.1rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <section class="hero">
+        <div class="container">
+            <h1>Invasiv</h1>
+            <p>The lightweight, symmetric powerhouse for modern VJs and projection artists. Sync anything, anywhere, instantly.</p>
+            <a href="https://github.com/nihil/invasiv/releases" class="btn">Get the AppImage</a>
+        </div>
+    </section>
+
+    <section class="features">
+        <div class="container">
+            <div class="grid">
+                <div class="card">
+                    <h3>Symmetric Architecture</h3>
+                    <p>Every instance is identical. Toggle between Master and Peer roles on the fly. No more complex server/client setups—just broadcast and play.</p>
+                </div>
+                <div class="card">
+                    <h3>Video-Tempo Skewing</h3>
+                    <p>Unique phase-locked loops automatically skew video playback speed to ensure your loops land perfectly on the metronome beats. Frame-accurate rhythmic sync.</p>
+                </div>
+                <div class="card">
+                    <h3>Spline Warping</h3>
+                    <p>High-performance Catmull-Rom spline surfaces for complex projection mapping. Manage dozens of surfaces across multiple network nodes from a single UI.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="compare">
+        <div class="container">
+            <h2>The Invasiv Advantage</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th>Invasiv</th>
+                        <th>Resolume</th>
+                        <th>VDMX</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Symmetric Logic</td>
+                        <td><span class="check">YES</span></td>
+                        <td class="cross">NO</td>
+                        <td class="cross">NO</td>
+                    </tr>
+                    <tr>
+                        <td>Automated UDP Discovery</td>
+                        <td><span class="check">YES</span></td>
+                        <td class="cross">Limited</td>
+                        <td class="cross">Manual</td>
+                    </tr>
+                    <tr>
+                        <td>Phase-Locked Loop Sync</td>
+                        <td><span class="check">YES</span></td>
+                        <td class="cross">BPM Only</td>
+                        <td class="cross">BPM Only</td>
+                    </tr>
+                    <tr>
+                        <td>Resource Weight</td>
+                        <td><span class="check">Ultralight</span></td>
+                        <td class="cross">Heavy</td>
+                        <td class="cross">Moderate</td>
+                    </tr>
+                    <tr>
+                        <td>Open Source</td>
+                        <td><span class="check">YES</span></td>
+                        <td class="cross">Proprietary</td>
+                        <td class="cross">Proprietary</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="support">
+        <div class="container">
+            <h2>Love Invasiv?</h2>
+            <p>Invasiv is built by artists, for artists. If it helps you create better shows, consider supporting the development.</p>
+            <a href="https://buymeacoffee.com/sloev" class="coffee-btn" target="_blank">
+                <img src="https://cdn.buymeacoffee.com/buttons/bmc-new-btn-logo.svg" alt="Buy me a coffee" style="height: 25px">
+                <span>Buy me a coffee</span>
+            </a>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Invasiv Open Source Project. Built with openFrameworks.</p>
+        </div>
+    </footer>
+
+</body>
+</html>
