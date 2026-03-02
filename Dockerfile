@@ -1,6 +1,6 @@
 # Stage 1: Base - System Dependencies and openFrameworks Core
 # Pinning to specific digest for absolute reproducibility
-FROM ubuntu:24.04@sha256:72297848457d5d37d126263012759e6d39d167305d369798ed3a2b07e14562fa AS of-base
+FROM ubuntu:24.04 AS of-base
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Europe/Berlin
@@ -50,7 +50,7 @@ RUN /of/apps/projectGenerator/commandLine/bin/projectGenerator -r -o"/of" /of/ap
     && make Release -j$(nproc) PROJECT_CFLAGS="-DVERSION_NAME='\"${VERSION_NAME}\"'"
 
 # Stage 4: Runtime - Minimal image for deployment/testing
-FROM ubuntu:24.04@sha256:72297848457d5d37d126263012759e6d39d167305d369798ed3a2b07e14562fa AS runtime
+FROM ubuntu:24.04 AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libmpv-dev libgl1-mesa-dri libgl1-mesa-glx libpulse0 \
