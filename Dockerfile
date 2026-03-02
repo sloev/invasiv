@@ -51,13 +51,6 @@ RUN projectGenerator -r -o"/of" /of/apps/myApps/invasiv \
     && cd /of/apps/myApps/invasiv \
     && make Release -j$(nproc) PROJECT_CFLAGS="-DVERSION_NAME='\"${VERSION_NAME}\"'"
 
-# NEW Stage: Rust Skewer Builder
-FROM rust:1.93-slim-bookworm AS rust-builder
-RUN apt-get update && apt-get install -y libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev pkg-config
-COPY ./skewer /app
-WORKDIR /app
-RUN cargo build --release
-
 # Stage 6: Tester - verify binary and protocol
 FROM builder AS tester
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -97,6 +90,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libfontconfig1 zlib1g libxkbcommon0 \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /of/apps/myApps/invasiv/bin /app
-COPY --from=rust-builder /app/target/release/skewer /app/skewer
 WORKDIR /app
 ENTRYPOINT ["./invasiv"]

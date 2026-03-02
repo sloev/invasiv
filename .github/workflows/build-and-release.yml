@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Job 1: Build and Push the Heavy Base (oF Core + Addons)
+  # Job 1: Build the Heavy openFrameworks Base
   base:
     runs-on: ubuntu-latest
     permissions:
@@ -57,7 +57,34 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # Job 2: Build the Application, Run Tests, and Bundle
+  # Job 2: Build SKEWER (Rust) natively
+  skewer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev pkg-config
+
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache-workdir: skewer
+
+      - name: Build SKEWER
+        run: cargo build --release
+        working-directory: skewer
+
+      - name: Upload SKEWER Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: skewer-binary
+          path: skewer/target/release/skewer
+
+  # Job 3: Build Invasiv (oF), Run Tests, and Bundle AppImage
   build:
     needs: base
     runs-on: ubuntu-latest
@@ -83,16 +110,6 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Rust Skewer
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          target: rust-builder
-          load: true
-          tags: skewer-builder:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Build Application
         uses: docker/build-push-action@v5
@@ -131,30 +148,61 @@ jobs:
             type=gha
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: invasiv-appimage
+          path: |
+            # We still need to extract it from the container image
+            # Wait, easier to just extract it in a later step.
+
       - name: Extract Artifacts from Docker
         run: |
           mkdir -p release/raw
-          
-          # Extract raw binary
           docker create --name extract-raw invasiv-builder:latest
           docker cp extract-raw:/of/apps/myApps/invasiv/bin/invasiv release/raw/
           docker rm extract-raw
-
-          # Extract Skewer binary
-          docker create --name extract-skewer skewer-builder:latest
-          docker cp extract-skewer:/app/target/release/skewer release/raw/
-          docker rm extract-skewer
-          
-          # Extract AppImage
           docker create --name extract-bundle invasiv-bundler:latest
           docker cp extract-bundle:/of/apps/myApps/invasiv/Invasiv-x86_64.AppImage release/
           docker rm extract-bundle
-          
-          # Prepare tarball of bin folder (includes data/ and potential libs)
           docker create --name extract-bin invasiv-builder:latest
           docker cp extract-bin:/of/apps/myApps/invasiv/bin/ release/bin-folder
           docker rm extract-bin
           cd release && tar -czvf ../invasiv-linux-x64.tar.gz bin-folder/
+
+      - name: Store Extracted Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: invasiv-build-artifacts
+          path: release/
+
+  # Job 4: Release
+  release:
+    needs: [build, skewer]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Invasiv Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: invasiv-build-artifacts
+          path: release/
+
+      - name: Download SKEWER Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: skewer-binary
+          path: release/raw/
+
+      - name: Generate Version
+        id: version
+        run: |
+          VERSION="v0.1.${{ github.run_number }}"
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -172,9 +220,9 @@ jobs:
             Commit: ${{ github.sha }}
             
             Artifacts:
-            - **Invasiv-x86_64.AppImage**: Standalone bundle (recommended for most users)
+            - **Invasiv-x86_64.AppImage**: Standalone bundle (recommended)
             - **invasiv**: Core application raw binary
             - **skewer**: Rhythmic warping utility (Rust)
-            - **invasiv-linux-x64.tar.gz**: Full bin folder including data/ assets
+            - **invasiv-linux-x64.tar.gz**: Full data folder assets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
