@@ -84,6 +84,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Build Rust Pre-Invasiv
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: rust-builder
+          load: true
+          tags: pre-invasiv-builder:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
       - name: Build Application
         uses: docker/build-push-action@v5
         with:
@@ -129,6 +139,11 @@ jobs:
           docker create --name extract-raw invasiv-builder:latest
           docker cp extract-raw:/of/apps/myApps/invasiv/bin/invasiv release/raw/
           docker rm extract-raw
+
+          # Extract Pre-Invasiv binary
+          docker create --name extract-pre pre-invasiv-builder:latest
+          docker cp extract-pre:/app/target/release/pre-invasiv release/raw/
+          docker rm extract-pre
           
           # Extract AppImage
           docker create --name extract-bundle invasiv-bundler:latest
@@ -149,6 +164,7 @@ jobs:
           files: |
             release/Invasiv-x86_64.AppImage
             release/raw/invasiv
+            release/raw/pre-invasiv
             invasiv-linux-x64.tar.gz
           body: |
             Rolling release build.
@@ -157,7 +173,8 @@ jobs:
             
             Artifacts:
             - **Invasiv-x86_64.AppImage**: Standalone bundle (recommended for most users)
-            - **invasiv**: Raw binary (requires libmpv2 installed on host)
+            - **invasiv**: Core application raw binary
+            - **pre-invasiv**: Rhythmic warping utility (Rust)
             - **invasiv-linux-x64.tar.gz**: Full bin folder including data/ assets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

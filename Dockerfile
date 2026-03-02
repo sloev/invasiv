@@ -46,11 +46,17 @@ RUN git clone https://github.com/jvcleave/ofxImGui /of/addons/ofxImGui \
 # Stage 5: App Builder
 FROM addons AS builder
 ARG VERSION_NAME=dev
-# Standard OF project structure: files at root of COPY destination
 COPY . /of/apps/myApps/invasiv
 RUN projectGenerator -r -o"/of" /of/apps/myApps/invasiv \
     && cd /of/apps/myApps/invasiv \
     && make Release -j$(nproc) PROJECT_CFLAGS="-DVERSION_NAME='\"${VERSION_NAME}\"'"
+
+# NEW Stage: Rust Pre-Invasiv Builder
+FROM rust:1.76-slim-bookworm AS rust-builder
+RUN apt-get update && apt-get install -y libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev pkg-config
+COPY ./pre-invasiv /app
+WORKDIR /app
+RUN cargo build --release
 
 # Stage 6: Tester - verify binary and protocol
 FROM builder AS tester
@@ -58,9 +64,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xvfb python3 \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /of/apps/myApps/invasiv
-# Run C++ Unit Tests (Metronome logic)
 RUN g++ -O3 tests/unit_tests.cpp -DTEST_MODE -o tests/unit_tests && ./tests/unit_tests
-# Smoke test - verify it launches and sends heartbeats
 RUN xvfb-run -a python3 tests/test_protocol.py
 
 # Stage 7: Bundler - Create AppImage
@@ -69,14 +73,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     file libglib2.0-0 libfuse2 desktop-file-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Download linuxdeploy and its AppImage plugin
 RUN wget -qO /linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage \
     && chmod +x /linuxdeploy \
     && wget -qO /linuxdeploy-plugin-appimage https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage \
     && chmod +x /linuxdeploy-plugin-appimage
 
 WORKDIR /of/apps/myApps/invasiv
-# Use --appimage-extract-and-run to avoid FUSE issues in Docker
 RUN mkdir -p AppDir \
     && /linuxdeploy --appimage-extract-and-run --app-dir AppDir \
        -e bin/invasiv \
@@ -95,5 +97,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libfontconfig1 zlib1g libxkbcommon0 \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /of/apps/myApps/invasiv/bin /app
+COPY --from=rust-builder /app/target/release/pre-invasiv /app/pre-invasiv
 WORKDIR /app
 ENTRYPOINT ["./invasiv"]
