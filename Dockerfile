@@ -1,13 +1,20 @@
 # Stage 1: Base - System Dependencies and openFrameworks Core
-# Pinning to specific digest for absolute reproducibility
 FROM ubuntu:24.04 AS of-base
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Europe/Berlin
 
-# Install core tools
+# Install core tools and all openFrameworks dependencies manually
+# since the oF install script doesn't yet support Ubuntu 24.04 fully.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     make git curl wget xz-utils gcc g++ ca-certificates \
+    freeglut3-dev libasound2-dev libxmu-dev libxxf86vm-dev \
+    libgl1-mesa-dev libglu1-mesa-dev libraw1394-dev libudev-dev \
+    libdrm-dev libgbm-dev libxrender-dev libxrandr-dev libxinerama-dev \
+    libxcursor-dev libxi-dev libxml2-dev libssl-dev libpulse-dev \
+    libusb-1.0-0-dev libopenal-dev libsndfile1-dev libmpg123-dev \
+    libflac-dev libvorbis-dev libmpv-dev libgtk-3-dev \
+    libglfw3-dev libgles2-mesa-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Download and Extract openFrameworks 0.12.1
@@ -17,13 +24,7 @@ RUN wget -qO /of.tar.gz https://github.com/openframeworks/openFrameworks/release
     && tar -xf /of.tar.gz -C /of --strip-components=1 \
     && rm /of.tar.gz
 
-# Install oF system dependencies via its own script
-# This is a heavy layer, we do it before adding any custom code
-RUN /of/scripts/linux/ubuntu/install_dependencies.sh -y \
-    && apt-get install -y --no-install-recommends libmpv-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Pre-compile openFrameworks core (The longest step)
+# Pre-compile openFrameworks core
 RUN cd /of/scripts/linux && ./compileOF.sh -j$(nproc)
 
 # Stage 2: Addons - Stable external dependencies
@@ -41,7 +42,6 @@ FROM addons AS builder
 ARG VERSION_NAME=dev
 
 # Add only the application source. 
-# Changes here will NOT trigger oF re-compilation.
 COPY ./invasiv_app /of/apps/myApps/invasiv
 
 # Generate Project and Build Release
