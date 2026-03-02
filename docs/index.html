@@ -3,18 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>INVASIV | The Future of Synchronized Visual Performance</title>
+    <title>INVASIV | Distributed Visual Dominance</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syncopate:wght@700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@900&display=swap');
 
         :root {
-            --bg: #050505;
-            --surface: #0f0f0f;
+            --bg: #000000;
+            --surface: #0a0a0a;
+            --border: #1a1a1a;
             --accent: #ff3b30;
-            --accent-glow: rgba(255, 59, 48, 0.6);
             --text: #ffffff;
-            --text-dim: #888888;
-            --grid: rgba(255, 255, 255, 0.03);
+            --text-dim: #666666;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -22,367 +21,254 @@
         body {
             background-color: var(--bg);
             color: var(--text);
-            font-family: 'Space Mono', monospace;
-            line-height: 1.5;
-            overflow-x: hidden;
+            font-family: 'JetBrains Mono', monospace;
+            line-height: 1.4;
+            letter-spacing: -0.02em;
         }
 
-        /* Scanline Overlay */
-        body::before {
-            content: " ";
-            display: block;
-            position: fixed;
-            top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
-                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            z-index: 9999;
-            background-size: 100% 4px, 3px 100%;
-            pointer-events: none;
-        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 2rem; }
 
-        .container { max-width: 1100px; margin: 0 auto; padding: 0 2rem; position: relative; }
-
-        /* Background Grid */
-        .bg-grid {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-image: 
-                linear-gradient(var(--grid) 1px, transparent 1px),
-                linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-            background-size: 50px 50px;
-            z-index: -1;
+        /* Typography */
+        h1, h2 { font-family: 'Inter', sans-serif; text-transform: uppercase; font-weight: 900; }
+        
+        /* Nav/Status Bar */
+        nav {
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
+            z-index: 100;
         }
+        .nav-inner { display: flex; justify-content: space-between; align-items: center; }
+        .status-pill { font-size: 0.7rem; padding: 0.2rem 0.5rem; border: 1px solid var(--accent); color: var(--accent); }
 
         /* Hero */
-        section.hero {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            padding-top: 4rem;
+        section.hero { padding: 10rem 0 5rem 0; }
+        h1 { font-size: clamp(4rem, 15vw, 12rem); line-height: 0.8; margin-left: -0.5rem; }
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            margin-top: 4rem;
+            align-items: end;
         }
-
-        h1 {
-            font-family: 'Syncopate', sans-serif;
-            font-size: clamp(3rem, 10vw, 8rem);
-            line-height: 0.9;
-            margin-bottom: 2rem;
-            color: var(--text);
-            text-transform: uppercase;
-            position: relative;
-        }
-
-        h1 span {
-            color: var(--accent);
-            text-shadow: 0 0 20px var(--accent-glow);
-        }
-
-        .glitch-wrapper { position: relative; display: inline-block; }
+        .manifesto { font-size: 1.5rem; color: var(--text); border-left: 2px solid var(--accent); padding-left: 2rem; }
         
-        .hero-desc {
-            font-size: 1.5rem;
-            max-width: 700px;
-            margin-bottom: 3rem;
-            border-left: 4px solid var(--accent);
-            padding-left: 2rem;
-            color: var(--text-dim);
-        }
-
-        .cta-group { display: flex; gap: 1.5rem; flex-wrap: wrap; }
-
         .btn {
-            padding: 1.2rem 3rem;
-            font-weight: 700;
-            text-transform: uppercase;
+            display: inline-block;
+            padding: 1rem 2rem;
+            border: 1px solid var(--text);
+            color: var(--text);
             text-decoration: none;
-            letter-spacing: 2px;
-            transition: 0.2s;
-            border: 2px solid var(--accent);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn-primary { background: var(--accent); color: white; }
-        .btn-secondary { color: var(--accent); background: transparent; }
-
-        .btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 30px var(--accent-glow);
-        }
-
-        /* Screencast Section */
-        section.demo { padding: 10rem 0; }
-        .video-container {
-            width: 100%;
-            background: #000;
-            border: 1px solid #333;
-            box-shadow: 0 0 50px rgba(0,0,0,1);
-            position: relative;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-        .video-container img { width: 100%; display: block; opacity: 0.9; filter: contrast(1.1) brightness(1.1); }
-        .video-label {
-            position: absolute;
-            top: 1rem; left: 1rem;
-            background: var(--accent);
-            color: white;
-            padding: 0.2rem 0.8rem;
-            font-size: 0.7rem;
+            transition: 0.1s;
             font-weight: bold;
             text-transform: uppercase;
         }
+        .btn:hover { background: var(--text); color: var(--bg); }
+        .btn-accent { border-color: var(--accent); color: var(--accent); }
+        .btn-accent:hover { background: var(--accent); color: var(--text); }
 
-        /* Feature Deep Dive */
-        section.features { padding: 10rem 0; }
-        .feature-block {
-            margin-bottom: 8rem;
-            display: grid;
-            grid-template-columns: 1fr 1.5fr;
-            gap: 4rem;
-            align-items: center;
-        }
-        .feature-block:nth-child(even) { direction: rtl; }
-        .feature-block:nth-child(even) * { direction: ltr; }
-
-        .feature-text h2 {
-            font-family: 'Syncopate', sans-serif;
-            font-size: 2.5rem;
-            margin-bottom: 1.5rem;
-            color: var(--accent);
-        }
-        .feature-text p { font-size: 1.1rem; color: var(--text-dim); margin-bottom: 1.5rem; }
-        .feature-tag {
-            display: inline-block;
-            padding: 0.3rem 1rem;
-            background: #222;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            margin-bottom: 1rem;
-            color: var(--text);
-        }
-
-        /* Comparison */
-        section.comparison { padding: 10rem 0; background: #080808; }
-        .comparison h2 { text-align: center; margin-bottom: 4rem; font-family: 'Syncopate', sans-serif; }
-        
-        .compare-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1px;
-            background: #222;
-            border: 1px solid #222;
-        }
-        .compare-cell {
+        /* Screencast */
+        section.demo { padding: 5rem 0; }
+        .window {
+            border: 1px solid var(--border);
             background: var(--surface);
-            padding: 2rem;
-            text-align: center;
+            border-radius: 4px;
+            overflow: hidden;
         }
-        .compare-header { background: #111; color: var(--accent); font-weight: bold; }
-        .compare-feat-name { text-align: left; background: #151515; font-size: 0.9rem; }
-        
-        .status-yes { color: #4cd964; }
-        .status-no { color: #ff3b30; opacity: 0.4; }
+        .window-header {
+            background: var(--border);
+            padding: 0.5rem 1rem;
+            font-size: 0.7rem;
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-dim);
+        }
+        .window img { width: 100%; display: block; filter: grayscale(0.2); }
 
-        /* Participate & Support */
-        section.community { padding: 10rem 0; text-align: center; }
-        .comm-grid {
+        /* Features */
+        section.specs { padding: 8rem 0; }
+        .specs-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1px;
+            background: var(--border);
+            border: 1px solid var(--border);
+        }
+        .spec-card { background: var(--bg); padding: 3rem; }
+        .spec-card h3 { color: var(--accent); margin-bottom: 1rem; font-size: 1.2rem; }
+        .spec-card p { color: var(--text-dim); font-size: 0.9rem; }
+
+        /* Comparison - Snarky Version */
+        section.vs { padding: 8rem 0; }
+        .vs h2 { font-size: 3rem; margin-bottom: 4rem; }
+        .vs-table { width: 100%; border-collapse: collapse; }
+        .vs-table th { text-align: left; padding: 1rem; color: var(--text-dim); font-size: 0.8rem; border-bottom: 1px solid var(--border); }
+        .vs-table td { padding: 2rem 1rem; border-bottom: 1px solid var(--border); }
+        .vs-val { font-weight: bold; }
+        .vs-invasiv { color: var(--accent); }
+
+        /* Community */
+        section.participation { padding: 8rem 0; border-top: 1px solid var(--border); }
+        .links-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 2rem;
             margin-top: 4rem;
         }
-        .comm-card {
+        .link-group h4 { margin-bottom: 1rem; font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; }
+        .link-group a { display: block; color: var(--text); text-decoration: none; margin-bottom: 0.5rem; }
+        .link-group a:hover { color: var(--accent); }
+
+        .coffee-section {
+            margin-top: 6rem;
+            padding: 4rem;
             background: var(--surface);
-            padding: 4rem 2rem;
-            border: 1px solid #222;
-            transition: 0.3s;
-        }
-        .comm-card:hover { border-color: var(--accent); transform: translateY(-5px); }
-        .comm-card h3 { font-family: 'Syncopate', sans-serif; margin-bottom: 1.5rem; }
-
-        .coffee-btn {
-            background: #FFDD00;
-            color: #000;
-            padding: 1.2rem 2.5rem;
-            border-radius: 50px;
-            font-size: 1.2rem;
-            display: inline-flex;
-            align-items: center;
-            gap: 12px;
-            text-decoration: none;
-            font-weight: 700;
-            margin-top: 2rem;
-            transition: 0.2s;
-        }
-        .coffee-btn:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(255, 221, 0, 0.4); }
-
-        footer {
-            padding: 5rem 0;
-            border-top: 1px solid #222;
             text-align: center;
-            color: #444;
-            font-size: 0.8rem;
-            letter-spacing: 2px;
+            border: 1px solid var(--border);
         }
 
-        /* Animations */
-        @keyframes glitch {
-            0% { transform: translate(0); }
-            20% { transform: translate(-2px, 2px); }
-            40% { transform: translate(-2px, -2px); }
-            60% { transform: translate(2px, 2px); }
-            80% { transform: translate(2px, -2px); }
-            100% { transform: translate(0); }
-        }
+        footer { padding: 4rem 0; color: #333; font-size: 0.7rem; text-align: center; }
 
         @media (max-width: 768px) {
-            .feature-block { grid-template-columns: 1fr; gap: 2rem; }
-            .comm-grid { grid-template-columns: 1fr; }
-            h1 { font-size: 4rem; }
+            h1 { font-size: 5rem; }
+            .hero-grid { grid-template-columns: 1fr; gap: 2rem; }
         }
     </style>
 </head>
 <body>
-    <div class="bg-grid"></div>
+
+    <nav>
+        <div class="container nav-inner">
+            <div>INVASIV_SYSTEM</div>
+            <div style="display:flex; gap: 1rem; align-items:center;">
+                <span class="status-pill">STABLE_ALPHA</span>
+                <a href="https://github.com/nihil/invasiv" style="color:inherit; text-decoration:none; font-size:0.8rem;">GITHUB</a>
+            </div>
+        </div>
+    </nav>
 
     <section class="hero">
         <div class="container">
-            <div class="feature-tag">v0.1.x ALPHA RELEASE</div>
-            <h1>INVASIV<span>_</span></h1>
-            <div class="hero-desc">
-                The lightweight, decentralized brain for synchronized visual environments. High-performance warping, networked by default, artist-owned.
-            </div>
-            <div class="cta-group">
-                <a href="https://github.com/nihil/invasiv/releases" class="btn btn-primary">Download AppImage</a>
-                <a href="#features" class="btn btn-secondary">System Intel</a>
+            <h1>INVASIV</h1>
+            <div class="hero-grid">
+                <div class="manifesto">
+                    Stop paying for bloat. Start breathing visuals. Decentralized, C++ powered dominance for the modern stage.
+                </div>
+                <div>
+                    <p style="color: var(--text-dim); margin-bottom: 2rem;">
+                        No dongles. No subscriptions. No master servers. Just raw performance and sub-millisecond network synchronization.
+                    </p>
+                    <div style="display:flex; gap: 1rem;">
+                        <a href="https://github.com/nihil/invasiv/releases" class="btn btn-accent">Download AppImage</a>
+                        <a href="https://buymeacoffee.com/sloev" class="btn">Donate</a>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
 
-    <section class="demo">
-        <div class="container">
-            <div class="video-container">
-                <div class="video-label">LIVE FEED // SYSTEM_PREVIEW</div>
-                <img src="https://raw.githubusercontent.com/nihil/invasiv/main/.github/screencast.gif" alt="Invasiv Screencast">
+    <section class="demo container">
+        <div class="window">
+            <div class="window-header">
+                <span>SYSTEM_PREVIEW.MOV</span>
+                <span>60_FPS // LOG_LEVEL: INFO</span>
+            </div>
+            <img src="https://raw.githubusercontent.com/nihil/invasiv/main/.github/screencast.gif" alt="Invasiv in action">
+        </div>
+    </section>
+
+    <section class="specs container">
+        <div class="specs-grid">
+            <div class="spec-card">
+                <h3>Symmetric Logic</h3>
+                <p>Every node is identical. Toggle between Master and Peer roles on the fly. If one machine dies, the show doesn't. Just switch roles and keep the neons glowing.</p>
+            </div>
+            <div class="spec-card">
+                <h3>PLL Beat-Sync</h3>
+                <p>We don't just "restart loops". Our Phase-Locked Loop skew engine nudges playback speed in real-time to ensure every video frame aligns with the master metronome.</p>
+            </div>
+            <div class="spec-card">
+                <h3>Zero-Config Net</h3>
+                <p>Plug in the Ethernet. That's it. Automated UDP discovery handles the handshakes. You focus on the geometry, we handle the packets.</p>
+            </div>
+            <div class="spec-card">
+                <h3>Spline Geometry</h3>
+                <p>Catmull-Rom warping for complex surfaces. Built on openFrameworks for direct hardware access. Light enough to run on a toaster, powerful enough for a stadium.</p>
             </div>
         </div>
     </section>
 
-    <section id="features" class="features">
-        <div class="container">
-            
-            <div class="feature-block">
-                <div class="feature-text">
-                    <div class="feature-tag">NETWORK ARCHITECTURE</div>
-                    <h2>Symmetric Minds</h2>
-                    <p>Forget the server-client headache. Every INVASIV instance is a master and every instance is a peer. One binary, one network, infinite possibilities.</p>
-                    <p>Auto-discovery via UDP means you plug in the cable and the system starts breathing together instantly.</p>
-                </div>
-                <div class="video-container">
-                    <div class="video-label">LOG: MULTI_PEER_SYNC</div>
-                    <div style="padding: 4rem; text-align: center; color: #333;">[ DECENRALIZED_NODE_MAP ]</div>
-                </div>
-            </div>
+    <section class="vs container">
+        <h2>DEBT VS. REALITY</h2>
+        <table class="vs-table">
+            <thead>
+                <tr>
+                    <th>REQUIREMENT</th>
+                    <th>INVASIV</th>
+                    <th>THE "INDUSTRY STANDARDS"</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Cost</td>
+                    <td class="vs-val vs-invasiv">$0.00 (MIT)</td>
+                    <td class="vs-val">$XXXX.00 + Subscriptions</td>
+                </tr>
+                <tr>
+                    <td>Network Logic</td>
+                    <td class="vs-val vs-invasiv">Symmetric / Peer-to-Peer</td>
+                    <td class="vs-val">Fragile Master/Client</td>
+                </tr>
+                <tr>
+                    <td>Sync Accuracy</td>
+                    <td class="vs-val vs-invasiv">PLL Skewing (Continuous)</td>
+                    <td class="vs-val">BPM Triggers (Jumpy)</td>
+                </tr>
+                <tr>
+                    <td>Setup Time</td>
+                    <td class="vs-val vs-invasiv">Zero (AppImage)</td>
+                    <td class="vs-val">Installers / Drivers / Activation</td>
+                </tr>
+                <tr>
+                    <td>Open Source</td>
+                    <td class="vs-val vs-invasiv">Yes. Inspect it. Fix it.</td>
+                    <td class="vs-val">Trust us, we're a corporation.</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
 
-            <div class="feature-block">
-                <div class="feature-text">
-                    <div class="feature-tag">TEMPO_ENGINE</div>
-                    <h2>The Rhythmic Skew</h2>
-                    <p>Videos are no longer static loops. INVASIV's skew engine uses Phase-Locked Loops (PLL) to dynamically nudge playback speed.</p>
-                    <p>Your content doesn't just play; it aligns. Frame by frame, beat by beat, your visuals stay locked to the master metronome with sub-millisecond precision.</p>
-                </div>
-                <div class="video-container">
-                    <div class="video-label">LOG: PHASE_LOCKED_LOOP</div>
-                    <div style="padding: 4rem; text-align: center; color: #333;">[ BEAT_ALIGNMENT_ACTIVE ]</div>
-                </div>
+    <section class="participation container">
+        <h2>JOIN THE INVASION</h2>
+        <div class="links-grid">
+            <div class="link-group">
+                <h4>Participate</h4>
+                <a href="https://github.com/nihil/invasiv/pulls">Submit Code</a>
+                <a href="https://github.com/nihil/invasiv/issues">Report Intel / Bugs</a>
+                <a href="https://github.com/nihil/invasiv/discussions">Architecture Chat</a>
             </div>
-
-            <div class="feature-block">
-                <div class="feature-text">
-                    <div class="feature-tag">CORE_PERFORMANCE</div>
-                    <h2>Spline-Based DNA</h2>
-                    <p>Built on C++ and openFrameworks for raw, unadulterated hardware access. High-performance Catmull-Rom warping allows for complex projection surfaces without the CPU overhead of traditional VJ software.</p>
-                </div>
-                <div class="video-container">
-                    <div class="video-label">LOG: SPLINE_GEOMETRY</div>
-                    <div style="padding: 4rem; text-align: center; color: #333;">[ VERTEX_DATA_STREAM ]</div>
-                </div>
+            <div class="link-group">
+                <h4>Resources</h4>
+                <a href="https://github.com/nihil/invasiv/blob/main/FEATURES.md">Roadmap</a>
+                <a href="https://github.com/nihil/invasiv/wiki">Documentation (WIP)</a>
+                <a href="https://openframeworks.cc/">Built with oF</a>
             </div>
+        </div>
 
+        <div class="coffee-section">
+            <h3 style="margin-bottom: 1rem;">KEEP THE SYSTEM CLEAN</h3>
+            <p style="color: var(--text-dim); margin-bottom: 2rem; max-width: 600px; margin-left: auto; margin-right: auto;">
+                Invasiv is a serious tool for serious shows. If it saves your night or your budget, keep the development alive.
+            </p>
+            <a href="https://buymeacoffee.com/sloev" class="btn btn-accent">Buy me a coffee</a>
         </div>
     </section>
 
-    <section class="comparison">
-        <div class="container">
-            <h2>Combat Intelligence</h2>
-            <div class="compare-grid">
-                <div class="compare-cell compare-header">SPECS</div>
-                <div class="compare-cell compare-header">INVASIV</div>
-                <div class="compare-cell compare-header">RESOLUME</div>
-                <div class="compare-cell compare-header">VDMX</div>
-
-                <div class="compare-cell compare-feat-name">Deployment</div>
-                <div class="compare-cell status-yes">Symmetric (Any node)</div>
-                <div class="compare-cell status-no">Centralized</div>
-                <div class="compare-cell status-no">Centralized</div>
-
-                <div class="compare-cell compare-feat-name">Sync Method</div>
-                <div class="compare-cell status-yes">PLL Skewing (Perfect)</div>
-                <div class="compare-cell status-no">BPM Only</div>
-                <div class="compare-cell status-no">BPM Only</div>
-
-                <div class="compare-cell compare-feat-name">Resource Usage</div>
-                <div class="compare-cell status-yes">Ultra-Lean</div>
-                <div class="compare-cell status-no">Heavy</div>
-                <div class="compare-cell status-no">Variable</div>
-
-                <div class="compare-cell compare-feat-name">Discovery</div>
-                <div class="compare-cell status-yes">Zero-Config UDP</div>
-                <div class="compare-cell status-no">Manual OSC/MIDI</div>
-                <div class="compare-cell status-no">Manual</div>
-
-                <div class="compare-cell compare-feat-name">License</div>
-                <div class="compare-cell status-yes">MIT (Open Source)</div>
-                <div class="compare-cell status-no">Proprietary ($$$)</div>
-                <div class="compare-cell status-no">Proprietary ($$$)</div>
-            </div>
-        </div>
-    </section>
-
-    <section class="community">
-        <div class="container">
-            <h2>Join the Invasion</h2>
-            <p>INVASIV is an evolving organism. We need your eyes and your code.</p>
-            
-            <div class="comm-grid">
-                <div class="comm-card">
-                    <h3>Report Intel</h3>
-                    <p>Found a bug? Have a feature request for the next show?</p>
-                    <a href="https://github.com/nihil/invasiv/issues" class="btn btn-secondary" style="margin-top: 2rem; display: block;">Open Issue</a>
-                </div>
-                <div class="comm-card">
-                    <h3>Push Code</h3>
-                    <p>Want to improve the skew engine or add new warp modes?</p>
-                    <a href="https://github.com/nihil/invasiv/pulls" class="btn btn-secondary" style="margin-top: 2rem; display: block;">Submit PR</a>
-                </div>
-            </div>
-
-            <div style="margin-top: 6rem;">
-                <h3>Fuel the Development</h3>
-                <p>Support the project and keep the neons glowing.</p>
-                <a href="https://buymeacoffee.com/sloev" class="coffee-btn" target="_blank">
-                    <img src="https://cdn.buymeacoffee.com/buttons/bmc-new-btn-logo.svg" alt="Buy me a coffee" style="height: 25px">
-                    <span>Buy me a coffee</span>
-                </a>
-            </div>
-        </div>
-    </section>
-
-    <footer>
-        <div class="container">
-            <p>// INVASIV // EST 2026 // BUILT_WITH_OPENFRAMEWORKS // BY_ARTISTS_FOR_ARTISTS //</p>
-        </div>
+    <footer class="container">
+        <p>// INVASIV // EST 2026 // NO_BULLSHIT_VISUALS //</p>
     </footer>
 
 </body>
