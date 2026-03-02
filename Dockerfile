@@ -46,7 +46,8 @@ RUN git clone https://github.com/jvcleave/ofxImGui /of/addons/ofxImGui \
 # Stage 5: App Builder
 FROM addons AS builder
 ARG VERSION_NAME=dev
-COPY ./invasiv_app /of/apps/myApps/invasiv
+# Standard OF project structure: files at root of COPY destination
+COPY . /of/apps/myApps/invasiv
 RUN projectGenerator -r -o"/of" /of/apps/myApps/invasiv \
     && cd /of/apps/myApps/invasiv \
     && make Release -j$(nproc) PROJECT_CFLAGS="-DVERSION_NAME='\"${VERSION_NAME}\"'"
@@ -56,12 +57,11 @@ FROM builder AS tester
 RUN apt-get update && apt-get install -y --no-install-recommends \
     xvfb python3 \
     && rm -rf /var/lib/apt/lists/*
-COPY ./testing /of/apps/myApps/invasiv/testing
 WORKDIR /of/apps/myApps/invasiv
 # Run C++ Unit Tests (Metronome logic)
-RUN g++ -O3 testing/unit_tests.cpp -I/of/libs/openFrameworks -o testing/unit_tests && ./testing/unit_tests
+RUN g++ -O3 tests/unit_tests.cpp -I/of/libs/openFrameworks -o tests/unit_tests && ./tests/unit_tests
 # Smoke test - verify it launches and sends heartbeats
-RUN xvfb-run -a python3 testing/test_protocol.py
+RUN xvfb-run -a python3 tests/test_protocol.py
 
 # Stage 7: Runtime
 FROM ubuntu:24.04 AS runtime

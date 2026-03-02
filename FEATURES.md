@@ -25,7 +25,7 @@
 * [x] Keyboard-based trigger system for state transitions
 * [x] Distributed Metronome system with Tap Tempo
 * [x] Video-Tempo Sync: Auto-align video loops to metronome beats via dynamic speed skewing
-* [x] Integration Test Suite: automated verification of networking and binary health in CI
+* [x] Integration Test Suite: automated verification of networking and binary health in CI (see /tests)
 
 ## Roadmap
 * [ ] ROLE_MASTER_PERFORM: expand triggers to OSC and MIDI input

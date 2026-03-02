@@ -1,5 +1,6 @@
-# openFrameworks
-bin/
+# openFrameworks standard ignores
+bin/*
+!bin/data/
 obj/
 *.o
 *.obj
@@ -15,28 +16,35 @@ obj/
 *.d
 *.gch
 *.pch
+*.suo
+*.user
+*.ncb
+*.sdf
+*.sln
+*.vcproj
+*.vcxproj
+*.filters
+*.xcodeproj
+*.xcworkspace
 
-# Project Specific
-media/
-media2/
-configs/
-*.json
-# Wait, the user said configs should not be part of history.
-# But identity.json and warps.json might be needed as templates?
-# Actually, the user said "all the 'media' 'media2' and 'config' folders should not be part of the git history as they are usage oriented"
-# So I should ignore them completely.
-
-# Ignore all media and configs
+# Project Specific Folders (Usage oriented)
 **/media/
 **/media2/
 **/configs/
+settings.json
 
-# Build artifacts
+# Build and Release artifacts
 artifacts/
 !artifacts/.gitkeep
+release/
 
 # Testing
-testing/
+# Do NOT ignore the testing suite itself
+!tests/
+# But ignore any artifacts created during testing
+tests/test_project/
+tests/unit_tests
+tests/*.tmp
 
 # IDEs
 .vscode/
