@@ -38,6 +38,10 @@ artifacts/
 !artifacts/.gitkeep
 release/
 
+# Rust / Cargo
+skewer/target/
+**/*.rs.bk
+
 # Testing
 # Do NOT ignore the testing suite itself
 !tests/
