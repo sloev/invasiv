@@ -211,6 +211,7 @@ void Network::sendSafe(const char* data, int size) {
 
 void Network::threadedFunction()
 {
+    float lastHeartbeat = 0;
     while (isThreadRunning())
     {
         if (inErrorState) {
@@ -224,8 +225,11 @@ void Network::threadedFunction()
             }
         }
 
-        if (ofGetFrameNum() % 60 == 0)
+        float now = ofGetElapsedTimef();
+        if (now - lastHeartbeat > 1.0f) {
             sendHeartbeat();
+            lastHeartbeat = now;
+        }
 
         string filename = "";
         lock();

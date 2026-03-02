@@ -4,53 +4,55 @@ import subprocess
 import time
 import os
 import signal
+import sys
 
 # Constants from PacketDef.h
 PACKET_ID = 0xAA
 PKT_HEARTBEAT = 1
-PKT_METRONOME = 9
 
 def test_heartbeat_reception():
     # Setup socket to listen for broadcast heartbeats
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    sock.settimeout(10.0) 
+    sock.settimeout(1.0) 
     sock.bind(('', 9000))
 
     print("--- Starting Invasiv Smoke Test ---")
     
-    # We'll mock a "project" by providing a fake configs/warps.json
-    # and setting a custom id in identity.json
     os.makedirs("test_project/configs", exist_ok=True)
     with open("test_project/configs/identity.json", "w") as f:
         f.write('{"identity":{"id":"TESTER01"},"fullscreen":false}')
     
-    # Launch Invasiv headlessly (using Xvfb)
-    # We tell it the project path via command line if possible?
-    # Actually, it reads settings.json.
     with open("settings.json", "w") as f:
         f.write('{"projectPath":"' + os.path.abspath("test_project") + '"}')
 
-    # Path to binary (relative to project root after build)
     bin_path = "./bin/invasiv"
     if not os.path.exists(bin_path):
-        print(f"Error: Binary {bin_path} not found. Build it first.")
+        print(f"Error: Binary {bin_path} not found.")
         return False
 
     process = None
     try:
-        # xvfb-run ensures we have a virtual display
+        # Launch with stdout/stderr going to pipe
         process = subprocess.Popen(["xvfb-run", "-a", bin_path], 
                                   stdout=subprocess.PIPE, 
-                                  stderr=subprocess.PIPE,
+                                  stderr=subprocess.STDOUT,
+                                  text=True,
                                   preexec_fn=os.setsid)
         
         print(f"Invasiv launched with PID {process.pid}. Waiting for heartbeat...")
         
-        # We need to wait for at least one heartbeat (sent every 60 frames = 1sec)
         start_time = time.time()
-        while time.time() - start_time < 10:
+        while time.time() - start_time < 15:
+            # Check if process is still running
+            if process.poll() is not None:
+                print("ERROR: Invasiv exited prematurely.")
+                print("--- LOG START ---")
+                print(process.stdout.read())
+                print("--- LOG END ---")
+                return False
+
             try:
                 data, addr = sock.recvfrom(1024)
                 if len(data) < 2: continue
@@ -64,14 +66,28 @@ def test_heartbeat_reception():
                         print("SUCCESS: Heartbeat received!")
                         return True
             except socket.timeout:
-                print("TIMEOUT: No heartbeat received.")
-                break
+                continue
+                
+        print("TIMEOUT: No heartbeat received within 15s.")
+        print("--- LAST LOGS ---")
+        # Try to read whatever is in the pipe
+        import fcntl
+        fd = process.stdout.fileno()
+        fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+        fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+        try:
+            print(process.stdout.read())
+        except:
+            pass
+            
     except Exception as e:
         print(f"Error during test: {e}")
     finally:
         if process:
-            # Kill the process group to ensure xvfb dies too
-            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+            try:
+                os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+            except:
+                pass
             print("Invasiv process terminated.")
 
     return False
