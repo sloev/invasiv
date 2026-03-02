@@ -3,12 +3,15 @@
 #include "WarpSurface.h"
 #include "Network.h"
 #include "Content.h"
+#include "Metronome.h"
 
 class WarpController
 {
 public:
     vector<shared_ptr<WarpSurface>> allSurfaces;
     ContentManager contents;
+    Metronome* metro = nullptr;
+
     int selectedIndex = 0;
     int editMode = EDIT_MAPPING;
     glm::vec2 lastMouse;

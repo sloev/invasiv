@@ -9,6 +9,7 @@
 
 void ofApp::setup()
 {
+    metro.setup();
     ofSetFrameRate(60);
     ofSetVerticalSync(true);
     ofBackground(20);
@@ -80,6 +81,7 @@ void ofApp::reloadProject(string path)
         net.setMediaPath(mediaDir);
 
     string warpPath = ofFilePath::join(configsDir, "warps.json");
+    warper.metro = &metro;
     warper.setup(warpPath, mediaDir, identity.myId);
 
     string statesPath = ofFilePath::join(configsDir, "states.json");
@@ -131,6 +133,12 @@ void ofApp::update()
     warper.update();
     net.updatePeers();
 
+    if (net.isAuthority()) {
+        if (ofGetFrameNum() % 60 == 0) {
+            net.sendMetronome(metro.bpm, metro.referenceTime, metro.beatsPerBar);
+        }
+    }
+
     float pct = 0.0f;
     if (incoming.total > 0)
         pct = (float)incoming.current / (float)incoming.total;
@@ -180,6 +188,13 @@ void ofApp::update()
             ofBufferToFile(warpPath, ofBuffer(jStr.c_str(), jStr.length()));
             warper.loadJson(jStr);
             ofLogNotice("Network") << "Received and applied Structure Sync";
+        }
+        else if (h->type == PKT_METRONOME && !net.isAuthority())
+        {
+            MetronomePacket *p = (MetronomePacket *)packetBuffer;
+            metro.bpm = p->bpm;
+            metro.referenceTime = p->referenceTime;
+            metro.beatsPerBar = p->beatsPerBar;
         }
         else if (h->type == PKT_FILE_OFFER && !net.isAuthority())
         {
@@ -254,7 +269,10 @@ void ofApp::draw()
              ofDrawBitmapStringHighlight("MASTER: PERFORMANCE MODE", 10, 20, ofColor::black, ofColor::green);
         }
 
-        gui.draw(identity, net, warper, watcher, stateMgr, pathInputBuf, projectPath);
+        AppComponents components = {
+            identity, net, warper, watcher, stateMgr, metro, pathInputBuf, projectPath
+        };
+        gui.draw(components);
     }
     else
     {

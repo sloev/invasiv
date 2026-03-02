@@ -6,13 +6,15 @@
 #include "MediaWatcher.h"
 #include "GuiManager.h"
 #include "StateManager.h"
+#include "Metronome.h"
+#include "AppComponents.h"
 
 class ofApp : public ofBaseApp{
 public:
     void setup();
     void update();
     void draw();
-    
+
     void mousePressed(int x, int y, int button);
     void mouseDragged(int x, int y, int button);
     void mouseReleased(int x, int y, int button);
@@ -25,12 +27,13 @@ public:
     string loadSettings();
 
     void syncFullState(); 
-    
+
     Identity identity;
     Network net;
     WarpController warper;
     MediaWatcher watcher;
     StateManager stateMgr;
+    Metronome metro;
     GuiManager gui;
     
     string projectPath;

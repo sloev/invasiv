@@ -54,6 +54,7 @@ void VideoContent::loadAsync()
     
     loaderThread = std::thread([this]() {
         auto newPlayer = std::make_shared<ofxMPVPlayer>();
+        newPlayer->metro = this->metro;
         if (newPlayer->load(filePath)) {
             newPlayer->setLoopState(OF_LOOP_NORMAL);
             this->video = newPlayer;
@@ -149,6 +150,7 @@ void ContentManager::refreshMedia(string mediaPath)
         if (contents.find(file.getFileName()) == contents.end())
         {
             auto vc = std::make_shared<VideoContent>();
+            vc->setMetronome(metro);
             vc->setup(file.getAbsolutePath());
             registerContent(file.getFileName(), vc);
         }

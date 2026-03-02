@@ -1,6 +1,7 @@
 #pragma once
 #include "ofMain.h"
 #include "ofxMPVPlayer.h"
+#include "Metronome.h"
 #include <map>
 #include <memory>
 #include <vector>
@@ -31,6 +32,7 @@ public:
     virtual void stop() {}
     virtual void update() {}
     virtual ofTexture &getTexture();
+    virtual void setMetronome(Metronome* m) {}
 };
 
 class VideoContent : public Content
@@ -45,6 +47,7 @@ private:
 
     std::shared_ptr<ofxMPVPlayer> video;
     string filePath;
+    Metronome* metro = nullptr;
     std::atomic<State> state{DORMANT};
     std::thread loaderThread;
     
@@ -58,6 +61,7 @@ public:
     ~VideoContent();
 
     void setup(string filename) override;
+    void setMetronome(Metronome* m) override { metro = m; if(video) video->metro = m; }
     void start() override;
     void stop() override;
     void update() override;
@@ -69,9 +73,11 @@ class ContentManager
 private:
     std::map<std::string, std::shared_ptr<Content>> contents;
     std::map<std::string, uint64_t> lastUsedFrame;
+    Metronome* metro = nullptr;
 
 public:
     void setup();
+    void setMetronome(Metronome* m) { metro = m; }
     vector<string> getContentNames();
     bool registerContent(std::string id, std::shared_ptr<Content> c);
     void refreshMedia(string mediaPath);

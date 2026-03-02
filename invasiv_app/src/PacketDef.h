@@ -18,7 +18,8 @@ enum PacketType : uint8_t {
     PKT_FILE_CHUNK = 5, 
     PKT_FILE_END   = 6,
     PKT_WARP_MOVE_ALL = 7, 
-    PKT_WARP_SCALE_ALL = 8
+    PKT_WARP_SCALE_ALL = 8,
+    PKT_METRONOME = 9
 };
 
 enum EditMode : int {
@@ -88,4 +89,12 @@ struct WarpScaleAllPacket {
     float centroidX;
     float centroidY;
 };
+
+struct MetronomePacket {
+    PacketHeader header;
+    float bpm;
+    double referenceTime; // ofGetElapsedTimeMillis() of Beat 1
+    uint8_t beatsPerBar;
+};
+
 #pragma pack(pop)

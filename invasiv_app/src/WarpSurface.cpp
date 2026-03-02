@@ -15,6 +15,9 @@ void WarpSurface::setup(int r, int c)
     controlRender.resize((rows + 1) * (cols + 1));
     controlSource.resize((rows + 1) * (cols + 1));
 
+    float size = 1.0f / 3.0f;
+    float offset = (1.0f - size) / 2.0f;
+
     for (int y = 0; y <= rows; y++)
     {
         for (int x = 0; x <= cols; x++)
@@ -22,7 +25,7 @@ void WarpSurface::setup(int r, int c)
             float px = (float)x / cols;
             float py = (float)y / rows;
             int idx = x + y * (cols + 1);
-            controlRender[idx] = glm::vec3(px, py, 0);
+            controlRender[idx] = glm::vec3(offset + px * size, offset + py * size, 0);
             controlSource[idx] = glm::vec3(px, py, 0);
         }
     }

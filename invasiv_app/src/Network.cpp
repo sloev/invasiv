@@ -127,6 +127,17 @@ void Network::sendWarpScaleAll(string ownerId, int surfIdx, int mode, float fact
     sendSafe((const char *)&p, sizeof(WarpScaleAllPacket));
 }
 
+void Network::sendMetronome(float bpm, double refTime, int beats)
+{
+    if (!isAuthority() || inErrorState) return;
+    MetronomePacket p;
+    fillHeader(p.header, PKT_METRONOME);
+    p.bpm = bpm;
+    p.referenceTime = refTime;
+    p.beatsPerBar = (uint8_t)beats;
+    sendSafe((const char *)&p, sizeof(MetronomePacket));
+}
+
 void Network::sendWarp(string ownerId, int surfIdx, int mode, int ptIdx, float x, float y)
 {
     if (!isAuthority() || inErrorState) return;

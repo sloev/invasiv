@@ -1,20 +1,26 @@
 #include "GuiManager.h"
+#include "Identity.h"
+#include "Network.h"
+#include "WarpController.h"
+#include "MediaWatcher.h"
+#include "StateManager.h"
+#include "Metronome.h"
 
 void GuiManager::setup() {
     gui.setup();
 }
 
-void GuiManager::draw(Identity &identity, Network &net, WarpController &warper, MediaWatcher &watcher, StateManager &stateMgr, char* pathInputBuf, string &projectPath) {
-    if (net.isAuthority()) {
-        if (net.isEditing()) {
-            drawEditingUI(identity, net, warper, watcher, stateMgr, pathInputBuf, projectPath);
+void GuiManager::draw(AppComponents &c) {
+    if (c.net.isAuthority()) {
+        if (c.net.isEditing()) {
+            drawEditingUI(c);
         } else {
-            drawPerformUi(identity, net, warper, watcher, stateMgr);
+            drawPerformUi(c);
         }
     }
 }
 
-void GuiManager::drawPerformUi(Identity &identity, Network &net, WarpController &warper, MediaWatcher &watcher, StateManager &stateMgr)
+void GuiManager::drawPerformUi(AppComponents &c)
 {
     gui.begin();
     ImGui::SetNextWindowSizeConstraints(ImVec2(800, 600), ImVec2(FLT_MAX, FLT_MAX));
@@ -33,8 +39,8 @@ void GuiManager::drawPerformUi(Identity &identity, Network &net, WarpController 
             
             struct InstanceRef { string id; bool isMe; };
             vector<InstanceRef> instances;
-            instances.push_back({identity.myId, true});
-            for(auto &p : net.peers) instances.push_back({p.first, false});
+            instances.push_back({c.identity.myId, true});
+            for(auto &p : c.net.peers) instances.push_back({p.first, false});
 
             for (auto &inst : instances)
             {
@@ -43,7 +49,7 @@ void GuiManager::drawPerformUi(Identity &identity, Network &net, WarpController 
                 
                 if (ImGui::CollapsingHeader(headerName.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
                 {
-                    vector<shared_ptr<WarpSurface>> surfaces = warper.getSurfacesForPeer(inst.id);
+                    vector<shared_ptr<WarpSurface>> surfaces = c.warper.getSurfacesForPeer(inst.id);
                     if(surfaces.empty()) {
                         ImGui::TextDisabled("No surfaces found.");
                     } else {
@@ -54,7 +60,7 @@ void GuiManager::drawPerformUi(Identity &identity, Network &net, WarpController 
                         for (int i = 0; i < (int)surfaces.size(); i++)
                         {
                             ImGui::PushID(i);
-                            bool isSelected = (i % 2 == 0); 
+                            bool isSelected = (c.warper.targetPeerId == inst.id && c.warper.selectedIndex == i); 
 
                             if(isSelected) {
                                 ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.8f, 0.6f, 0.5f)); 
@@ -64,7 +70,8 @@ void GuiManager::drawPerformUi(Identity &identity, Network &net, WarpController 
 
                             if (ImGui::Button(surfaces[i]->id.c_str(), ImVec2(buttonSz, buttonSz)))
                             {
-                                ofLogNotice("UI") << "Clicked surface " << surfaces[i]->id;
+                                c.warper.targetPeerId = inst.id;
+                                c.warper.selectedIndex = i;
                             }
 
                             if(isSelected) {
@@ -86,40 +93,32 @@ void GuiManager::drawPerformUi(Identity &identity, Network &net, WarpController 
             }
 
             ImGui::TableNextColumn();
-            ImGui::TextDisabled("MEDIABANK");
+            ImGui::TextDisabled("SEQUENCING");
             ImGui::Separator();
-            
-            if (ImGui::CollapsingHeader("Media Files", ImGuiTreeNodeFlags_DefaultOpen))
+
+            if (ImGui::CollapsingHeader("Metronome", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                vector<string> files = watcher.getAllItems();
-                if(files.empty()) ImGui::TextDisabled("No media.");
+                float phase = c.metro.getPhase();
+                ImVec4 color = (c.metro.getBeatInBar() == 1) ? ImVec4(1,0,0,1) : ImVec4(1,1,1,1);
+                
+                ImGui::Text("BPM: %.1f", c.metro.bpm);
+                ImGui::SameLine();
+                if(ImGui::Button("TAP", ImVec2(60, 0))) c.metro.tap();
 
-                float windowVisibleX2 = ImGui::GetWindowPos().x + ImGui::GetContentRegionAvail().x;
-                float itemSz = 70.0f; 
-                ImGuiStyle& style = ImGui::GetStyle();
+                ImGui::PushStyleColor(ImGuiCol_PlotHistogram, color);
+                ImGui::ProgressBar(phase, ImVec2(-1, 20), "");
+                ImGui::PopStyleColor();
 
-                for (int i = 0; i < (int)files.size(); i++)
-                {
-                    ImGui::PushID(i);
-                    if (ImGui::Button(files[i].c_str(), ImVec2(itemSz, itemSz))) {
-                    }
-                    
-                    float lastButtonX2 = ImGui::GetItemRectMax().x;
-                    float nextButtonX2 = lastButtonX2 + style.ItemSpacing.x + itemSz;
-                    if (i + 1 < (int)files.size() && nextButtonX2 < windowVisibleX2)
-                        ImGui::SameLine();
-                    
-                    ImGui::PopID();
-                }
+                ImGui::Text("Beat: %d", c.metro.getBeatInBar());
             }
-
+            
             ImGui::Dummy(ImVec2(0, 20));
             ImGui::AlignTextToFramePadding();
             ImGui::Text("STATES");
             ImGui::SameLine(ImGui::GetContentRegionAvail().x - 40);
             if(ImGui::SmallButton("NEW##State")) {
-                string name = "State " + ofToString(stateMgr.states.size() + 1);
-                stateMgr.saveState(name, warper);
+                string name = "State " + ofToString(c.stateMgr.states.size() + 1);
+                c.stateMgr.saveState(name, c.warper);
             }
             ImGui::Separator();
 
@@ -132,20 +131,20 @@ void GuiManager::drawPerformUi(Identity &identity, Network &net, WarpController 
                     ImGui::TableSetupColumn("Actions", ImGuiTableColumnFlags_WidthFixed, 60.0f);
                     ImGui::TableHeadersRow();
 
-                    for (int i = 0; i < (int)stateMgr.states.size(); i++)
+                    for (int i = 0; i < (int)c.stateMgr.states.size(); i++)
                     {
                         ImGui::TableNextRow();
                         ImGui::TableNextColumn();
                         ImGui::Text("%d", i);
                         ImGui::TableNextColumn();
-                        bool isCurrent = (stateMgr.currentStateIndex == i);
-                        if(ImGui::Selectable(stateMgr.states[i].name.c_str(), isCurrent, ImGuiSelectableFlags_SpanAllColumns)) {
-                            stateMgr.applyState(i, warper, net);
+                        bool isCurrent = (c.stateMgr.currentStateIndex == i);
+                        if(ImGui::Selectable(c.stateMgr.states[i].name.c_str(), isCurrent, ImGuiSelectableFlags_SpanAllColumns)) {
+                            c.stateMgr.applyState(i, c.warper, c.net);
                         }
                         ImGui::TableNextColumn();
                         ImGui::PushID(i);
                         if(ImGui::SmallButton("DEL")) {
-                            stateMgr.removeState(i);
+                            c.stateMgr.removeState(i);
                         }
                         ImGui::PopID();
                     }
@@ -162,8 +161,8 @@ void GuiManager::drawPerformUi(Identity &identity, Network &net, WarpController 
             static char keyInput[2] = "";
 
             if(ImGui::SmallButton("NEW##Trig")) {
-                if(keyInput[0] != '\0' && !stateMgr.states.empty()) {
-                    stateMgr.addTrigger(keyInput[0], selectedStateForTrigger);
+                if(keyInput[0] != '\0' && !c.stateMgr.states.empty()) {
+                    c.stateMgr.addTrigger(keyInput[0], selectedStateForTrigger);
                     keyInput[0] = '\0';
                 }
             }
@@ -176,9 +175,9 @@ void GuiManager::drawPerformUi(Identity &identity, Network &net, WarpController 
                 ImGui::InputText("Key", keyInput, 2);
                 ImGui::SameLine();
                 ImGui::SetNextItemWidth(120);
-                if(ImGui::BeginCombo("State", stateMgr.states.empty() ? "No States" : stateMgr.states[selectedStateForTrigger].name.c_str())) {
-                    for(int n=0; n < (int)stateMgr.states.size(); n++) {
-                        if(ImGui::Selectable(stateMgr.states[n].name.c_str(), selectedStateForTrigger == n))
+                if(ImGui::BeginCombo("State", c.stateMgr.states.empty() ? "No States" : c.stateMgr.states[selectedStateForTrigger].name.c_str())) {
+                    for(int n=0; n < (int)c.stateMgr.states.size(); n++) {
+                        if(ImGui::Selectable(c.stateMgr.states[n].name.c_str(), selectedStateForTrigger == n))
                             selectedStateForTrigger = n;
                     }
                     ImGui::EndCombo();
@@ -191,22 +190,22 @@ void GuiManager::drawPerformUi(Identity &identity, Network &net, WarpController 
                     ImGui::TableSetupColumn("Actions", ImGuiTableColumnFlags_WidthFixed, 60.0f);
                     ImGui::TableHeadersRow();
 
-                    for (int i = 0; i < (int)stateMgr.triggers.size(); i++)
+                    for (int i = 0; i < (int)c.stateMgr.triggers.size(); i++)
                     {
                         ImGui::TableNextRow();
                         ImGui::TableNextColumn();
-                        int sIdx = stateMgr.triggers[i].stateIndex;
-                        string sName = (sIdx >= 0 && sIdx < (int)stateMgr.states.size()) ? stateMgr.states[sIdx].name : "Unknown";
+                        int sIdx = c.stateMgr.triggers[i].stateIndex;
+                        string sName = (sIdx >= 0 && sIdx < (int)c.stateMgr.states.size()) ? c.stateMgr.states[sIdx].name : "Unknown";
                         ImGui::Text("%s", sName.c_str());
                         
                         ImGui::TableNextColumn();
-                        char kChar = (char)stateMgr.triggers[i].key;
+                        char kChar = (char)c.stateMgr.triggers[i].key;
                         ImGui::Text("Key '%c'", kChar);
 
                         ImGui::TableNextColumn();
                         ImGui::PushID(i);
                         if(ImGui::SmallButton("DEL")) {
-                            stateMgr.removeTrigger(i);
+                            c.stateMgr.removeTrigger(i);
                         }
                         ImGui::PopID();
                     }
@@ -215,6 +214,9 @@ void GuiManager::drawPerformUi(Identity &identity, Network &net, WarpController 
             }
 
             ImGui::TableNextColumn();
+            ImGui::TextDisabled("SETTINGS");
+            ImGui::Separator();
+
             if (ImGui::CollapsingHeader("Audio Input Settings", ImGuiTreeNodeFlags_DefaultOpen))
             {
                 ImGui::Dummy(ImVec2(0,5));
@@ -232,8 +234,6 @@ void GuiManager::drawPerformUi(Identity &identity, Network &net, WarpController 
                 
                 ImGui::Dummy(ImVec2(0,10));
             }
-
-            ImGui::Separator();
 
             if (ImGui::CollapsingHeader("Surface Effects", ImGuiTreeNodeFlags_DefaultOpen))
             {
@@ -264,31 +264,36 @@ void GuiManager::drawPerformUi(Identity &identity, Network &net, WarpController 
     gui.end(); 
 }
 
-void GuiManager::drawEditingUI(Identity &identity, Network &net, WarpController &warper, MediaWatcher &watcher, StateManager &stateMgr, char* pathInputBuf, string &projectPath)
+void GuiManager::drawEditingUI(AppComponents &c)
 {
     gui.begin();
     ImGuiStyle &style = ImGui::GetStyle();
 
-    if (net.isEditing())
+    if (c.net.isEditing())
         style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.8f, 0.2f, 0.3f, 1.0f);
     else
         style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.2f, 0.6f, 0.3f, 1.0f);
 
     if (ImGui::Begin("invasiv", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
     {
-        ImGui::InputText("Project Path", pathInputBuf, 256);
+        ImGui::InputText("Project Path", c.pathInputBuf, 256);
         ImGui::SameLine();
         if (ImGui::Button("Reload")) {
-            // This is a bit tricky, ofApp should handle this. 
-            // We'll see how to callback or handle this later.
-            // For now, let's just keep the UI.
         }
 
         ImGui::Separator();
 
+        if (ImGui::TreeNode("Metronome"))
+        {
+            ImGui::SliderFloat("BPM", &c.metro.bpm, 40, 240);
+            if(ImGui::Button("TAP")) c.metro.tap();
+            ImGui::Text("Beat: %d", c.metro.getBeatInBar());
+            ImGui::TreePop();
+        }
+
         if (ImGui::TreeNode("Media Status"))
         {
-            vector<string> files = watcher.getAllItems();
+            vector<string> files = c.watcher.getAllItems();
             if (files.empty())
                 ImGui::Text("No media files found.");
 
@@ -296,7 +301,7 @@ void GuiManager::drawEditingUI(Identity &identity, Network &net, WarpController 
             {
                 bool anySyncing = false;
                 string syncDetails = "";
-                for (auto &p : net.peers)
+                for (auto &p : c.net.peers)
                 {
                     if (p.second.isSyncing && p.second.syncingFile == f)
                     {
@@ -321,28 +326,28 @@ void GuiManager::drawEditingUI(Identity &identity, Network &net, WarpController 
 
         if (ImGui::TreeNode("Instances"))
         {
-            if (lastIdOwner != identity.myId) {
-                strncpy(idInputBuf, identity.myId.c_str(), 63);
-                lastIdOwner = identity.myId;
+            if (lastIdOwner != c.identity.myId) {
+                strncpy(idInputBuf, c.identity.myId.c_str(), 63);
+                lastIdOwner = c.identity.myId;
             }
             
             if (ImGui::InputText("My ID", idInputBuf, 64, ImGuiInputTextFlags_EnterReturnsTrue)) {
                 string newId = string(idInputBuf);
-                if (newId != identity.myId && newId != "") {
-                    string oldId = identity.myId;
-                    identity.myId = newId;
-                    identity.save();
-                    net.myId = newId;
-                    warper.updatePeerId(oldId, newId, net);
+                if (newId != c.identity.myId && newId != "") {
+                    string oldId = c.identity.myId;
+                    c.identity.myId = newId;
+                    c.identity.save();
+                    c.net.myId = newId;
+                    c.warper.updatePeerId(oldId, newId, c.net);
                     lastIdOwner = newId;
                 }
             }
 
-            string label = "[me] " + identity.myId;
-            if (ImGui::Selectable(label.c_str(), warper.targetPeerId == identity.myId))
-                warper.targetPeerId = identity.myId;
+            string label = "[me] " + c.identity.myId;
+            if (ImGui::Selectable(label.c_str(), c.warper.targetPeerId == c.identity.myId))
+                c.warper.targetPeerId = c.identity.myId;
 
-            for (auto &p : net.peers)
+            for (auto &p : c.net.peers)
             {
                 string rStr = "P";
                 if (p.second.role == ROLE_MASTER_EDIT) rStr = "M(Edit)";
@@ -354,9 +359,9 @@ void GuiManager::drawEditingUI(Identity &identity, Network &net, WarpController 
                     plabel += " [Syncing " + ofToString(p.second.syncProgress * 100.0, 0) + "%]";
                 }
 
-                if (ImGui::Selectable(plabel.c_str(), warper.targetPeerId == p.first))
+                if (ImGui::Selectable(plabel.c_str(), c.warper.targetPeerId == p.first))
                 {
-                    warper.targetPeerId = p.first;
+                    c.warper.targetPeerId = p.first;
                 }
             }
             ImGui::TreePop();
@@ -364,25 +369,25 @@ void GuiManager::drawEditingUI(Identity &identity, Network &net, WarpController 
         ImGui::SeparatorText("Surfaces");
         ImGui::SameLine();
         if (ImGui::Button("ADD"))
-            warper.addLayer(warper.targetPeerId, &net);
+            c.warper.addLayer(c.warper.targetPeerId, &c.net);
 
-        vector<shared_ptr<WarpSurface>> subset = warper.getSurfacesForPeer(warper.targetPeerId);
+        vector<shared_ptr<WarpSurface>> subset = c.warper.getSurfacesForPeer(c.warper.targetPeerId);
 
         for (int i = 0; i < (int)subset.size(); i++)
         {
             string sName = ofToString(i) + ": " + subset[i]->id + " [" + subset[i]->contentId + "]";
 
-            if (ImGui::Selectable(sName.c_str(), warper.selectedIndex == i, ImGuiSelectableFlags_AllowItemOverlap))
+            if (ImGui::Selectable(sName.c_str(), c.warper.selectedIndex == i, ImGuiSelectableFlags_AllowItemOverlap))
             {
-                warper.selectedIndex = i;
+                c.warper.selectedIndex = i;
             }
 
-            if (net.isAuthority() && ImGui::IsItemActive() && !ImGui::IsItemHovered())
+            if (c.net.isAuthority() && ImGui::IsItemActive() && !ImGui::IsItemHovered())
             {
                 int i_next = i + (ImGui::GetMouseDragDelta(0).y < 0.f ? -1 : 1);
                 if (i_next >= 0 && i_next < (int)subset.size())
                 {
-                    warper.swapLayerOrder(warper.targetPeerId, i, i_next, net);
+                    c.warper.swapLayerOrder(c.warper.targetPeerId, i, i_next, c.net);
                     ImGui::ResetMouseDragDelta();
                 }
             }
@@ -390,31 +395,31 @@ void GuiManager::drawEditingUI(Identity &identity, Network &net, WarpController 
             ImGui::PushID(i);
             if (ImGui::SmallButton("DELETE"))
             {
-                warper.removeLayerById(subset[i]->id, &net);
+                c.warper.removeLayerById(subset[i]->id, &c.net);
             }
             ImGui::PopID();
         }
         ImGui::SeparatorText("Surface Settings");
 
-        if (warper.selectedIndex < (int)subset.size())
+        if (c.warper.selectedIndex < (int)subset.size())
         {
-            auto currentSurface = subset[warper.selectedIndex];
+            auto currentSurface = subset[c.warper.selectedIndex];
             if (lastSurfaceId != currentSurface->id) {
                 strncpy(surfaceIdInputBuf, currentSurface->id.c_str(), 63);
                 lastSurfaceId = currentSurface->id;
             }
 
-            ImGui::Text("Target: %s", warper.targetPeerId.c_str());
+            ImGui::Text("Target: %s", c.warper.targetPeerId.c_str());
             if (ImGui::InputText("Surface ID", surfaceIdInputBuf, 64, ImGuiInputTextFlags_EnterReturnsTrue)) {
                 string newSId = string(surfaceIdInputBuf);
                 if (newSId != currentSurface->id && newSId != "") {
-                    warper.updateSurfaceId(currentSurface->id, newSId, net);
+                    c.warper.updateSurfaceId(currentSurface->id, newSId, c.net);
                     lastSurfaceId = newSId;
                 }
             }
 
-            vector<string> items = warper.getContentList();
-            string currentId = subset[warper.selectedIndex]->contentId;
+            vector<string> items = c.warper.getContentList();
+            string currentId = subset[c.warper.selectedIndex]->contentId;
             const char *previewValue = currentId.c_str();
 
             ImGui::Text("Content: ");
@@ -427,7 +432,7 @@ void GuiManager::drawEditingUI(Identity &identity, Network &net, WarpController 
                     bool is_selected = (currentId == items[n]);
                     if (ImGui::Selectable(items[n].c_str(), is_selected))
                     {
-                        warper.setSurfaceContent(warper.targetPeerId, warper.selectedIndex, items[n], net);
+                        c.warper.setSurfaceContent(c.warper.targetPeerId, c.warper.selectedIndex, items[n], c.net);
                     }
                     if (is_selected)
                         ImGui::SetItemDefaultFocus();
@@ -435,24 +440,24 @@ void GuiManager::drawEditingUI(Identity &identity, Network &net, WarpController 
                 ImGui::EndCombo();
             }
 
-            if (ImGui::Selectable("edit texture", warper.editMode == EDIT_TEXTURE))
-                warper.editMode = EDIT_TEXTURE;
-            if (ImGui::Selectable("edit mapping", warper.editMode == EDIT_MAPPING))
-                warper.editMode = EDIT_MAPPING;
+            if (ImGui::Selectable("edit texture", c.warper.editMode == EDIT_TEXTURE))
+                c.warper.editMode = EDIT_TEXTURE;
+            if (ImGui::Selectable("edit mapping", c.warper.editMode == EDIT_MAPPING))
+                c.warper.editMode = EDIT_MAPPING;
 
-            if (warper.editMode != EDIT_NONE)
+            if (c.warper.editMode != EDIT_NONE)
             {
                 ImGui::Separator();
-                auto s = subset[warper.selectedIndex];
+                auto s = subset[c.warper.selectedIndex];
                 int uiRows = s->rows - 1;
                 ImGui::Text("Rows: %d", uiRows);
                 float spacing = ImGui::GetStyle().ItemInnerSpacing.x;
 
                 ImGui::SameLine();
                 ImGui::PushID("add-remove rows");
-                if (ImGui::Button("-")) warper.resizeSurface(warper.targetPeerId, warper.selectedIndex, -1, 0, net);
+                if (ImGui::Button("-")) c.warper.resizeSurface(c.warper.targetPeerId, c.warper.selectedIndex, -1, 0, c.net);
                 ImGui::SameLine(0.0f, spacing);
-                if (ImGui::Button("+")) warper.resizeSurface(warper.targetPeerId, warper.selectedIndex, 1, 0, net);
+                if (ImGui::Button("+")) c.warper.resizeSurface(c.warper.targetPeerId, c.warper.selectedIndex, 1, 0, c.net);
                 ImGui::PopID();
 
                 ImGui::Separator();
@@ -460,9 +465,9 @@ void GuiManager::drawEditingUI(Identity &identity, Network &net, WarpController 
                 ImGui::Text("Cols: %d", uiCols);
                 ImGui::SameLine();
                 ImGui::PushID("add-remove cols");
-                if (ImGui::Button("-")) warper.resizeSurface(warper.targetPeerId, warper.selectedIndex, 0, -1, net);
+                if (ImGui::Button("-")) c.warper.resizeSurface(c.warper.targetPeerId, c.warper.selectedIndex, 0, -1, c.net);
                 ImGui::SameLine(0.0f, spacing);
-                if (ImGui::Button("+")) warper.resizeSurface(warper.targetPeerId, warper.selectedIndex, 0, 1, net);
+                if (ImGui::Button("+")) c.warper.resizeSurface(c.warper.targetPeerId, c.warper.selectedIndex, 0, 1, c.net);
                 ImGui::PopID();
             }
         }

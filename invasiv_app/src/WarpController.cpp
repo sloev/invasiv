@@ -8,6 +8,7 @@ void WarpController::setup(string _savePath, string _mediaPath, string _myId)
     targetPeerId = _myId;
 
     contents.setup();
+    contents.setMetronome(metro);
     contents.refreshMedia(mediaPath);
 
     if (ofFile(savePath).exists())
@@ -16,7 +17,10 @@ void WarpController::setup(string _savePath, string _mediaPath, string _myId)
         addLayer(myPeerId, nullptr);
 }
 
-void WarpController::refreshContent() { contents.refreshMedia(mediaPath); }
+void WarpController::refreshContent() { 
+    contents.setMetronome(metro);
+    contents.refreshMedia(mediaPath); 
+}
 
 vector<shared_ptr<WarpSurface>> WarpController::getSurfacesForPeer(string peerId)
 {

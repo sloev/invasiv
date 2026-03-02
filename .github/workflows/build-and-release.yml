@@ -100,6 +100,19 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           cache-to: type=gha,mode=max
 
+      - name: Run Integration Tests
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: tester
+          load: true
+          # Cache from the builder stage we just built
+          cache-from: |
+            type=gha
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          build-args: |
+            VERSION_NAME=${{ steps.version.outputs.VERSION }}
+
       - name: Extract Binary from Docker
         run: |
           mkdir -p release

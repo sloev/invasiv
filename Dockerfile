@@ -51,7 +51,19 @@ RUN projectGenerator -r -o"/of" /of/apps/myApps/invasiv \
     && cd /of/apps/myApps/invasiv \
     && make Release -j$(nproc) PROJECT_CFLAGS="-DVERSION_NAME='\"${VERSION_NAME}\"'"
 
-# Stage 6: Runtime
+# Stage 6: Tester - verify binary and protocol
+FROM builder AS tester
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    xvfb python3 \
+    && rm -rf /var/lib/apt/lists/*
+COPY ./testing /of/apps/myApps/invasiv/testing
+WORKDIR /of/apps/myApps/invasiv
+# Run C++ Unit Tests (Metronome logic)
+RUN g++ -O3 testing/unit_tests.cpp -I/of/libs/openFrameworks -o testing/unit_tests && ./testing/unit_tests
+# Smoke test - verify it launches and sends heartbeats
+RUN xvfb-run -a python3 testing/test_protocol.py
+
+# Stage 7: Runtime
 FROM ubuntu:24.04 AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libmpv2 libgl1-mesa-dri libgl1-mesa-glx libpulse0 \

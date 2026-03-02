@@ -1,15 +1,12 @@
 #pragma once
 #include "ofMain.h"
 #include "ofxImGui.h"
-#include "Identity.h"
-#include "Network.h"
-#include "WarpController.h"
-#include "MediaWatcher.h"
+#include "AppComponents.h"
 
 class GuiManager {
 public:
     void setup();
-    void draw(Identity &identity, Network &net, WarpController &warper, MediaWatcher &watcher, StateManager &stateMgr, char* pathInputBuf, string &projectPath);
+    void draw(AppComponents &c);
 
 private:
     ofxImGui::Gui gui;
@@ -18,6 +15,6 @@ private:
     string lastIdOwner = "";
     string lastSurfaceId = "";
 
-    void drawPerformUi(Identity &identity, Network &net, WarpController &warper, MediaWatcher &watcher, StateManager &stateMgr);
-    void drawEditingUI(Identity &identity, Network &net, WarpController &warper, MediaWatcher &watcher, StateManager &stateMgr, char* pathInputBuf, string &projectPath);
+    void drawPerformUi(AppComponents &c);
+    void drawEditingUI(AppComponents &c);
 };
