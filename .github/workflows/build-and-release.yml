@@ -10,6 +10,10 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/invasiv-base
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Job 1: Build and Push the Heavy Base (oF Core + Addons)
   # This runs only when the Dockerfile changes, or on manual trigger.
