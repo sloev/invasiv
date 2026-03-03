@@ -6,6 +6,7 @@ import time
 import os
 import signal
 import shutil
+import sys
 
 # Constants from PacketDef.h
 PACKET_ID = 0xAA
@@ -44,8 +45,8 @@ def test_protocol_driver():
         shutil.rmtree("test_env")
     
     test_env_vars = os.environ.copy()
-    # Use global broadcast for maximum compatibility in Docker/CI
-    test_env_vars["INVASIV_TEST_ADDR"] = "255.255.255.255"
+    # Use 127.0.0.1 for maximum reliability in isolated CI/Docker environments
+    test_env_vars["INVASIV_TEST_ADDR"] = "127.0.0.1"
     
     # Setup node
     path_node, work_node = setup_node("peer", "PEER01", 0)
@@ -57,23 +58,38 @@ def test_protocol_driver():
     # Setup sockets
     listen_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    listen_sock.bind(('', 9000))
+    listen_sock.bind(('127.0.0.1', 9000))
     listen_sock.settimeout(1.0)
 
     send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     send_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    send_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
     process = None
     try:
         print(f"Launching Invasiv in Headless CLI mode...")
-        process = subprocess.Popen([bin_path, "--headless"], cwd=work_node, env=test_env_vars, preexec_fn=os.setsid)
+        # Capture stdout/stderr to debug app crashes
+        process = subprocess.Popen(
+            [bin_path, "--headless"], 
+            cwd=work_node, 
+            env=test_env_vars, 
+            preexec_fn=os.setsid,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
         
         # 1. TEST: Heartbeat
         print("Waiting for heartbeat (up to 30s)...")
         heartbeat_found = False
         start_time = time.time()
         while time.time() - start_time < 30:
+            # Check if process is still alive
+            if process.poll() is not None:
+                print(f"FAILED: Invasiv process exited prematurely with code {process.returncode}")
+                stdout, stderr = process.communicate()
+                print(f"STDOUT: {stdout}\nSTDERR: {stderr}")
+                return False
+
             try:
                 data, addr = listen_sock.recvfrom(1024)
                 if len(data) < 11: continue
@@ -89,7 +105,13 @@ def test_protocol_driver():
         
         print("")
         if not heartbeat_found:
-            print("FAILED: No heartbeat broadcast. Check if app is bound to 9000.")
+            print("FAILED: No heartbeat broadcast. Checking app logs...")
+            # We can't use communicate() here because it blocks, but we can kill and read
+            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+            stdout, stderr = process.communicate()
+            print(f"APP STDOUT:\n{stdout}")
+            print(f"APP STDERR:\n{stderr}")
+            process = None
             return False
 
         # 2. TEST: Structure Sync
@@ -160,7 +182,11 @@ def test_protocol_driver():
         print(f"ERROR: {e}")
     finally:
         if process:
-            try: os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+            try: 
+                os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+                stdout, stderr = process.communicate(timeout=2)
+                if stdout or stderr:
+                    print(f"--- APP LOGS ---\n{stdout}\n{stderr}")
             except: pass
         if os.path.exists("test_env"):
             shutil.rmtree("test_env")
