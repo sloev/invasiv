@@ -38,8 +38,21 @@ title: "SKEWER // ONLINE_WARPER"
         return URL.createObjectURL(blob);
     }
 
+    const canvas = document.getElementById('the_canvas_id');
+    const uploader = document.getElementById('uploader');
+    
     let ffmpeg = null;
     let handle = null;
+
+    // Trigger uploader on canvas click if WASM state requested it.
+    // This works because the click on the egui button bubbles to the canvas 
+    // and remains a "user-initiated event" context.
+    canvas.addEventListener('click', () => {
+        if (handle && handle.is_load_clicked()) {
+            uploader.click();
+            handle.reset_load_clicked();
+        }
+    });
 
     async function setup() {
         await init();
@@ -58,7 +71,6 @@ title: "SKEWER // ONLINE_WARPER"
         document.getElementById('loading-overlay').style.display = 'none';
         document.getElementById('controls').style.display = 'block';
 
-        const uploader = document.getElementById('uploader');
         uploader.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -69,11 +81,6 @@ title: "SKEWER // ONLINE_WARPER"
 
         let last_time = -1;
         setInterval(async () => {
-            if (handle.is_load_clicked()) {
-                uploader.click();
-                handle.reset_load_clicked();
-            }
-
             const current_time = handle.get_current_time();
             if (Math.abs(current_time - last_time) > 0.05) {
                 last_time = current_time;
@@ -90,15 +97,9 @@ title: "SKEWER // ONLINE_WARPER"
                         'out.raw'
                     ]);
                     const data = await ffmpeg.readFile('out.raw');
-                    // We assume 1280x720 for now or similar. 
-                    // Better: use ffprobe or similar to get size, but for now we try to push it.
-                    // Since it's rawvideo rgba, we need to know the size.
-                    // Let's use a fixed size for the preview for now or try to detect it.
-                    // Actually, let's just use 640x360 for the preview to be safe and fast.
-                    // await ffmpeg.exec(['-s', '640x360', ...])
-                    handle.push_frame(data, 1280, 720); // Placeholder size, should be dynamic
+                    handle.push_frame(data, 1280, 720); 
                 } catch (e) {
-                    console.error("Frame extraction error:", e);
+                    // console.error("Frame extraction error:", e);
                 }
             }
         }, 100);
