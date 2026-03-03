@@ -13,3 +13,4 @@ fn main() -> eframe::Result<()> {
 
 #[cfg(target_arch = "wasm32")]
 fn main() {}
+// CI_FORCE_REBUILD
