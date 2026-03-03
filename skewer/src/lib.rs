@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use eframe::egui;
+#[cfg(not(target_arch = "wasm32"))]
 use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -91,13 +92,20 @@ impl eframe::App for BeatMapper {
             ui.add_space(10.0);
 
             ui.horizontal(|ui| {
-                if ui.button("📁 Open Video").clicked() {
-                    let task = FileDialog::new()
-                        .add_filter("Video", &["mp4", "mov", "mkv", "avi"])
-                        .pick_file();
-                    if let Some(path) = task {
-                        self.video_path = Some(path);
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    if ui.button("📁 Open Video").clicked() {
+                        let task = FileDialog::new()
+                            .add_filter("Video", &["mp4", "mov", "mkv", "avi"])
+                            .pick_file();
+                        if let Some(path) = task {
+                            self.video_path = Some(path);
+                        }
                     }
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
+                    ui.label("📁 [Web: Use native for file loading]");
                 }
                 if let Some(path) = &self.video_path {
                     ui.label(format!("Active: {}", path.file_name().unwrap().to_string_lossy()));

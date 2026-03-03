@@ -15,8 +15,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Job 0: Path Filtering to save build time
+  filter:
+    runs-on: ubuntu-latest
+    outputs:
+      base: ${{ steps.filter.outputs.base }}
+      skewer: ${{ steps.filter.outputs.skewer }}
+      build: ${{ steps.filter.outputs.build }}
+      tests: ${{ steps.filter.outputs.tests }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            base:
+              - 'Dockerfile'
+              - '.github/workflows/build-and-release.yml'
+            skewer:
+              - 'skewer/**'
+              - '.github/workflows/build-and-release.yml'
+            build:
+              - 'src/**'
+              - 'addons.make'
+              - 'config.make'
+              - 'Makefile'
+              - 'Dockerfile'
+              - '.github/workflows/build-and-release.yml'
+            tests:
+              - 'src/**'
+              - 'tests/**'
+              - 'Dockerfile'
+              - '.github/workflows/build-and-release.yml'
+
   # Job 1: Build the Heavy openFrameworks Base
   base:
+    needs: filter
+    if: needs.filter.outputs.base == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -25,17 +60,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Check for changes in Base
-        id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            base:
-              - 'Dockerfile'
-              - '.github/workflows/build-and-release.yml'
-
       - name: Log in to GHCR
-        if: steps.filter.outputs.base == 'true' || github.event_name == 'workflow_dispatch'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -43,11 +68,9 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        if: steps.filter.outputs.base == 'true' || github.event_name == 'workflow_dispatch'
         uses: docker/setup-buildx-action@v3
 
       - name: Build and Push Base Stage
-        if: steps.filter.outputs.base == 'true' || github.event_name == 'workflow_dispatch'
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -59,6 +82,8 @@ jobs:
 
   # Job 2: Build SKEWER (Rust) natively
   skewer:
+    needs: filter
+    if: needs.filter.outputs.skewer == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -71,8 +96,11 @@ jobs:
 
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Cache Cargo Dependencies
+        uses: Swatinem/rust-cache@v2
         with:
-          cache-workdir: skewer
+          workspaces: skewer
 
       - name: Build SKEWER
         run: cargo build --release
@@ -86,6 +114,8 @@ jobs:
 
   # Job 3: Build SKEWER (WASM)
   skewer-wasm:
+    needs: filter
+    if: needs.filter.outputs.skewer == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -93,14 +123,17 @@ jobs:
 
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Cache Cargo Dependencies
+        uses: Swatinem/rust-cache@v2
         with:
-          cache-workdir: skewer
+          workspaces: skewer
 
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Build WASM
-        run: wasm-pack build --target web --out-dir ../docs/skewer_wasm
+        run: wasm-pack build --target web --out-dir ../docs/skewer_wasm --no-typescript
         working-directory: skewer
 
       - name: Upload WASM Artifacts
@@ -109,9 +142,11 @@ jobs:
           name: skewer-wasm
           path: docs/skewer_wasm/
 
-  # Job 4: Build Invasiv (oF), Run Tests, and Bundle AppImage
+  # Job 4: Build Invasiv (oF) and Run Tests
   build:
-    needs: base
+    needs: [filter, base]
+    # We run if either the code or the tests folder changed
+    if: always() && (needs.filter.outputs.build == 'true' || needs.filter.outputs.tests == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -120,15 +155,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Generate Version
-        id: version
-        run: |
-          VERSION="v0.1.${{ github.run_number }}"
-          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -136,13 +162,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Application
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Generate Version
+        id: version
+        run: echo "VERSION=v0.1.${{ github.run_number }}" >> $GITHUB_OUTPUT
+
+      - name: Build Application & Run Tests
         uses: docker/build-push-action@v5
         with:
           context: .
-          target: builder
+          target: tester
           load: true
-          tags: invasiv-builder:latest
+          tags: invasiv-tester:latest
           build-args: |
             VERSION_NAME=${{ steps.version.outputs.VERSION }}
           cache-from: |
@@ -150,19 +183,8 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           cache-to: type=gha,mode=max
 
-      - name: Run Integration Tests
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          target: tester
-          load: true
-          cache-from: |
-            type=gha
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          build-args: |
-            VERSION_NAME=${{ steps.version.outputs.VERSION }}
-
-      - name: Build AppImage
+      - name: Build AppImage (only if code changed)
+        if: needs.filter.outputs.build == 'true' || github.event_name == 'workflow_dispatch'
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -174,20 +196,24 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
       - name: Extract Artifacts from Docker
+        if: needs.filter.outputs.build == 'true' || github.event_name == 'workflow_dispatch'
         run: |
           mkdir -p release/raw
-          docker create --name extract-raw invasiv-builder:latest
+          docker create --name extract-raw invasiv-tester:latest # tester has the binary
           docker cp extract-raw:/of/apps/myApps/invasiv/bin/invasiv release/raw/
           docker rm extract-raw
+          
           docker create --name extract-bundle invasiv-bundler:latest
           docker cp extract-bundle:/of/apps/myApps/invasiv/Invasiv-x86_64.AppImage release/
           docker rm extract-bundle
-          docker create --name extract-bin invasiv-builder:latest
+          
+          docker create --name extract-bin invasiv-tester:latest
           docker cp extract-bin:/of/apps/myApps/invasiv/bin/ release/bin-folder
           docker rm extract-bin
           cd release && tar -czvf ../invasiv-linux-x64.tar.gz bin-folder/
 
       - name: Store Extracted Artifacts
+        if: needs.filter.outputs.build == 'true' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: invasiv-build-artifacts
@@ -195,7 +221,8 @@ jobs:
 
   # Job 5: Release & Deploy Pages
   release:
-    needs: [build, skewer, skewer-wasm]
+    needs: [filter, build, skewer, skewer-wasm]
+    if: always() && !cancelled()
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -207,30 +234,32 @@ jobs:
 
       - name: Download Invasiv Artifacts
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: invasiv-build-artifacts
           path: release/
 
       - name: Download SKEWER Artifact
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: skewer-binary
           path: release/raw/
 
       - name: Download SKEWER WASM
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: skewer-wasm
           path: docs/skewer_wasm/
 
       - name: Generate Version
         id: version
-        run: |
-          VERSION="v0.1.${{ github.run_number }}"
-          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+        run: echo "VERSION=v0.1.${{ github.run_number }}" >> $GITHUB_OUTPUT
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
+        if: needs.filter.outputs.build == 'true' || needs.filter.outputs.skewer == 'true'
         with:
           tag_name: ${{ steps.version.outputs.VERSION }}
           name: Invasiv ${{ steps.version.outputs.VERSION }}
@@ -239,14 +268,9 @@ jobs:
             release/raw/invasiv
             release/raw/skewer
             invasiv-linux-x64.tar.gz
-          body: |
-            Rolling release build.
-            Version: ${{ steps.version.outputs.VERSION }}
-            Commit: ${{ github.sha }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Handle GitHub Pages Deployment (Jekyll)
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Build with Jekyll
