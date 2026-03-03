@@ -14,8 +14,8 @@ Full feature list available in [FEATURES.md](./FEATURES.md).
 
 ## Ecosystem
 
-- **Invasiv** ![Invasiv Version](https://img.shields.io/github/v/release/sloev/invasiv?filter=invasiv-*&label=latest&color=red): The main VJ engine. Distributed, symmetric, and fast.
-- **Skewer** ![Skewer Version](https://img.shields.io/github/v/release/sloev/invasiv?filter=skewer-*&label=latest&color=blue): A dedicated Rust-based utility for rhythmic media preparation. 
+- **Invasiv** ![Invasiv Version](https://img.shields.io/github/v/release/invasiv/invasiv.github.io?filter=invasiv-*&label=latest&color=red): The main VJ engine. Distributed, symmetric, and fast.
+- **Skewer** ![Skewer Version](https://img.shields.io/github/v/release/invasiv/invasiv.github.io?filter=skewer-*&label=latest&color=blue): A dedicated Rust-based utility for rhythmic media preparation. 
   - **Native**: Requires `ffmpeg` installed on your system for preview and export.
   - **Web**: Uses `ffmpeg.wasm` for browser-based rhythmic planning.
 
@@ -24,7 +24,7 @@ Full feature list available in [FEATURES.md](./FEATURES.md).
 ## Installation
 
 ### Releases (Recommended)
-Download the latest **Invasiv-x86_64.AppImage** from the [Releases](https://github.com/nihil/invasiv/releases) page. This is a standalone bundle that includes all necessary dependencies.
+Download the latest **Invasiv-x86_64.AppImage** from the [Releases](https://github.com/invasiv/invasiv.github.io/releases) page. This is a standalone bundle that includes all necessary dependencies.
 
 ```bash
 chmod +x Invasiv-x86_64.AppImage

@@ -14,8 +14,8 @@ title: "INVASIV // THE_DISTRIBUTED_STANDARD"
         
         <div style="margin-top: 2rem; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--accent); display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
             <span>LATEST_BUILD:</span>
-            <img src="https://img.shields.io/github/v/release/sloev/invasiv?filter=invasiv-*&label=INVASIV&color=red" alt="Invasiv">
-            <img src="https://img.shields.io/github/v/release/sloev/invasiv?filter=skewer-*&label=SKEWER&color=blue" alt="Skewer">
+            <img src="https://img.shields.io/github/v/release/invasiv/invasiv.github.io?filter=invasiv-*&label=INVASIV&color=red" alt="Invasiv">
+            <img src="https://img.shields.io/github/v/release/invasiv/invasiv.github.io?filter=skewer-*&label=SKEWER&color=blue" alt="Skewer">
             <span>// COMPATIBILITY: CORE_SYNC_V1_PROTOCOL</span>
         </div>
     </div>

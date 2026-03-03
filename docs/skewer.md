@@ -28,9 +28,16 @@ title: "SKEWER // ONLINE_WARPER"
 
 <script type="module">
     import { FFmpeg } from './lib/index.js';
-    import { toBlobURL } from './lib/util.js';
     import init, { WebHandle } from './skewer_wasm/skewer.js';
     
+    // Inline toBlobURL to avoid dependency on missing export in util.js
+    async function toBlobURL(url, type) {
+        const response = await fetch(url);
+        const buffer = await response.arrayBuffer();
+        const blob = new Blob([buffer], { type });
+        return URL.createObjectURL(blob);
+    }
+
     let ffmpeg = null;
     let handle = null;
 
