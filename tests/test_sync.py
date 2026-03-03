@@ -15,34 +15,43 @@ PKT_FILE_OFFER = 4
 PKT_FILE_CHUNK = 5
 PKT_FILE_END = 6
 
-def setup_node():
-    path = "test_env/node"
+def setup_node(name, peer_id, role):
+    path = f"test_env/{name}"
     os.makedirs(f"{path}/configs", exist_ok=True)
     os.makedirs(f"{path}/media", exist_ok=True)
     with open(f"{path}/configs/identity.json", "w") as f:
-        f.write('{"identity":{"id":"TEST_PEER"},"role":0,"fullscreen":false}')
-    with open("settings.json", "w") as f:
+        f.write(f'{{"identity":{{"id":"{peer_id}"}},"role":{role},"fullscreen":false}}')
+    with open(f"{path}/configs/warps.json", "w") as f:
+        f.write('{"peers":{}}')
+    
+    # Each node gets its own working directory
+    work_dir = f"test_env/work_{name}"
+    os.makedirs(f"{work_dir}/data", exist_ok=True)
+    with open(f"{work_dir}/data/settings.json", "w") as f:
         f.write(f'{{"projectPath":"{os.path.abspath(path)}"}}')
-    return os.path.abspath(path)
+    
+    return os.path.abspath(path), os.path.abspath(work_dir)
 
-def build_header(p_type):
-    return struct.pack("BB9s", PACKET_ID, p_type, b"MASTER01")
+def build_header(p_type, sender_id="MASTER01"):
+    # senderId is 9 bytes (8 chars + null)
+    sid = sender_id.encode('ascii')[:8].ljust(9, b'\x00')
+    return struct.pack("BB9s", PACKET_ID, p_type, sid)
 
 def test_protocol_driver():
     print("--- Starting Protocol Driver Integration Test ---")
     if os.path.exists("test_env"):
         shutil.rmtree("test_env")
     
-    node_path = setup_node()
-    peer_warp_file = os.path.join(node_path, "configs/warps.json")
-    peer_media_file = os.path.join(node_path, "media/sync_test.txt")
+    test_env_vars = os.environ.copy()
+    test_env_vars["INVASIV_TEST_ADDR"] = "127.0.0.1"
+    test_env_vars["NO_AT_BRIDGE"] = "1"
+    
+    # Setup node
+    path_node, work_node = setup_node("peer", "PEER01", 0)
+    peer_warp_file = os.path.join(path_node, "configs/warps.json")
+    peer_media_file = os.path.join(path_node, "media/sync_test.txt")
 
     bin_path = os.path.abspath("./bin/invasiv")
-    
-    # Environment for deterministic network
-    test_env = os.environ.copy()
-    test_env["INVASIV_TEST_ADDR"] = "127.0.0.1"
-    test_env["NO_AT_BRIDGE"] = "1"
 
     # Setup Master Sockets
     listen_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -56,11 +65,14 @@ def test_protocol_driver():
     send_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
     process = None
+    log_files = []
     try:
-        print("Launching Invasiv Peer in headless mode...")
+        print(f"Launching Invasiv Peer in {work_node}...")
         f_app = open(f"test_env/app.log", "w")
-        process = subprocess.Popen([bin_path, "--headless"], stdout=f_app, stderr=subprocess.STDOUT, 
-                                 env=test_env, preexec_fn=os.setsid)
+        log_files.append(f_app)
+        # Use --headless flag and run from work_node
+        process = subprocess.Popen([bin_path, "--headless"], cwd=work_node, stdout=f_app, stderr=subprocess.STDOUT, 
+                                 env=test_env_vars, preexec_fn=os.setsid)
         
         # 1. TEST: Heartbeat Reception
         print("Waiting for heartbeat...")
@@ -69,9 +81,12 @@ def test_protocol_driver():
         while time.time() - start_time < 25:
             try:
                 data, addr = listen_sock.recvfrom(1024)
+                if len(data) < 11: continue
                 header_id, p_type = struct.unpack_from("BB", data)
                 if header_id == PACKET_ID and p_type == PKT_HEARTBEAT:
-                    print(f"SUCCESS: Received heartbeat from {addr}")
+                    # peerId is at offset 11 in HeartbeatPacket
+                    peer_id = data[11:19].decode('ascii').strip('\x00')
+                    print(f"SUCCESS: Received heartbeat from {peer_id} at {addr}")
                     heartbeat_found = True
                     break
             except socket.timeout:
@@ -155,6 +170,8 @@ def test_protocol_driver():
         if process:
             try: os.killpg(os.getpgid(process.pid), signal.SIGTERM)
             except: pass
+        for f in log_files:
+            f.close()
         if os.path.exists("test_env") and False:
             shutil.rmtree("test_env")
 

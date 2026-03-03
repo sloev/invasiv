@@ -182,9 +182,10 @@ impl eframe::App for BeatMapper {
             ui.add_space(10.0);
 
             if let Some(tex) = &self.texture {
-                let size = ui.available_width();
-                let aspect = tex.size_relative().y / tex.size_relative().x;
-                ui.image(tex, egui::vec2(size, size * aspect));
+                let width = ui.available_width();
+                let tex_size = tex.size_vec2();
+                let aspect = tex_size.y / tex_size.x;
+                ui.add(egui::Image::new(tex).max_width(width).max_height(width * aspect));
             } else {
                 let preview_size = egui::vec2(ui.available_width(), 300.0);
                 let (rect, _response) = ui.allocate_at_least(preview_size, egui::Sense::hover());
@@ -220,7 +221,7 @@ impl eframe::App for BeatMapper {
                 ui.painter().rect_filled(marker_rect, 1.0, color);
             }
 
-            if t_response.drag_released() { self.dragging_beat = None; }
+            if t_response.drag_stopped() { self.dragging_beat = None; }
 
             ui.add_space(10.0);
 
@@ -302,7 +303,7 @@ impl WebHandle {
     }
     
     #[wasm_bindgen]
-    pub fn push_frame(&self, rgba_data: &[u8], width: usize, height: usize) {
+    pub fn push_frame(&self, _rgba_data: &[u8], _width: usize, _height: usize) {
         // Shared state push logic
     }
 }

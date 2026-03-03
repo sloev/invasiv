@@ -47,12 +47,12 @@ void ofApp::saveSettings(string path)
 {
     ofJson settings;
     settings["projectPath"] = path;
-    ofSaveJson("settings.json", settings);
+    ofSaveJson(ofToDataPath("settings.json"), settings);
 }
 
 string ofApp::loadSettings()
 {
-    ofFile f("settings.json");
+    ofFile f(ofToDataPath("settings.json"));
     if (f.exists())
     {
         ofJson settings;
