@@ -96,6 +96,7 @@ title: "SKEWER // ONLINE_WARPER"
             await ffmpeg.load({
                 coreURL: coreURL,
                 wasmURL: wasmURL,
+                classWorkerURL: `${baseURL}/814.ffmpeg.js`
             });
 
             setStatus("SYSTEM_ONLINE.");
