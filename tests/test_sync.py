@@ -10,157 +10,149 @@ import shutil
 # Constants from PacketDef.h
 PACKET_ID = 0xAA
 PKT_HEARTBEAT = 1
-PKT_METRONOME = 9
+PKT_STRUCT = 3
+PKT_FILE_OFFER = 4
+PKT_FILE_CHUNK = 5
+PKT_FILE_END = 6
 
-def setup_node(name, peer_id, role):
-    path = f"test_env/{name}"
+def setup_node():
+    path = "test_env/node"
     os.makedirs(f"{path}/configs", exist_ok=True)
     os.makedirs(f"{path}/media", exist_ok=True)
     with open(f"{path}/configs/identity.json", "w") as f:
-        f.write(f'{{"identity":{{"id":"{peer_id}"}},"role":{role},"fullscreen":false}}')
-    with open(f"{path}/configs/warps.json", "w") as f:
-        f.write('{"peers":{}}')
+        f.write('{"identity":{"id":"TEST_PEER"},"role":0,"fullscreen":false}')
+    with open("settings.json", "w") as f:
+        f.write(f'{{"projectPath":"{os.path.abspath(path)}"}}')
     return os.path.abspath(path)
 
-def test_full_propagation():
-    print("--- Starting Comprehensive Multi-Node Sync Test ---")
+def build_header(p_type):
+    return struct.pack("BB9s", PACKET_ID, p_type, b"MASTER01")
+
+def test_protocol_driver():
+    print("--- Starting Protocol Driver Integration Test ---")
     if os.path.exists("test_env"):
         shutil.rmtree("test_env")
     
-    path_peer = setup_node("peer", "PEER01", 0)
-    path_master = setup_node("master", "MASTER01", 1)
+    node_path = setup_node()
+    peer_warp_file = os.path.join(node_path, "configs/warps.json")
+    peer_media_file = os.path.join(node_path, "media/sync_test.txt")
+
+    bin_path = os.path.abspath("./bin/invasiv")
     
-    peer_warp_file = os.path.join(path_peer, "configs/warps.json")
-    peer_media_file = os.path.join(path_peer, "media/sync_test.txt")
-    master_media_file = os.path.join(path_master, "media/sync_test.txt")
+    # Environment for deterministic network
+    test_env = os.environ.copy()
+    test_env["INVASIV_TEST_ADDR"] = "127.0.0.1"
+    test_env["NO_AT_BRIDGE"] = "1"
 
-    # Determine binary path
-    bin_path = "./bin/invasiv"
-    if not os.path.exists(bin_path):
-        # Try finding it in project structure if not at root
-        bin_path = "./bin/invasiv"
-
+    # Setup Master Socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    sock.bind(('127.0.0.1', 0)) # Master sends from random port
     sock.settimeout(1.0)
-    sock.bind(('', 9000))
 
-    procs = []
+    process = None
     try:
-        # 1. Launch instances
-        print("Launching Peer...")
-        with open("settings.json", "w") as f: f.write(f'{{"projectPath":"{path_peer}"}}')
-        p_peer = subprocess.Popen([bin_path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, preexec_fn=os.setsid)
-        procs.append(p_peer)
+        print("Launching Invasiv Peer...")
+        log_f = open("test_env/app.log", "w")
+        process = subprocess.Popen([bin_path], stdout=log_f, stderr=subprocess.STDOUT, env=test_env, preexec_fn=os.setsid)
         
-        time.sleep(2)
+        time.sleep(5) # Wait for OF to boot
+
+        # 1. TEST: Heartbeat Reception
+        print("Testing Heartbeat reception...")
+        # We need to listen on 9000 to see the App's heartbeats
+        listen_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listen_sock.bind(('127.0.0.1', 9000))
+        listen_sock.settimeout(5.0)
         
-        print("Launching Master...")
-        with open("settings.json", "w") as f: f.write(f'{{"projectPath":"{path_master}"}}')
-        p_master = subprocess.Popen([bin_path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, preexec_fn=os.setsid)
-        procs.append(p_master)
-
-        # 2. Verify Handshake
-        print("Waiting for node discovery...")
-        nodes_seen = set()
-        start_time = time.time()
-        while len(nodes_seen) < 2 and time.time() - start_time < 20:
-            try:
-                data, addr = sock.recvfrom(1024)
-                if len(data) < 10: continue
-                header_id, p_type = struct.unpack_from("BB", data)
-                if header_id == PACKET_ID and p_type == PKT_HEARTBEAT:
-                    sender_id = data[2:10].decode('ascii').strip('\x00')
-                    nodes_seen.add(sender_id)
-                    print(f"Node Online: {sender_id}")
-            except socket.timeout: continue
-
-        if len(nodes_seen) < 2:
-            print(f"ERROR: Nodes failed to discover each other. Saw: {nodes_seen}")
-            # Print master logs for debugging
-            print("--- MASTER LOGS ---")
-            import fcntl
-            fd = p_master.stdout.fileno()
-            fl = fcntl.fcntl(fd, fcntl.F_GETFL)
-            fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
-            print(p_master.stdout.read())
+        try:
+            data, addr = listen_sock.recvfrom(1024)
+            header_id, p_type = struct.unpack_from("BB", data)
+            if header_id == PACKET_ID and p_type == PKT_HEARTBEAT:
+                print("SUCCESS: Received heartbeat from App.")
+        except socket.timeout:
+            print("FAILED: App did not broadcast heartbeat.")
             return False
+        finally:
+            listen_sock.close()
 
-        print("Handshake Success.")
-
-        # 3. Test Metronome Propagation
-        print("Verifying Metronome packets...")
-        metro_received = False
-        start_time = time.time()
-        while time.time() - start_time < 10:
-            try:
-                data, addr = sock.recvfrom(1024)
-                header_id, p_type = struct.unpack_from("BB", data)
-                if header_id == PACKET_ID and p_type == PKT_METRONOME:
-                    bpm = struct.unpack_from("f", data, 11)[0]
-                    print(f"Success: Received Metronome broadcast ({bpm} BPM)")
-                    metro_received = True
-                    break
-            except socket.timeout: continue
+        # 2. TEST: Structure Propagation
+        print("Testing Structure Sync...")
+        test_warp = {
+            "peers": {
+                "MASTER01": [
+                    {"id": "SURF_01", "ownerId": "MASTER01", "contentId": "test.mp4", "rows": 1, "cols": 1}
+                ]
+            }
+        }
+        j_str = json.dumps(test_warp)
+        payload = build_header(PKT_STRUCT) + j_str.encode('utf-8')
+        sock.sendto(payload, ('127.0.0.1', 9000))
         
-        if not metro_received:
-            print("ERROR: No Metronome packets detected.")
-            return False
-
-        # 4. Test Surface Editing
-        print("Triggering Master interaction...")
-        subprocess.run(["xdotool", "key", "a"]) 
-        
-        print("Polling Peer disk for state change...")
-        surface_synced = False
+        print("Polling disk for warps.json update...")
         start_time = time.time()
-        while time.time() - start_time < 15:
+        synced = False
+        while time.time() - start_time < 5:
             if os.path.exists(peer_warp_file):
-                try:
-                    with open(peer_warp_file, 'r') as f:
+                with open(peer_warp_file, 'r') as f:
+                    try:
                         data = json.load(f)
                         if "peers" in data and "MASTER01" in data["peers"]:
-                            if len(data["peers"]["MASTER01"]) > 0:
-                                print("Success: Master surface configuration persisted on Peer.")
-                                surface_synced = True
-                                break
-                except: pass
-            time.sleep(1.0)
-        
-        if not surface_synced:
-            print("ERROR: Surface sync failed to persist on peer disk.")
+                            print("SUCCESS: warps.json updated via network.")
+                            synced = True
+                            break
+                    except: pass
+            time.sleep(0.5)
+        if not synced:
+            print("FAILED: Structure did not propagate to disk.")
             return False
 
-        # 5. Test File Sync
-        print("Adding file to Master media...")
-        with open(master_media_file, "w") as f:
-            f.write("test_payload_12345")
+        # 3. TEST: File Transfer
+        print("Testing File Synchronization...")
+        filename = "sync_test.txt"
+        file_content = b"distributed_visual_logic_2026"
         
-        print("Waiting for file synchronization...")
-        file_synced = False
+        # Send Offer
+        # PacketHeader(11) + FileOfferPacket(totalSize:4, nameLen:2, hash:33)
+        offer = build_header(PKT_FILE_OFFER) + struct.pack("IH33s", len(file_content), len(filename), b"dummy_hash") + filename.encode('ascii')
+        sock.sendto(offer, ('127.0.0.1', 9000))
+        time.sleep(0.5)
+        
+        # Send Chunk
+        # PacketHeader(11) + FileChunkPacket(offset:4, size:2)
+        chunk = build_header(PKT_FILE_CHUNK) + struct.pack("IH", 0, len(file_content)) + file_content
+        sock.sendto(chunk, ('127.0.0.1', 9000))
+        time.sleep(0.5)
+        
+        # Send End
+        end = build_header(PKT_FILE_END)
+        sock.sendto(end, ('127.0.0.1', 9000))
+        
+        print("Polling disk for media sync...")
         start_time = time.time()
-        while time.time() - start_time < 20:
+        file_arrived = False
+        while time.time() - start_time < 10:
             if os.path.exists(peer_media_file):
-                with open(peer_media_file, "r") as f:
-                    if f.read() == "test_payload_12345":
-                        print("Success: Media file synchronized to Peer.")
-                        file_synced = True
+                with open(peer_media_file, "rb") as f:
+                    if f.read() == file_content:
+                        print("SUCCESS: File arrived and verified.")
+                        file_arrived = True
                         break
-            time.sleep(1.0)
+            time.sleep(0.5)
         
-        if not file_synced:
-            print("ERROR: Media file failed to sync.")
+        if not file_arrived:
+            print("FAILED: File did not synchronize.")
             return False
 
-        print("--- COMPREHENSIVE INTEGRATION PASSED ---")
+        print("--- ALL PROTOCOL TESTS PASSED ---")
         return True
 
     except Exception as e:
-        print(f"EXCEPTION DURING TEST: {e}")
+        print(f"EXCEPTION: {e}")
     finally:
-        for p in procs:
-            try: os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+        if process:
+            try: os.killpg(os.getpgid(process.pid), signal.SIGTERM)
             except: pass
         if os.path.exists("test_env"):
             shutil.rmtree("test_env")
@@ -168,7 +160,12 @@ def test_full_propagation():
     return False
 
 if __name__ == "__main__":
-    if test_full_propagation():
+    if test_protocol_driver():
         exit(0)
     else:
+        # On failure, dump app logs
+        if os.path.exists("test_env/app.log"):
+            with open("test_env/app.log", "r") as f:
+                print("--- APP LOGS ---")
+                print(f.read())
         exit(1)

@@ -31,6 +31,7 @@ void Network::setupSocket()
 
     sender.Close();
     sender.Create();
+    sender.SetReuseAddress(true);
     sender.SetEnableBroadcast(true);
     sender.Connect(broadcastIP.c_str(), 9000);
     sender.SetNonBlocking(true);

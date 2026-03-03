@@ -1,4 +1,4 @@
-![demo time](./.github/screencast.gif)
+![demo time](./docs/screencast.gif)
 
 # Invasiv
 

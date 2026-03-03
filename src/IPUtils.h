@@ -7,14 +7,22 @@
 #include <net/if.h>     
 #include <sys/types.h>
 #include <cstring>
+#include <cstdlib>
 #include "ofLog.h"
 
 class IPUtils {
 public:
     static std::string getBroadcastAddress() {
+        // Check for test override
+        const char* testAddr = std::getenv("INVASIV_TEST_ADDR");
+        if (testAddr != nullptr) {
+            ofLogNotice("IPUtils") << "TEST_MODE: Using override address: " << testAddr;
+            return std::string(testAddr);
+        }
+
         struct ifaddrs *interfaces = nullptr;
         struct ifaddrs *temp_addr = nullptr;
-        std::string broadcastIP = "255.255.255.255"; 
+        std::string broadcastIP = ""; 
 
         if (getifaddrs(&interfaces) == 0) {
             temp_addr = interfaces;
@@ -24,21 +32,16 @@ public:
                     bool isLoopback = (temp_addr->ifa_flags & IFF_LOOPBACK);
                     bool isRunning = (temp_addr->ifa_flags & IFF_RUNNING);
 
-                    if (isUp && !isLoopback && isRunning) {
-                        // CRITICAL FIX: Check if broadaddr is actually valid before accessing
-                        if (temp_addr->ifa_broadaddr != nullptr) {
+                    if (isUp && isRunning) {
+                        if (isLoopback) {
+                            if (broadcastIP == "") broadcastIP = "127.255.255.255";
+                        } else if (temp_addr->ifa_broadaddr != nullptr) {
                             void* ptr = &((struct sockaddr_in *)temp_addr->ifa_broadaddr)->sin_addr;
                             char buffer[INET_ADDRSTRLEN];
-                            // Initialize buffer to prevent garbage data
                             memset(buffer, 0, INET_ADDRSTRLEN);
-                            
                             if(inet_ntop(AF_INET, ptr, buffer, INET_ADDRSTRLEN)) {
-                                std::string foundIP(buffer);
-                                if (!foundIP.empty()) {
-                                    broadcastIP = foundIP;
-                                    ofLogNotice("IPUtils") << "Interface: " << temp_addr->ifa_name << " Broadcast: " << broadcastIP;
-                                    break; 
-                                }
+                                broadcastIP = std::string(buffer);
+                                break; 
                             }
                         }
                     }
@@ -47,6 +50,7 @@ public:
             }
         }
         if (interfaces) freeifaddrs(interfaces);
+        if (broadcastIP == "" || broadcastIP == "0.0.0.0") broadcastIP = "255.255.255.255";
         return broadcastIP;
     }
 };
