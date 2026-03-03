@@ -130,7 +130,7 @@ jobs:
         with:
           workspaces: "skewer -> target"
       - name: Build
-        run: cargo build --release
+        run: cargo build --release -q > /tmp/cargo.log 2>&1 && echo "Skewer Build: Succeeded" || (echo "Skewer Build: Failed" && cat /tmp/cargo.log && exit 1)
         working-directory: skewer
       - name: Upload
         uses: actions/upload-artifact@v4
@@ -156,9 +156,9 @@ jobs:
         with:
           workspaces: "skewer -> target"
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        run: curl -sSf https://rustwasm.github.io/wasm-pack/installer/init.sh | sh
       - name: Build WASM
-        run: wasm-pack build --target web --out-dir ../docs/skewer_wasm --no-typescript
+        run: wasm-pack build --target web --out-dir ../docs/skewer_wasm --no-typescript > /tmp/wasm.log 2>&1 && echo "Skewer WASM: Succeeded" || (echo "Skewer WASM: Failed" && cat /tmp/wasm.log && exit 1)
         working-directory: skewer
       - name: Upload
         uses: actions/upload-artifact@v4
@@ -329,17 +329,17 @@ jobs:
         run: |
           mkdir -p docs/lib
           # @ffmpeg/ffmpeg ESM files
-          curl -L https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js -o docs/lib/index.js
-          curl -L https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/classes.js -o docs/lib/classes.js
-          curl -L https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/worker.js -o docs/lib/worker.js
-          curl -L https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/const.js -o docs/lib/const.js
-          curl -L https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/utils.js -o docs/lib/utils.js
-          curl -L https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/errors.js -o docs/lib/errors.js
+          curl -sSL https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js -o docs/lib/index.js
+          curl -sSL https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/classes.js -o docs/lib/classes.js
+          curl -sSL https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/worker.js -o docs/lib/worker.js
+          curl -sSL https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/const.js -o docs/lib/const.js
+          curl -sSL https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/utils.js -o docs/lib/utils.js
+          curl -sSL https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/errors.js -o docs/lib/errors.js
           # @ffmpeg/util ESM
-          curl -L https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js -o docs/lib/util.js
+          curl -sSL https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js -o docs/lib/util.js
           # @ffmpeg/core ESM
-          curl -L https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js -o docs/lib/ffmpeg-core.js
-          curl -L https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm -o docs/lib/ffmpeg-core.wasm
+          curl -sSL https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js -o docs/lib/ffmpeg-core.js
+          curl -sSL https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm -o docs/lib/ffmpeg-core.wasm
       - uses: actions/configure-pages@v4
       - uses: actions/jekyll-build-pages@v1
         with: { source: ./docs, destination: ./_site }

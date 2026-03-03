@@ -1,5 +1,6 @@
 #include "ofMain.h"
 #include "ofApp.h"
+#include "Core.h"
 
 int main(int argc, char *argv[]) {
     bool headless = false;
@@ -12,19 +13,19 @@ int main(int argc, char *argv[]) {
 
     if (headless) {
         // Pure CLI mode: No window, no OpenGL context
-        ofApp *app = new ofApp();
-        app->bHeadless = true;
-        app->setup();
-        
+        Core core;
+        core.setup(true);
+
         ofLogNotice("System") << "Invasiv running in PURE CLI MODE (Headless)";
-        
+
         while (true) {
-            app->update();
+            core.update();
             // Sleep to maintain ~60fps logic rate and save CPU
             std::this_thread::sleep_for(std::chrono::microseconds(16666));
         }
         return 0;
-    } else {
+    }
+ else {
         ofSetupOpenGL(1024, 768, OF_WINDOW);
         return ofRunApp(new ofApp());
     }

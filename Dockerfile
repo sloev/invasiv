@@ -1,3 +1,5 @@
+ARG BASE_IMAGE=addons
+
 # Stage 1: System Dependencies for openFrameworks Core
 FROM ubuntu:24.04 AS of-deps
 ENV DEBIAN_FRONTEND=noninteractive
@@ -24,11 +26,11 @@ RUN wget -qO /of.tar.gz https://github.com/openframeworks/openFrameworks/release
     && mkdir /of \
     && tar -xf /of.tar.gz -C /of --strip-components=1 \
     && rm /of.tar.gz
-RUN cd /of/scripts/linux && ./compileOF.sh -j$(nproc)
+RUN cd /of/scripts/linux && (./compileOF.sh -j$(nproc) > /tmp/of_build.log 2>&1 && echo "OF Core: Succeeded" || (echo "OF Core: Failed" && cat /tmp/of_build.log && exit 1))
 
 # Stage 3: openFrameworks Tools (Project Generator)
 FROM of-core AS of-tools
-RUN cd /of/apps/projectGenerator/commandLine && make -j$(nproc) OF_ROOT=/of \
+RUN cd /of/apps/projectGenerator/commandLine && (make -j$(nproc) OF_ROOT=/of > /tmp/pg_build.log 2>&1 && echo "Project Generator: Succeeded" || (echo "Project Generator: Failed" && cat /tmp/pg_build.log && exit 1)) \
     && ln -s /of/apps/projectGenerator/commandLine/bin/projectGenerator /usr/local/bin/projectGenerator
 
 # Stage 4: Addons & App-specific Dependencies
@@ -43,14 +45,14 @@ RUN git clone https://github.com/jvcleave/ofxImGui /of/addons/ofxImGui \
     && git checkout ${OFXIMGUI_SHA}
 
 # Stage 5: App Builder
-FROM addons AS builder
+FROM ${BASE_IMAGE} AS builder
 ARG VERSION_NAME=dev
 WORKDIR /of/apps/myApps/invasiv
 # Copy only the files needed for the build to improve caching
 COPY src ./src
 COPY addons.make config.make Makefile ./
-RUN projectGenerator -r -o"/of" . \
-    && make Release -j$(nproc) PROJECT_CFLAGS="-DVERSION_NAME='\"${VERSION_NAME}\"' -DHEADLESS_SUPPORT"
+RUN (projectGenerator -r -o"/of" . > /tmp/pg_run.log 2>&1 && echo "App Project Generation: Succeeded" || (echo "App Project Generation: Failed" && cat /tmp/pg_run.log && exit 1)) \
+    && (make Release -j$(nproc) PROJECT_CFLAGS="-DVERSION_NAME='\"${VERSION_NAME}\"' -DHEADLESS_SUPPORT" > /tmp/build.log 2>&1 && echo "App Build: Succeeded" || (echo "App Build: Failed" && cat /tmp/build.log && exit 1))
 
 # Stage 6: Tester
 FROM builder AS tester
@@ -59,8 +61,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 # Copy tests separately
 COPY tests ./tests
-RUN g++ -O3 tests/unit_tests.cpp -DTEST_MODE -o tests/unit_tests && ./tests/unit_tests
-RUN python3 tests/test_sync.py
+RUN (g++ -O3 tests/unit_tests.cpp -DTEST_MODE -o tests/unit_tests > /tmp/test_build.log 2>&1 && echo "Test Build: Succeeded" || (echo "Test Build: Failed" && cat /tmp/test_build.log && exit 1)) \
+    && (./tests/unit_tests > /tmp/test_run.log 2>&1 && echo "Unit Tests: Succeeded" || (echo "Unit Tests: Failed" && cat /tmp/test_run.log && exit 1)) \
+    && (python3 tests/test_sync.py > /tmp/sync_test.log 2>&1 && echo "Sync Tests: Succeeded" || (echo "Sync Tests: Failed" && cat /tmp/sync_test.log && exit 1))
 
 # Stage 7: Bundler
 FROM builder AS bundler
@@ -74,11 +77,11 @@ RUN wget -qO /linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/do
 # Copy resources for AppImage
 COPY resources ./resources
 RUN mkdir -p AppDir \
-    && /linuxdeploy --appimage-extract-and-run --app-dir AppDir \
+    && (/linuxdeploy --appimage-extract-and-run --app-dir AppDir \
        -e bin/invasiv \
        -i resources/icon.svg \
-       -d resources/invasiv.desktop \
-    && OUTPUT=Invasiv-x86_64.AppImage /linuxdeploy-plugin-appimage --appimage-extract-and-run --app-dir AppDir
+       -d resources/invasiv.desktop > /tmp/ld.log 2>&1 && echo "AppImage Packing: Succeeded" || (echo "AppImage Packing: Failed" && cat /tmp/ld.log && exit 1)) \
+    && (OUTPUT=Invasiv-x86_64.AppImage /linuxdeploy-plugin-appimage --appimage-extract-and-run --app-dir AppDir >> /tmp/ld.log 2>&1 && echo "AppImage Distribution: Succeeded" || (echo "AppImage Distribution: Failed" && cat /tmp/ld.log && exit 1))
 
 # Stage 8: Runtime
 FROM ubuntu:24.04 AS runtime

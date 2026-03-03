@@ -3,9 +3,17 @@ CONTAINER_NAME=invasiv-extract
 REGISTRY=ghcr.io
 # Dynamically get the lowercased repository owner
 REPO_OWNER=$(shell echo $(USER) | tr '[:upper:]' '[:lower:]')
-BASE_IMAGE=$(REGISTRY)/$(REPO_OWNER)/invasiv-base:latest
+BASE_IMAGE_URL=$(REGISTRY)/$(REPO_OWNER)/invasiv-base:latest
 
-.PHONY: all build extract clean help run pull-base
+# Check if local base exists, if so use it to skip building OF
+HAS_LOCAL_BASE=$(shell docker images -q invasiv-base:latest 2>/dev/null)
+ifneq ($(HAS_LOCAL_BASE),)
+	BASE_ARG=--build-arg BASE_IMAGE=invasiv-base:latest
+else
+	BASE_ARG=
+endif
+
+.PHONY: all build test extract clean help run pull-base
 
 all: build extract run
 
@@ -15,17 +23,24 @@ help:
 	@echo "Targets:"
 	@echo "  pull-base - Pull the pre-compiled base image from GHCR (fastest)"
 	@echo "  build     - Build the Invasiv application using Docker (uses local cache if available)"
+	@echo "  test      - Run unit and sync tests inside Docker"
 	@echo "  extract   - Extract the compiled binary from the Docker image to ./artifacts"
 	@echo "  clean     - Remove build artifacts"
 	@echo "  run       - Run the extracted binary (requires local libmpv2)"
 
 pull-base:
-	docker pull $(BASE_IMAGE)
-	docker tag $(BASE_IMAGE) invasiv-base:latest
+	docker pull $(BASE_IMAGE_URL)
+	docker tag $(BASE_IMAGE_URL) invasiv-base:latest
 
 build:
-	# Attempt to build using the local cache or pulled base image
-	docker build -t $(IMAGE_NAME) --target builder .
+	@echo -n "Building Invasiv (Docker)... "
+	@docker build -t $(IMAGE_NAME) $(BASE_ARG) --target builder . > docker_build.log 2>&1 && echo "DONE" || (echo "FAILED" && cat docker_build.log && rm -f docker_build.log && exit 1)
+	@rm -f docker_build.log
+
+test:
+	@echo -n "Running Tests (Docker)... "
+	@docker build -t invasiv-tester $(BASE_ARG) --target tester . > docker_test.log 2>&1 && echo "PASSED" || (echo "FAILED" && cat docker_test.log && rm -f docker_test.log && exit 1)
+	@rm -f docker_test.log
 
 extract:
 	@mkdir -p artifacts
