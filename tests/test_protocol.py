@@ -35,7 +35,8 @@ def test_heartbeat_reception():
     process = None
     try:
         # Launch with stdout/stderr going to pipe
-        process = subprocess.Popen(["xvfb-run", "-a", bin_path], 
+        # We don't need xvfb-run here because the parent script is already run under it
+        process = subprocess.Popen([bin_path], 
                                   stdout=subprocess.PIPE, 
                                   stderr=subprocess.STDOUT,
                                   text=True,
