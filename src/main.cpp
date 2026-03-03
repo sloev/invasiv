@@ -1,18 +1,25 @@
 #include "ofMain.h"
 #include "ofApp.h"
+#include "ofAppNoWindow.h"
 
 //========================================================================
-int main( ){
+int main(int argc, char *argv[]) {
+    bool headless = false;
+    for (int i = 0; i < argc; i++) {
+        if (std::string(argv[i]) == "--headless") {
+            headless = true;
+            break;
+        }
+    }
 
-	//Use ofGLFWWindowSettings for more options like multi-monitor fullscreen
-	// ofGLWindowSettings settings;
-	// settings.setSize(1024, 768);
-	// settings.windowMode = OF_WINDOW; //can also be OF_FULLSCREEN
-
-	// auto window = ofCreateWindow(settings);
-
-	// ofRunApp(window, std::make_shared<ofApp>());
-	// ofRunMainLoop();
-	ofSetupOpenGL(1024, 768, OF_WINDOW);
-    return ofRunApp(new ofApp());
+    if (headless) {
+        ofAppNoWindow window;
+        ofApp *app = new ofApp();
+        app->bHeadless = true;
+        ofSetupOpenGL(&window, 1024, 768, OF_WINDOW);
+        return ofRunApp(app);
+    } else {
+        ofSetupOpenGL(1024, 768, OF_WINDOW);
+        return ofRunApp(new ofApp());
+    }
 }

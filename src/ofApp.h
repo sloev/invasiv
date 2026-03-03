@@ -27,6 +27,8 @@ public:
     string loadSettings();
 
     void syncFullState(); 
+    
+    bool bHeadless = false;
 
     Identity identity;
     Network net;

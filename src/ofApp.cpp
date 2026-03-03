@@ -11,14 +11,18 @@ void ofApp::setup()
 {
     metro.setup();
     ofSetFrameRate(60);
-    ofSetVerticalSync(true);
-    ofBackground(20);
-    ofSetWindowTitle("invasiv " + string(VERSION_NAME));
-    gui.setup();
+    
+    if (!bHeadless) {
+        ofSetVerticalSync(true);
+        ofBackground(20);
+        ofSetWindowTitle("invasiv " + string(VERSION_NAME));
+        gui.setup();
+    }
+
     ofAddListener(watcher.filesChanged, this, &ofApp::onFilesChanged);
 
     string pPath = loadSettings();
-    if (pPath == "" || !ofDirectory(pPath).exists())
+    if (!bHeadless && (pPath == "" || !ofDirectory(pPath).exists()))
     {
         ofFileDialogResult res = ofSystemLoadDialog("Select Invasiv Project Folder", true);
         if (res.bSuccess)
@@ -30,6 +34,9 @@ void ofApp::setup()
         {
             pPath = ofFilePath::getCurrentExeDir();
         }
+    }
+    else if (bHeadless && pPath == "") {
+        pPath = ofFilePath::getCurrentExeDir();
     }
 
     strncpy(pathInputBuf, pPath.c_str(), 255);
@@ -100,31 +107,19 @@ void ofApp::onFilesChanged(std::vector<std::string> &files)
     ofLogNotice("MediaWatcher") << files.size() << " file(s) changed in " << mediaDir;
     for (const auto &f : files)
     {
-        ofLogNotice("MediaWatcher") << " - offering file: " << f;
         net.offerFile(f);
     }
 }
 
 void ofApp::syncFullState()
 {
-    if (!net.isAuthority())
-        return;
-
-    ofLogNotice("Sync") << "Broadcasting full state to peers...";
-
-    string warpPath = ofFilePath::join(ofFilePath::join(projectPath, "configs"), "warps.json");
-    ofFile f(warpPath);
-    if (f.exists())
-    {
-        string jsonStr = f.readToBuffer().getText();
-        net.sendStructure(jsonStr);
-    }
-
-    vector<string> allFiles = watcher.getAllItems();
-    for (auto &file : allFiles)
-    {
-        net.offerFile(file);
-    }
+    ofJson root;
+    map<string, ofJson> groups;
+    for (auto &surf : warper.allSurfaces)
+        groups[surf->ownerId].push_back(surf->toJson());
+    for (auto &kv : groups)
+        root["peers"][kv.first] = kv.second;
+    net.sendStructure(root.dump());
 }
 
 void ofApp::update()
@@ -148,46 +143,18 @@ void ofApp::update()
     while ((size = net.receive(packetBuffer, 65535)) > 0)
     {
         PacketHeader *h = (PacketHeader *)packetBuffer;
-        if (h->id != PACKET_ID)
-            continue;
-        if (strncmp(h->senderId, identity.myId.c_str(), 8) == 0)
+        if (h->id != PACKET_ID || strncmp(h->senderId, identity.myId.c_str(), 8) == 0)
             continue;
 
         if (h->type == PKT_HEARTBEAT)
         {
             HeartbeatPacket *p = (HeartbeatPacket *)packetBuffer;
-            if (string(p->peerId) == identity.myId)
-                continue;
-
-            bool isNew = net.peers.find(p->peerId) == net.peers.end();
-            Network::PeerData pd;
-            pd.id = p->peerId;
-            pd.role = (AppRole)p->role;
-            pd.lastSeen = ofGetElapsedTimef();
-            pd.isSyncing = p->isSyncing;
-            pd.syncProgress = p->syncProgress;
-            pd.syncingFile = string(p->syncingFile);
-
-            net.peers[p->peerId] = pd;
-
-            if (isNew && net.isAuthority())
-            {
-                ofLogNotice("Network") << "New Peer Discovered: " << p->peerId << " -> Syncing State.";
-                syncFullState();
-            }
+            net.updatePeer(p->peerId, (AppRole)p->role, p->isSyncing, p->syncProgress, p->syncingFile);
         }
         else if (h->type == PKT_WARP_DATA && !net.isAuthority())
         {
             WarpPacket *p = (WarpPacket *)packetBuffer;
             warper.updatePeerPoint(p->ownerId, p->surfaceIndex, p->mode, p->pointIndex, p->x, p->y);
-        }
-        else if (h->type == PKT_STRUCT && !net.isAuthority())
-        {
-            string jStr(packetBuffer + sizeof(PacketHeader), size - sizeof(PacketHeader));
-            string warpPath = ofFilePath::join(ofFilePath::join(projectPath, "configs"), "warps.json");
-            ofBufferToFile(warpPath, ofBuffer(jStr.c_str(), jStr.length()));
-            warper.loadJson(jStr);
-            ofLogNotice("Network") << "Received and applied Structure Sync";
         }
         else if (h->type == PKT_METRONOME && !net.isAuthority())
         {
@@ -195,6 +162,13 @@ void ofApp::update()
             metro.bpm = p->bpm;
             metro.referenceTime = p->referenceTime;
             metro.beatsPerBar = p->beatsPerBar;
+        }
+        else if (h->type == PKT_STRUCT && !net.isAuthority())
+        {
+            string jStr(packetBuffer + sizeof(PacketHeader), size - sizeof(PacketHeader));
+            string warpPath = ofFilePath::join(ofFilePath::join(projectPath, "configs"), "warps.json");
+            ofBufferToFile(warpPath, ofBuffer(jStr.c_str(), jStr.length()));
+            warper.loadJson(jStr);
         }
         else if (h->type == PKT_FILE_OFFER && !net.isAuthority())
         {
@@ -257,6 +231,8 @@ void ofApp::update()
 
 void ofApp::draw()
 {
+    if (bHeadless) return;
+
     if (net.isAuthority())
     {
         if (net.isEditing())
@@ -300,21 +276,21 @@ void ofApp::draw()
 
 void ofApp::mousePressed(int x, int y, int button)
 {
-    if (!net.isEditing() || ImGui::GetIO().WantCaptureMouse)
+    if (bHeadless || !net.isEditing() || ImGui::GetIO().WantCaptureMouse)
         return;
     warper.mousePressed(x, y, net);
 }
 
 void ofApp::mouseDragged(int x, int y, int button)
 {
-    if (!net.isEditing() || ImGui::GetIO().WantCaptureMouse)
+    if (bHeadless || !net.isEditing() || ImGui::GetIO().WantCaptureMouse)
         return;
     warper.mouseDragged(x, y, net);
 }
 
 void ofApp::mouseReleased(int x, int y, int button)
 {
-    if (net.isEditing())
+    if (!bHeadless && net.isEditing())
         warper.mouseReleased(net);
 }
 

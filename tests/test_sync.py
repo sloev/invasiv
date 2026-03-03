@@ -45,25 +45,29 @@ def test_protocol_driver():
     test_env["NO_AT_BRIDGE"] = "1"
 
     # Setup Master Sockets
-    # To see broadcasts on 127.0.0.1, we MUST bind to 0.0.0.0 or 127.0.0.1
+    # To see broadcasts on 127.0.0.1, we MUST bind to 127.0.0.1 or 0.0.0.0
     listen_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try: listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
     except: pass
-    listen_sock.bind(('0.0.0.0', 9000))
+    listen_sock.bind(('127.0.0.1', 9000))
     listen_sock.settimeout(15.0) # More time for CI
 
     # Separate socket for sending
     send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     send_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+procs = []
+log_files = []
+try:
+    # 1. Launch instances - Redirect output to files to avoid blocking on PIPE
+    print(f"Launching Invasiv Peer in headless mode...")
+    f_app = open(f"test_env/app.log", "w")
+    log_files.append(f_app)
+    # Add --headless flag
+    process = subprocess.Popen([bin_path, "--headless"], stdout=f_app, stderr=subprocess.STDOUT, 
+                             env=test_env, preexec_fn=os.setsid)
 
-    process = None
-    try:
-        print("Launching Invasiv Peer...")
-        log_f = open("test_env/app.log", "w")
-        process = subprocess.Popen([bin_path], stdout=log_f, stderr=subprocess.STDOUT, env=test_env, preexec_fn=os.setsid)
-        
-        # 1. TEST: Heartbeat Reception
+    # 1. TEST: Heartbeat Reception
         print("Waiting for heartbeat...")
         start_time = time.time()
         heartbeat_found = False
