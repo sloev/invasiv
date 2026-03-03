@@ -14,8 +14,8 @@ Full feature list available in [FEATURES.md](./FEATURES.md).
 
 ## Ecosystem
 
-- **Invasiv (v0.1.x)**: The main VJ engine. Distributed, symmetric, and fast.
-- **Skewer (v0.1.x)**: A dedicated Rust-based utility for rhythmic media preparation. 
+- **Invasiv** ![Invasiv Version](https://img.shields.io/github/v/release/sloev/invasiv?filter=invasiv-*&label=latest&color=red): The main VJ engine. Distributed, symmetric, and fast.
+- **Skewer** ![Skewer Version](https://img.shields.io/github/v/release/sloev/invasiv?filter=skewer-*&label=latest&color=blue): A dedicated Rust-based utility for rhythmic media preparation. 
   - **Native**: Requires `ffmpeg` installed on your system for preview and export.
   - **Web**: Uses `ffmpeg.wasm` for browser-based rhythmic planning.
 
