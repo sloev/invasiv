@@ -130,7 +130,8 @@ jobs:
         with:
           workspaces: "skewer -> target"
       - name: Build
-        run: cargo build --release -q > /tmp/cargo.log 2>&1 && echo "Skewer Build: Succeeded" || (echo "Skewer Build: Failed" && cat /tmp/cargo.log && exit 1)
+        run: |
+          cargo build --release -q > /tmp/cargo.log 2>&1 && echo "Skewer Build: Succeeded" || (echo "Skewer Build: Failed" && cat /tmp/cargo.log && exit 1)
         working-directory: skewer
       - name: Upload
         uses: actions/upload-artifact@v4
@@ -158,7 +159,8 @@ jobs:
       - name: Install wasm-pack
         run: curl -sSf https://rustwasm.github.io/wasm-pack/installer/init.sh | sh
       - name: Build WASM
-        run: wasm-pack build --target web --out-dir ../docs/skewer_wasm --no-typescript > /tmp/wasm.log 2>&1 && echo "Skewer WASM: Succeeded" || (echo "Skewer WASM: Failed" && cat /tmp/wasm.log && exit 1)
+        run: |
+          wasm-pack build --target web --out-dir ../docs/skewer_wasm --no-typescript > /tmp/wasm.log 2>&1 && echo "Skewer WASM: Succeeded" || (echo "Skewer WASM: Failed" && cat /tmp/wasm.log && exit 1)
         working-directory: skewer
       - name: Upload
         uses: actions/upload-artifact@v4
