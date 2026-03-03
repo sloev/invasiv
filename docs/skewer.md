@@ -81,7 +81,7 @@ title: "SKEWER // ONLINE_WARPER"
             setStatus("RUST_READY. LOADING_FFMPEG_CORE...", 0);
 
             ffmpeg = new FFmpeg();
-            const baseURL = './lib';
+            const baseURL = new URL('./lib', window.location.href).href;
             
             ffmpeg.on('log', ({ message }) => {
                 console.log(`[FFmpeg] ${message}`);

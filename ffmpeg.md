@@ -32,11 +32,16 @@
     - **Result:** Failed. `Error: failed to import ffmpeg-core.js` and `FATAL_ERROR: undefined`.
     - **Root Cause:** In FFmpeg.wasm 0.12, dynamic imports inside the worker can fail when given a `blob:` URL for the core, especially when CORS is not the actual issue. Also, the `0.12.10` UMD build contains a hardcoded bug (`file:///home/jeromewu/...`), which was likely causing issues.
 
-- [ ] **Attempt 4: Same-Origin Direct URLs (No toBlobURL)**
+- [X] **Attempt 4: Same-Origin Direct URLs (No toBlobURL)**
     - **Concept:** Since the GitHub Action downloads the files into `docs/lib`, they are served from the same origin as the page. `toBlobURL` is strictly for bypassing cross-origin CDN constraints. We can pass the relative paths directly. We also downgrade `@ffmpeg/ffmpeg` UMD to `0.12.6` to avoid the `file:///` compilation bug found in `0.12.10`.
+    - **Result:** Failed. `Error: failed to import ffmpeg-core.js`.
+    - **Root Cause:** When `coreURL` is passed as a relative path like `./lib/ffmpeg-core.js`, it is evaluated *inside the Web Worker*. Since the worker's URL is `./lib/814.ffmpeg.js`, it resolves the relative path to `./lib/lib/ffmpeg-core.js`, which is a 404.
+
+- [ ] **Attempt 5: Same-Origin Absolute URLs**
+    - **Concept:** Ensure the `baseURL` is absolute using `new URL('./lib', window.location.href).href`. This creates a fully qualified URL (e.g., `https://invasiv.github.io/lib/...`) that the worker can unambiguously resolve, regardless of its own path context.
     - **Status:** Implemented, waiting for validation.
 
-- [ ] **Attempt 5: Version Downgrade to 0.11**
+- [ ] **Attempt 6: Version Downgrade to 0.11**
     - **Concept:** 0.12 is significantly more complex with its worker/chunk architecture. 0.11 might be more stable for this simple use case.
 
 ## Tracked Attempts (Skewer Native)
