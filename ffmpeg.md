@@ -29,11 +29,12 @@
     - **Root Cause:** Browsers block cross-origin Workers unless they are explicitly permitted via `import { ... }` or proxied through a Blob. ESM.sh's worker resolution didn't bypass the origin check.
 
 - [X] **Attempt 3: Revert to UMD + toBlobURL for classWorkerURL**
-    - **Result:** Failed (reported by user). Still getting `SecurityError`.
-    - **Root Cause:** The `classWorkerURL` itself, even if converted to a Blob, might be trying to import other cross-origin scripts or the `toBlobURL` helper didn't successfully mask the origin.
+    - **Result:** Failed. `Error: failed to import ffmpeg-core.js` and `FATAL_ERROR: undefined`.
+    - **Root Cause:** In FFmpeg.wasm 0.12, dynamic imports inside the worker can fail when given a `blob:` URL for the core, especially when CORS is not the actual issue. Also, the `0.12.10` UMD build contains a hardcoded bug (`file:///home/jeromewu/...`), which was likely causing issues.
 
-- [ ] **Attempt 4: Proxy the Worker script via a local Blob wrapper**
-    - **Concept:** Create a small local script that `importScripts` the CDN worker, then load that via `URL.createObjectURL`.
+- [ ] **Attempt 4: Same-Origin Direct URLs (No toBlobURL)**
+    - **Concept:** Since the GitHub Action downloads the files into `docs/lib`, they are served from the same origin as the page. `toBlobURL` is strictly for bypassing cross-origin CDN constraints. We can pass the relative paths directly. We also downgrade `@ffmpeg/ffmpeg` UMD to `0.12.6` to avoid the `file:///` compilation bug found in `0.12.10`.
+    - **Status:** Implemented, waiting for validation.
 
 - [ ] **Attempt 5: Version Downgrade to 0.11**
     - **Concept:** 0.12 is significantly more complex with its worker/chunk architecture. 0.11 might be more stable for this simple use case.

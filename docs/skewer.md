@@ -87,17 +87,13 @@ title: "SKEWER // ONLINE_WARPER"
                 console.log(`[FFmpeg] ${message}`);
             });
 
-            setStatus("LOADING_FFMPEG_CORE (1/2)...", 30);
-            const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
-            setStatus("LOADING_FFMPEG_WASM (2/2)...", 60);
-            const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
-            const workerURL = await toBlobURL(`${baseURL}/814.ffmpeg.js`, 'text/javascript');
+            setStatus("LOADING_FFMPEG_CORE...", 30);
 
             setStatus("INITIALIZING_VIRTUAL_HARDWARE...", 100);
             await ffmpeg.load({
-                coreURL: coreURL,
-                wasmURL: wasmURL,
-                classWorkerURL: workerURL
+                coreURL: `${baseURL}/ffmpeg-core.js`,
+                wasmURL: `${baseURL}/ffmpeg-core.wasm`,
+                classWorkerURL: `${baseURL}/814.ffmpeg.js`
             });
 
             setStatus("SYSTEM_ONLINE.");
