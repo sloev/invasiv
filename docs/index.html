@@ -14,7 +14,7 @@
             --text: #ffffff;
             --text-dim: #888888;
             --border: #222222;
-            --card-bg: #080808;
+            --neon-glow: 0 0 15px rgba(255, 0, 0, 0.5);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -28,9 +28,20 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        .container { max-width: 1400px; margin: 0 auto; padding: 0 1.5rem; }
+        /* Gritty Overlay */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: url("https://www.transparenttextures.com/patterns/carbon-fibre.png");
+            opacity: 0.05;
+            pointer-events: none;
+            z-index: 1000;
+        }
 
-        /* Flyover Grid */
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
+
+        /* Animated Grid */
         .grid-bg {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -50,82 +61,169 @@
         @keyframes flyover { 0% { transform: rotateX(60deg) translateY(0); } 100% { transform: rotateX(60deg) translateY(60px); } }
 
         /* Header */
-        header { padding: 8vh 0; text-align: center; }
+        header { padding: 10vh 0 5vh 0; text-align: center; }
         .logo {
-            font-size: clamp(3rem, 15vw, 12rem);
+            font-size: clamp(4rem, 20vw, 15rem);
             font-weight: 900;
             background: var(--accent);
             color: black;
             display: inline-block;
-            padding: 0 1rem;
+            padding: 0 1.5rem;
             letter-spacing: -0.05em;
             text-transform: uppercase;
+            box-shadow: 15px 15px 0 var(--accent-dim);
         }
 
-        /* Hero Section */
+        /* Hero */
         .hero-grid {
-            display: grid;
-            grid-template-columns: 1fr 1.2fr;
+            display: flex;
+            flex-wrap: wrap;
             gap: 4rem;
             margin: 5rem 0;
             align-items: center;
         }
-        .hero-text { font-size: 1.2rem; color: var(--text-dim); }
+        .hero-text { flex: 1 1 450px; font-size: 1.2rem; color: var(--text-dim); }
         .hero-text b { color: #fff; }
+        .screencast-box { flex: 1 1 450px; }
         .screencast { width: 100%; border: 1px solid var(--border); filter: contrast(1.1) brightness(1.1); }
 
-        /* SaaS Style Intel Table */
-        section.intel { padding: 10rem 0; }
-        section.intel h2 { font-size: 3rem; text-transform: uppercase; color: var(--accent); margin-bottom: 4rem; text-align: center; }
+        /* Features Section */
+        section.features { padding: 8rem 0; border-top: 1px solid var(--border); }
+        section.features h2 { font-size: clamp(3rem, 10vw, 6rem); text-transform: uppercase; color: var(--accent); margin-bottom: 4rem; text-align: left; letter-spacing: -0.05em; }
         
-        .intel-table-wrapper { 
-            overflow-x: auto; 
-            border: 1px solid var(--border); 
-            border-radius: 8px;
-            background: rgba(0,0,0,0.8);
-            backdrop-filter: blur(10px);
+        .saas-table {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            background: var(--border);
+            border: 1px solid var(--border);
         }
-        
-        .intel-table { width: 100%; border-collapse: collapse; min-width: 1000px; }
-        .intel-table th, .intel-table td { padding: 1.5rem; text-align: left; font-size: 0.9rem; border-bottom: 1px solid var(--border); }
-        
-        /* Headers */
-        .intel-table th { background: #111; color: var(--text-dim); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em; }
-        .intel-table th:nth-child(2) { color: var(--accent); border-top: 2px solid var(--accent); }
-        
-        /* Highlight Invasiv Column */
-        .intel-table td:nth-child(2) { background: rgba(255,0,0,0.03); font-weight: 600; color: #fff; border-left: 1px solid var(--accent-dim); border-right: 1px solid var(--accent-dim); }
-        
-        /* Row Groups */
-        .row-group { background: #080808; color: var(--accent); font-weight: 900; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.2em; }
-        
-        .feature-name { font-weight: 700; color: #aaa; width: 220px; }
-        .check { color: #4cd964; }
-        .cross { color: #ff3b30; }
 
-        /* SKEWER Card */
-        section.skewer { padding: 10rem 0; }
-        .skewer-card { border: 2px solid var(--accent); background: #110000; padding: 4rem; }
-        .skewer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 3rem; margin-top: 3rem; }
-        .skewer-step h3 { color: var(--accent); margin-bottom: 1rem; text-transform: uppercase; }
+        .saas-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            background: var(--bg);
+        }
 
-        /* CTAs */
-        .cta-area { text-align: center; padding: 10rem 0; border-top: 1px solid var(--border); }
-        .btn-group { display: flex; flex-wrap: wrap; justify-content: center; gap: 1rem; margin-bottom: 4rem; }
-        .btn { padding: 1.5rem 3rem; background: transparent; color: var(--accent); border: 2px solid var(--accent); text-decoration: none; font-weight: 900; text-transform: uppercase; transition: 0.2s; }
-        .btn:hover { background: var(--accent); color: black; }
+        .saas-header {
+            background: #111;
+            font-weight: 900;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.2em;
+            color: var(--accent);
+            padding: 1rem 2rem;
+        }
+
+        .saas-cell {
+            padding: 2rem;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            display: flex;
+            align-items: center;
+        }
+
+        .saas-feature-name {
+            font-weight: 900;
+            color: #fff;
+            background: #080808;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.05em;
+            border-right: 1px solid var(--border);
+        }
+
+        .saas-invasiv {
+            background: rgba(255,0,0,0.03);
+            border-right: 1px solid var(--border);
+            font-weight: 500;
+        }
+
+        .saas-invasiv b { color: var(--accent); font-weight: 900; }
+
+        .saas-industry {
+            color: var(--text-dim);
+            font-weight: 300;
+        }
+
+        /* SKEWER Block */
+        section.skewer { padding: 10vh 0; }
+        .skewer-card { border: 2px solid var(--accent); background: #110000; padding: clamp(2rem, 5vw, 4rem); }
+        .skewer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 3rem; margin-top: 3rem; }
+        .skewer-step h3 { color: var(--accent); margin-bottom: 1rem; text-transform: uppercase; font-size: 1.5rem; }
+
+        /* Support area - Flashy */
+        .support-strip {
+            background: var(--accent);
+            color: #fff;
+            padding: 6rem 2rem;
+            text-align: center;
+            margin: 10rem 0;
+            box-shadow: 0 0 100px var(--accent-dim);
+            border: 4px solid #fff;
+            transform: rotate(-1deg);
+        }
+        .support-strip h2 { font-size: clamp(2rem, 6vw, 4rem); font-weight: 900; margin-bottom: 2rem; text-transform: uppercase; line-height: 0.9; }
+        .coffee-btn { 
+            display: inline-block; 
+            margin-top: 2rem; 
+            background: #fff; 
+            color: #000; 
+            padding: 1.5rem 3rem; 
+            text-decoration: none; 
+            font-weight: 900; 
+            font-size: 1.2rem;
+            border: 4px solid #000;
+            transition: 0.1s;
+        }
+        .coffee-btn:hover { transform: scale(1.1) rotate(2deg); background: #000; color: #fff; border-color: #fff; }
+
+        /* CTA area */
+        .cta-area { text-align: center; padding-bottom: 10rem; }
+        .btn-group { display: flex; flex-wrap: wrap; justify-content: center; gap: 1rem; margin-bottom: 2rem; }
+        .btn { 
+            padding: 1.5rem 3rem; 
+            background: transparent; 
+            color: var(--accent); 
+            border: 2px solid var(--accent); 
+            text-decoration: none; 
+            font-weight: 900; 
+            text-transform: uppercase; 
+            transition: 0.2s; 
+            flex: 1 1 300px;
+            max-width: 400px;
+        }
+        .btn:hover { background: var(--accent); color: black; box-shadow: var(--neon-glow); }
         .btn-filled { background: var(--accent); color: black; }
 
-        .support-strip { background: #fff; color: #000; padding: 4rem; text-align: center; font-weight: 900; margin-top: 4rem; }
-        .coffee-btn { display: inline-block; margin-top: 2rem; background: black; color: white; padding: 1rem 2rem; text-decoration: none; }
+        /* Footer */
+        footer { 
+            background: #111;
+            padding: 8rem 0; 
+            text-align: center; 
+            border-top: 2px solid var(--accent);
+        }
+        footer h4 { color: #fff; margin-bottom: 2rem; text-transform: uppercase; letter-spacing: 0.2em; }
+        .thank-you { color: #888; font-size: 0.8rem; margin-bottom: 4rem; line-height: 2; }
+        .thank-you a { color: #fff; text-decoration: none; border-bottom: 1px solid var(--accent); }
+        .thank-you a:hover { background: var(--accent); color: #000; }
+        .footer-logo { font-size: 0.7rem; color: #444; letter-spacing: 0.5em; margin-top: 4rem; }
 
-        footer { padding: 5rem 0; text-align: center; font-size: 0.7rem; color: #333; }
-        footer a { color: #666; text-decoration: none; }
+        /* RESPONSIVE FIX */
+        @media (max-width: 1000px) {
+            .saas-row { grid-template-columns: 1fr; }
+            .saas-header { display: none; }
+            .saas-feature-name { background: var(--accent); color: #000; border-right: none; padding: 1rem 2rem; }
+            .saas-cell { padding: 1.5rem 2rem; border-right: none; }
+            .saas-invasiv:before { content: "INVASIV: "; font-weight: 900; display: block; font-size: 0.6rem; color: var(--accent); margin-bottom: 0.5rem; }
+            .saas-industry:before { content: "THE INDUSTRY: "; font-weight: 900; display: block; font-size: 0.6rem; color: var(--text-dim); margin-bottom: 0.5rem; }
+            .saas-invasiv { background: rgba(255,0,0,0.1); }
+        }
 
-        @media (max-width: 900px) {
-            .hero-grid { grid-template-columns: 1fr; text-align: center; }
+        @media (max-width: 600px) {
+            .logo { font-size: 4rem; box-shadow: 8px 8px 0 var(--accent-dim); }
+            .hero-grid { margin: 2rem 0; }
             .container { padding: 0 1rem; }
-            .skewer-card { padding: 2rem; }
         }
     </style>
 </head>
@@ -137,171 +235,163 @@
         
         <header>
             <div class="logo">INVASIV</div>
-            <p class="tagline">Distributed Spatial Intelligence</p>
         </header>
 
         <section class="hero-grid">
             <div class="hero-text">
-                <p style="font-size: 2rem; line-height: 1.2; color: #fff; margin-bottom: 2rem; font-weight: 900;">
-                    SCALE WITH LOGIC,<br>NOT BUDGET.
+                <p style="font-size: 1.8rem; line-height: 1.2; color: #fff; margin-bottom: 2rem;">
+                    Visuals should scale with your <b>imagination</b>, not your <b>budget</b>.
                 </p>
                 <p>
-                    Invasiv is a lightweight C++20 engine designed to turn a network of affordable laptops into a single, high-performance projection mapping system. Frame-accurate synchronization, automated file distribution, and native speed on any hardware.
+                    Invasiv is a lightweight, C++ powered engine designed for distributed environments. Instead of one massive computer struggling with cables, Invasiv uses <b>multiple affordable nodes</b>—one at every projector—synchronized instantly over a standard network.
                 </p>
             </div>
-            <img src="./screencast.gif" class="screencast" alt="System Preview">
+            <div class="screencast-box">
+                <img src="./screencast.gif" class="screencast" alt="System Preview">
+            </div>
         </section>
 
-        <section class="intel">
-            <h2>MASTER_INTEL // THE_DISTRIBUTED_DIFFERENCE</h2>
+        <section class="features">
+            <h2>FEATURES</h2>
             
-            <div class="intel-table-wrapper">
-                <table class="intel-table">
-                    <thead>
-                        <tr>
-                            <th>Capability</th>
-                            <th>Invasiv</th>
-                            <th>Resolume</th>
-                            <th>VDMX</th>
-                            <th>MadMapper</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr class="row-group"><td colspan="5">Economics & Deployment</td></tr>
-                        <tr>
-                            <td class="feature-name">License Type</td>
-                            <td>MIT (Open & Free)</td>
-                            <td>Commercial / Subscription</td>
-                            <td>Commercial License</td>
-                            <td>Commercial / Rent-to-own</td>
-                        </tr>
-                        <tr>
-                            <td class="feature-name">Price (Per Instance)</td>
-                            <td class="val-invasiv">$0.00</td>
-                            <td>$799+</td>
-                            <td>$349+</td>
-                            <td>$400+</td>
-                        </tr>
-                        <tr>
-                            <td class="feature-name">Binary Weight</td>
-                            <td class="val-invasiv">~20MB Portable</td>
-                            <td>~2GB+ Installer</td>
-                            <td>Moderate Installer</td>
-                            <td>Managed Installer</td>
-                        </tr>
-                        <tr>
-                            <td class="feature-name">Startup Time</td>
-                            <td>Near-Instant</td>
-                            <td>Activation / Drivers</td>
-                            <td>Standard App</td>
-                            <td>Activation Step</td>
-                        </tr>
+            <div class="saas-table">
+                <!-- Header -->
+                <div class="saas-row saas-header">
+                    <div>The Target</div>
+                    <div>Invasiv Advantage</div>
+                    <div>Industry Standard</div>
+                </div>
 
-                        <tr class="row-group"><td colspan="5">Hardware Architecture</td></tr>
-                        <tr>
-                            <td class="feature-name">System Topology</td>
-                            <td class="val-invasiv">Distributed (Many Nodes)</td>
-                            <td>Centralized (One Server)</td>
-                            <td>Centralized (One Server)</td>
-                            <td>Centralized (One Server)</td>
-                        </tr>
-                        <tr>
-                            <td class="feature-name">Cabling Strategy</td>
-                            <td class="val-invasiv">Standard Ethernet Backbone</td>
-                            <td>Expensive Active Video Cables</td>
-                            <td>HDMI / DisplayPort</td>
-                            <td>Active Video Extensions</td>
-                        </tr>
-                        <tr>
-                            <td class="feature-name">Hardware Requirement</td>
-                            <td class="val-invasiv">Low (Toaster Friendly)</td>
-                            <td>High (High-end Discrete GPU)</td>
-                            <td>Moderate (Mac-dependent)</td>
-                            <td>Moderate</td>
-                        </tr>
-                        <tr>
-                            <td class="feature-name">Redundancy</td>
-                            <td class="val-invasiv">Full (Any node can lead)</td>
-                            <td>None (Single point of failure)</td>
-                            <td>None (Single point of failure)</td>
-                            <td>None (Single point of failure)</td>
-                        </tr>
+                <!-- Row 1 -->
+                <div class="saas-row">
+                    <div class="saas-cell saas-feature-name">Economics</div>
+                    <div class="saas-cell saas-invasiv"><b>MIT Open Source.</b> Free forever. Own your tools, don't rent them.</div>
+                    <div class="saas-cell saas-industry">$400–$1000+ per license. Recurring monthly subscriptions.</div>
+                </div>
 
-                        <tr class="row-group"><td colspan="5">Network & Workflow</td></tr>
-                        <tr>
-                            <td class="feature-name">Node Discovery</td>
-                            <td class="val-invasiv">Automatic (UDP Broadcast)</td>
-                            <td>Manual IP / OSC Config</td>
-                            <td>Manual Mapping</td>
-                            <td>Manual Setup</td>
-                        </tr>
-                        <tr>
-                            <td class="feature-name">Distributed Editing</td>
-                            <td class="val-invasiv">Real-time Master-to-Peer</td>
-                            <td>Local Only</td>
-                            <td>Local Only</td>
-                            <td>Local Only</td>
-                        </tr>
-                        <tr>
-                            <td class="feature-name">File Synchronization</td>
-                            <td class="val-invasiv">Automated Network Sync</td>
-                            <td>Manual Copy / External Tools</td>
-                            <td>Manual</td>
-                            <td>Manual</td>
-                        </tr>
-                        <tr>
-                            <td class="feature-name">Rhythmic Sync</td>
-                            <td class="val-invasiv">Smart Speed Adjustment</td>
-                            <td>Jump-to-Beat (Jumpy)</td>
-                            <td>BPM Clock</td>
-                            <td>BPM Triggers</td>
-                        </tr>
+                <!-- Row 2 -->
+                <div class="saas-row">
+                    <div class="saas-cell saas-feature-name">Topology</div>
+                    <div class="saas-cell saas-invasiv"><b>Distributed Nodes.</b> One cheap laptop per projector. Modular power.</div>
+                    <div class="saas-cell saas-industry">Centralized Heavy Server. One massive GPU with 100ft cables.</div>
+                </div>
 
-                        <tr class="row-group"><td colspan="5">Core Visuals</td></tr>
-                        <tr>
-                            <td class="feature-name">Warping Engine</td>
-                            <td class="val-invasiv">Catmull-Rom Splines</td>
-                            <td>Mesh / Perspective</td>
-                            <td>N/A (Module based)</td>
-                            <td>Mesh / Spline</td>
-                        </tr>
-                        <tr>
-                            <td class="feature-name">Media Preparation</td>
-                            <td class="val-invasiv">Integrated SKEWER tool</td>
-                            <td>Generic / Third Party</td>
-                            <td>Generic</td>
-                            <td>Generic</td>
-                        </tr>
-                        <tr>
-                            <td class="feature-name">Source Code Access</td>
-                            <td class="val-invasiv">Full C++20 Access</td>
-                            <td>Closed / Proprietary</td>
-                            <td>Closed / Proprietary</td>
-                            <td>Closed / Proprietary</td>
-                        </tr>
-                    </tbody>
-                </table>
+                <!-- Row 3 -->
+                <div class="saas-row">
+                    <div class="saas-cell saas-feature-name">Network</div>
+                    <div class="saas-cell saas-invasiv"><b>Zero-Config UDP.</b> Automated discovery. Plug in and sync instantly.</div>
+                    <div class="saas-cell saas-industry">Manual IP/OSC Mapping. Complex MIDI/DMX routing tables.</div>
+                </div>
+
+                <!-- Row 4 -->
+                <div class="saas-row">
+                    <div class="saas-cell saas-feature-name">Editing</div>
+                    <div class="saas-cell saas-invasiv"><b>Master-Peer Edit.</b> Changes propagate across the entire network in real-time.</div>
+                    <div class="saas-cell saas-industry">Local Edits Only. Manual state syncing or project reloading.</div>
+                </div>
+
+                <!-- Row 5 -->
+                <div class="saas-row">
+                    <div class="saas-cell saas-feature-name">File Sync</div>
+                    <div class="saas-cell saas-invasiv"><b>Automated.</b> New media on Master is auto-transferred to all Peer nodes.</div>
+                    <div class="saas-cell saas-industry">Manual. Sneakernet USB drives or external cloud syncing tools.</div>
+                </div>
+
+                <!-- Row 6 -->
+                <div class="saas-row">
+                    <div class="saas-cell saas-feature-name">Rhythm</div>
+                    <div class="saas-cell saas-invasiv"><b>Smart Skewing.</b> PLL speed adjustment ensures frames hit the beat. No jumps.</div>
+                    <div class="saas-cell saas-industry">Loop Restart. Sudden jumps to the beginning of the clip on every beat.</div>
+                </div>
+
+                <!-- Row 7 -->
+                <div class="saas-row">
+                    <div class="saas-cell saas-feature-name">Efficiency</div>
+                    <div class="saas-cell saas-invasiv"><b>Ultra-Lean.</b> Pure C++20. Runs natively on 10-year-old laptops.</div>
+                    <div class="saas-cell saas-industry">Resource Heavy. Requires latest RTX GPUs and massive RAM pools.</div>
+                </div>
+
+                <!-- Row 8 -->
+                <div class="saas-row">
+                    <div class="saas-cell saas-feature-name">Deployment</div>
+                    <div class="saas-cell saas-invasiv"><b>Portable.</b> ~20MB AppImage. No installers. No drivers. Just play.</div>
+                    <div class="saas-cell saas-industry">GB-Scale Installers. Activation keys and driver dependencies.</div>
+                </div>
+
+                <!-- Row 9 -->
+                <div class="saas-row">
+                    <div class="saas-cell saas-feature-name">Redundancy</div>
+                    <div class="saas-cell saas-invasiv"><b>Redundant P2P.</b> Any node can lead. No single point of failure.</div>
+                    <div class="saas-cell saas-industry">Single Point. If the main server crashes, the whole show goes black.</div>
+                </div>
+
+                <!-- Row 10 -->
+                <div class="saas-row">
+                    <div class="saas-cell saas-feature-name">Geometry</div>
+                    <div class="saas-cell saas-invasiv"><b>Catmull-Rom Splines.</b> High-performance organic warping surfaces.</div>
+                    <div class="saas-cell saas-industry">Basic Meshes. Straight-line point warping or manual perspective.</div>
+                </div>
+
+                <!-- Row 11 -->
+                <div class="saas-row">
+                    <div class="saas-cell saas-feature-name">Media Prep</div>
+                    <div class="saas-cell saas-invasiv"><b>Integrated SKEWER.</b> Surgical rhythmic warping built into the workflow.</div>
+                    <div class="saas-cell saas-industry">Generic. Reliance on external generic video editing software.</div>
+                </div>
+
+                <!-- Row 12 -->
+                <div class="saas-row">
+                    <div class="saas-cell saas-feature-name">Transparency</div>
+                    <div class="saas-cell saas-invasiv"><b>Full Code Access.</b> Inspect, fix, and extend the engine yourself.</div>
+                    <div class="saas-cell saas-industry">Black Box. Trust corporate roadmaps and closed source bug-fixes.</div>
+                </div>
+
+                <!-- Row 13 -->
+                <div class="saas-row">
+                    <div class="saas-cell saas-feature-name">Sync Logic</div>
+                    <div class="saas-cell saas-invasiv"><b>Continuous.</b> Micro-adjustments keep loops breathing with the music.</div>
+                    <div class="saas-cell saas-industry">Discrete. Jumpy "bang" triggers that ignore frame-timing.</div>
+                </div>
+
+                <!-- Row 14 -->
+                <div class="saas-row">
+                    <div class="saas-cell saas-feature-name">Scaling</div>
+                    <div class="saas-cell saas-invasiv"><b>Horizontal.</b> Add more laptops to add more projectors. Zero extra cost.</div>
+                    <div class="saas-cell saas-industry">Vertical. Buy a more expensive server with more video outputs.</div>
+                </div>
+
+                <!-- Row 15 -->
+                <div class="saas-row">
+                    <div class="saas-cell saas-feature-name">OS Environment</div>
+                    <div class="saas-cell saas-invasiv"><b>Native Linux.</b> Stripped back for maximum performance.</div>
+                    <div class="saas-cell saas-industry">General Purpose. Fighting with Windows Updates or Mac OS overhead.</div>
+                </div>
             </div>
         </section>
 
         <section class="skewer">
             <div class="skewer-card">
-                <h2 style="font-size: 3rem; font-weight: 900; text-transform: uppercase;">The Skewer Method</h2>
+                <h2 style="font-size: 3rem; font-weight: 900; text-transform: uppercase; line-height: 0.9;">The Skewer Method</h2>
                 <div class="skewer-grid">
                     <div class="skewer-step">
                         <h3>1. Pin the Action</h3>
-                        <p>Open raw footage in <b>SKEWER</b>. Mark exactly when significant visual events occur. Pin the action to the timeline, not just the time.</p>
+                        <p>Open raw footage in <b>SKEWER</b>. Mark exactly when your nail is hit or your dancer kicks. Pin the events, not the time.</p>
                     </div>
                     <div class="skewer-step">
                         <h3>2. Warp the Loop</h3>
-                        <p>Export from Skewer. It non-linearly time-stretches your video so every marked event lands on a perfect 2-second grid.</p>
+                        <p>Export from Skewer. It non-linearly stretches your video so every marked event lands on a perfect 2-second grid.</p>
                     </div>
                     <div class="skewer-step">
                         <h3>3. Lock the Beat</h3>
-                        <p>Load into <b>INVASIV</b> and tap your BPM. The engine micro-adjusts playback speed so your video events stay phase-locked to the pulse.</p>
+                        <p>Load into <b>INVASIV</b>. As you tap the BPM, the engine adjusts playback speed so your video events stay locked to the musical pulse.</p>
                     </div>
                 </div>
             </div>
+        </section>
+
+        <section class="support-strip">
+            <h2>BUILD BETTER SHOWS.<br>DELETE CORPORATE BLOAT.</h2>
+            <a href="https://buymeacoffee.com/sloev" class="coffee-btn">DONATE_TO_INVASIV_DEVELOPMENT</a>
         </section>
 
         <section class="cta-area">
@@ -310,13 +400,8 @@
                 <a href="https://github.com/nihil/invasiv/releases" class="btn">Get Skewer Tool</a>
             </div>
             <div class="btn-group">
-                <a href="https://github.com/nihil/invasiv" class="btn" style="font-size: 0.8rem; padding: 1rem 2rem;">Github</a>
+                <a href="https://github.com/nihil/invasiv" class="btn" style="font-size: 0.8rem; padding: 1rem 2rem;">Github Repo</a>
                 <a href="https://github.com/nihil/invasiv/issues" class="btn" style="font-size: 0.8rem; padding: 1rem 2rem;">Report Bug</a>
-            </div>
-            
-            <div class="support-strip">
-                SUPPORT INDEPENDENT LOGIC.<br>
-                <a href="https://buymeacoffee.com/sloev" class="coffee-btn">DONATE_TO_INVASIV_DEVELOPMENT</a>
             </div>
         </section>
 
@@ -324,13 +409,14 @@
 
     <footer>
         <div class="container">
-            <div style="color: #444; margin-bottom: 2rem; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em;">
-                THIRD PARTY ATTRIBUTIONS:<br><br>
-                <a href="https://openframeworks.cc/">OPENFRAMEWORKS (MIT)</a> // 
-                <a href="https://github.com/petehaughie/ofxMPVPlayer">OFXMPVPLAYER (MIT)</a> // 
-                <a href="https://github.com/jvcleave/ofxImGui">OFXIMGUI (MIT)</a>
-            </div>
-            <p>// INVASIV // DISTRIBUTED_WISDOM // 2026 // NO_BULLSHIT_VISUALS //</p>
+            <h4>Thank You</h4>
+            <p class="thank-you">
+                Invasiv is standing on the shoulders of giants. We would like to express our deepest gratitude to the creators and maintainers of the following projects:<br><br>
+                <a href="https://openframeworks.cc/">OPENFRAMEWORKS (MIT)</a> — The creative coding toolkit that makes this possible.<br>
+                <a href="https://github.com/petehaughie/ofxMPVPlayer">OFXMPVPLAYER (MIT)</a> — For the powerful libmpv integration.<br>
+                <a href="https://github.com/jvcleave/ofxImGui">OFXIMGUI (MIT)</a> — The bedrock of our distributed interface.<br>
+            </p>
+            <p class="footer-logo">// INVASIV // DISTRIBUTED_WISDOM // 2026 // NO_BULLSHIT_VISUALS //</p>
         </div>
     </footer>
 
