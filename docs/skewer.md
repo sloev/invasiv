@@ -3,7 +3,7 @@ layout: default
 title: "SKEWER // ONLINE_WARPER"
 ---
 
-<script src="/coi-serviceworker.js"></script>
+<script src="./coi-serviceworker.js"></script>
 
 <section class="skewer-wasm">
     <h2 style="color: var(--accent); margin-bottom: 2rem;">SKEWER ONLINE</h2>
@@ -29,15 +29,11 @@ title: "SKEWER // ONLINE_WARPER"
     </div>
 </section>
 
-<script src="./lib/ffmpeg.js"></script>
-<script src="./lib/util.js"></script>
-
 <script type="module">
+    import { FFmpeg } from 'https://esm.sh/@ffmpeg/ffmpeg@0.12.10';
+    import { toBlobURL } from 'https://esm.sh/@ffmpeg/util@0.12.1';
     import init, { WebHandle } from './skewer_wasm/skewer.js';
     
-    const { FFmpeg } = window.FFmpegWASM;
-    const { fetchFile, toBlobURL } = window.FFmpegUtil;
-
     const canvas = document.getElementById('the_canvas_id');
     const uploader = document.getElementById('uploader');
     const overlay = document.getElementById('loading-overlay');
@@ -81,7 +77,7 @@ title: "SKEWER // ONLINE_WARPER"
             setStatus("RUST_READY. LOADING_FFMPEG_CORE...", 0);
 
             ffmpeg = new FFmpeg();
-            const baseURL = './lib'; // Use relative path to stay within current directory scope
+            const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
             
             ffmpeg.on('log', ({ message }) => {
                 console.log(`[FFmpeg] ${message}`);
@@ -96,7 +92,6 @@ title: "SKEWER // ONLINE_WARPER"
             await ffmpeg.load({
                 coreURL: coreURL,
                 wasmURL: wasmURL,
-                classWorkerURL: `${baseURL}/814.ffmpeg.js`
             });
 
             setStatus("SYSTEM_ONLINE.");

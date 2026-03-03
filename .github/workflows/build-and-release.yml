@@ -336,16 +336,6 @@ jobs:
         with:
           name: skewer-wasm
           path: docs/skewer_wasm/
-      - name: Download FFmpeg Assets
-        run: |
-          mkdir -p docs/lib
-          # @ffmpeg/ffmpeg UMD
-          curl -sSL https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js -o docs/lib/ffmpeg.js
-          # @ffmpeg/util UMD
-          curl -sSL https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js -o docs/lib/util.js
-          # @ffmpeg/core UMD
-          curl -sSL https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js -o docs/lib/ffmpeg-core.js
-          curl -sSL https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm -o docs/lib/ffmpeg-core.wasm
       - uses: actions/configure-pages@v4
       - uses: actions/jekyll-build-pages@v1
         with: { source: ./docs, destination: ./_site }
