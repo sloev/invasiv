@@ -315,7 +315,7 @@ jobs:
   # Job 8: Deploy Pages
   deploy-pages:
     needs: [filter, skewer-wasm, previous-run]
-    if: always() && !cancelled() && (needs.filter.outputs.docs == 'true' || needs.filter.outputs.skewer == 'true' || needs.filter.outputs.invasiv_src == 'true' || needs.previous_run.outputs.skewer_failed == 'true' || github.event_name == 'workflow_dispatch')
+    if: always() && !cancelled() && (needs.filter.outputs.docs == 'true' || needs.filter.outputs.skewer == 'true' || needs.filter.outputs.invasiv_src == 'true' || needs.previous-run.outputs.skewer_failed == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions: { contents: write, pages: write, id-token: write }
     steps:
