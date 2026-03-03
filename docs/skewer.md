@@ -27,8 +27,8 @@ title: "SKEWER // ONLINE_WARPER"
 </section>
 
 <script type="module">
-    import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
-    import { toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
+    import { FFmpeg } from './lib/index.js';
+    import { toBlobURL } from './lib/util.js';
     import init, { WebHandle } from './skewer_wasm/skewer.js';
     
     let ffmpeg = null;
@@ -43,9 +43,9 @@ title: "SKEWER // ONLINE_WARPER"
         // Load from local lib/ folder
         const baseURL = './lib';
         await ffmpeg.load({
+            classWorkerURL: await toBlobURL(`${baseURL}/worker.js`, 'text/javascript'),
             coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
             wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-            workerURL: await toBlobURL(`${baseURL}/worker.js`, 'text/javascript'),
         });
 
         document.getElementById('loading-overlay').style.display = 'none';
