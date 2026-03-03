@@ -139,6 +139,57 @@ title: "SKEWER // ONLINE_WARPER"
         setInterval(async () => {
             if (ffmpegBusy || !ffmpeg || !ffmpeg.loaded) return;
 
+            // Handle Export Request
+            const cmd = handle.get_ffmpeg_command();
+            if (cmd && cmd !== "") {
+                console.log("[WASM] Export requested:", cmd);
+                ffmpegBusy = true;
+                setStatus("RENDERING_VIDEO...", 0);
+                
+                try {
+                    // Parse the command for filter_complex
+                    const filterMatch = cmd.match(/-filter_complex "([^"]+)"/);
+                    const filter = filterMatch ? filterMatch[1] : "";
+                    
+                    if (!filter) {
+                        console.error("[WASM] Failed to parse filter from command");
+                        return;
+                    }
+
+                    await ffmpeg.exec([
+                        '-i', 'input.mp4',
+                        '-filter_complex', filter,
+                        '-map', '[outv]',
+                        '-an',
+                        '-c:v', 'libx264',
+                        '-crf', '23',
+                        '-preset', 'veryfast',
+                        '-pix_fmt', 'yuv420p',
+                        'output.mp4'
+                    ]);
+
+                    const data = await ffmpeg.readFile('output.mp4');
+                    const blob = new Blob([data.buffer], { type: 'video/mp4' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'warped_loop.mp4';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    setStatus("EXPORT_COMPLETE.");
+                } catch (e) {
+                    console.error("[WASM] Export failed:", e);
+                    setStatus("EXPORT_FAILED: " + e.message);
+                } finally {
+                    ffmpegBusy = false;
+                    setTimeout(() => setStatus("SYSTEM_ONLINE."), 3000);
+                }
+                return;
+            }
+
             const current_time = handle.get_current_time();
             if (Math.abs(current_time - last_time) > 0.05) {
                 ffmpegBusy = true;

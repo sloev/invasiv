@@ -21,6 +21,8 @@ pub struct Beat {
 pub struct AppState {
     pub video_path: Option<PathBuf>,
     pub load_video_clicked: bool,
+    pub export_clicked: bool,
+    pub last_generated_cmd: String,
     pub frame_data: Option<(Vec<u8>, (usize, usize))>,
     pub current_time: f64,
     pub duration: f64,
@@ -409,6 +411,13 @@ impl eframe::App for BeatMapper {
             #[cfg(target_arch = "wasm32")]
             {
                 ui.vertical_centered(|ui| {
+                    if ui.add_sized([ui.available_width(), 40.0], egui::Button::new("🚀 RENDER & EXPORT IN BROWSER")).clicked() {
+                        let cmd = self.generate_ffmpeg_cmd_string("warped_loop.mp4");
+                        if let Ok(mut state) = SHARED_STATE.lock() {
+                            state.export_clicked = true;
+                            state.last_generated_cmd = cmd;
+                        }
+                    }
                     if ui.button("📋 COPY FFMPEG COMMAND").clicked() {
                         self.last_ffmpeg_cmd = self.generate_ffmpeg_cmd_string("warped_loop.mp4");
                         ui.output_mut(|o| o.copied_text = self.last_ffmpeg_cmd.clone());
@@ -491,6 +500,17 @@ impl WebHandle {
         } else {
             0.0
         }
+    }
+
+    #[wasm_bindgen]
+    pub fn get_ffmpeg_command(&self) -> String {
+        if let Ok(mut state) = SHARED_STATE.lock() {
+            if state.export_clicked {
+                state.export_clicked = false;
+                return state.last_generated_cmd.clone();
+            }
+        }
+        "".to_string()
     }
 
     #[wasm_bindgen]
