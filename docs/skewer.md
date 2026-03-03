@@ -29,11 +29,15 @@ title: "SKEWER // ONLINE_WARPER"
     </div>
 </section>
 
+<script src="./lib/ffmpeg.js"></script>
+<script src="./lib/util.js"></script>
+
 <script type="module">
-    import { FFmpeg } from 'https://esm.sh/@ffmpeg/ffmpeg@0.12.10';
-    import { toBlobURL } from 'https://esm.sh/@ffmpeg/util@0.12.1';
     import init, { WebHandle } from './skewer_wasm/skewer.js';
     
+    const { FFmpeg } = window.FFmpegWASM;
+    const { toBlobURL } = window.FFmpegUtil;
+
     const canvas = document.getElementById('the_canvas_id');
     const uploader = document.getElementById('uploader');
     const overlay = document.getElementById('loading-overlay');
@@ -77,7 +81,7 @@ title: "SKEWER // ONLINE_WARPER"
             setStatus("RUST_READY. LOADING_FFMPEG_CORE...", 0);
 
             ffmpeg = new FFmpeg();
-            const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+            const baseURL = './lib';
             
             ffmpeg.on('log', ({ message }) => {
                 console.log(`[FFmpeg] ${message}`);
@@ -87,11 +91,13 @@ title: "SKEWER // ONLINE_WARPER"
             const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
             setStatus("LOADING_FFMPEG_WASM (2/2)...", 60);
             const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
+            const workerURL = await toBlobURL(`${baseURL}/814.ffmpeg.js`, 'text/javascript');
 
             setStatus("INITIALIZING_VIRTUAL_HARDWARE...", 100);
             await ffmpeg.load({
                 coreURL: coreURL,
                 wasmURL: wasmURL,
+                classWorkerURL: workerURL
             });
 
             setStatus("SYSTEM_ONLINE.");

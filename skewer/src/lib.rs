@@ -130,6 +130,23 @@ impl BeatMapper {
         if (self.current_time - self.last_requested_time).abs() < 0.033 { return; }
         self.last_requested_time = self.current_time;
 
+        // Try to probe duration if it's still default
+        if self.duration == 10.0 {
+            let probe = Command::new("ffprobe")
+                .arg("-v").arg("error")
+                .arg("-show_entries").arg("format=duration")
+                .arg("-of").arg("default=noprint_wrappers=1:nokey=1")
+                .arg(path)
+                .output();
+            if let Ok(out) = probe {
+                let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if let Ok(d) = s.parse::<f64>() {
+                    self.duration = d;
+                    log::info!("[NATIVE] Probed duration: {}s", d);
+                }
+            }
+        }
+
         let output = Command::new("ffmpeg")
             .arg("-ss").arg(format!("{:.3}", self.current_time))
             .arg("-i").arg(path)
@@ -137,25 +154,40 @@ impl BeatMapper {
             .arg("-f").arg("image2pipe")
             .arg("-vcodec").arg("rawvideo")
             .arg("-pix_fmt").arg("rgb24")
+            .arg("-s").arg("640x360") // Force a consistent size for the preview
             .arg("-")
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stderr(Stdio::piped()) // Capture stderr for debugging
             .spawn();
 
-        if let Ok(mut child) = output {
-            let mut buffer = Vec::new();
-            if child.stdout.as_mut().unwrap().read_to_end(&mut buffer).is_ok() {
-                let w = 1280; let h = 720;
-                if buffer.len() == w * h * 3 {
-                    let image = egui::ColorImage::from_rgb([w, h], &buffer);
-                    self.texture = Some(ctx.load_texture("video_frame", image, Default::default()));
-                } else {
-                    let w = 1920; let h = 1080;
-                    if buffer.len() == w * h * 3 {
-                        let image = egui::ColorImage::from_rgb([w, h], &buffer);
-                        self.texture = Some(ctx.load_texture("video_frame", image, Default::default()));
+        match output {
+            Ok(mut child) => {
+                let mut buffer = Vec::new();
+                if let Some(mut stdout) = child.stdout.take() {
+                    if stdout.read_to_end(&mut buffer).is_ok() {
+                        let w = 640; let h = 360;
+                        if buffer.len() == w * h * 3 {
+                            let image = egui::ColorImage::from_rgb([w, h], &buffer);
+                            self.texture = Some(ctx.load_texture("video_frame", image, Default::default()));
+                            log::info!("[NATIVE] Texture updated successfully");
+                        } else {
+                            log::warn!("[NATIVE] Unexpected buffer size: {} (expected {})", buffer.len(), w * h * 3);
+                        }
                     }
                 }
+                // Optional: read stderr if buffer is empty
+                if buffer.is_empty() {
+                    if let Some(mut stderr) = child.stderr.take() {
+                        let mut err_msg = String::new();
+                        let _ = stderr.read_to_string(&mut err_msg);
+                        if !err_msg.is_empty() {
+                            log::error!("[NATIVE] FFmpeg Error: {}", err_msg);
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                log::error!("[NATIVE] Failed to spawn ffmpeg: {}", e);
             }
         }
     }
@@ -202,6 +234,7 @@ impl eframe::App for BeatMapper {
                 {
                     if ui.button("📁 Open Video").clicked() {
                         if let Some(path) = FileDialog::new().add_filter("Video", &["mp4", "mov", "mkv", "avi"]).pick_file() {
+                            log::info!("[NATIVE] Selected file: {:?}", path);
                             self.video_path = Some(path);
                             self.last_requested_time = -1.0; 
                         }
@@ -449,5 +482,32 @@ mod tests {
         assert_eq!(mapper.beats.len(), 1);
         assert_eq!(mapper.beats[0].time, 0.0);
         assert_eq!(mapper.current_time, 0.0);
+    }
+
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn test_fetch_frame_native_execution() {
+        if Command::new("ffmpeg").arg("-version").output().is_err() { return; }
+        let output = Command::new("ffmpeg")
+            .arg("-ss").arg("1.000")
+            .arg("-i").arg("test_vid.mp4")
+            .arg("-frames:v").arg("1")
+            .arg("-f").arg("image2pipe")
+            .arg("-vcodec").arg("rawvideo")
+            .arg("-pix_fmt").arg("rgb24")
+            .arg("-s").arg("640x360")
+            .arg("-")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+
+        let mut child = output;
+        let mut buffer = Vec::new();
+        if let Some(mut stdout) = child.stdout.take() { stdout.read_to_end(&mut buffer).unwrap(); }
+        let mut stderr_str = String::new();
+        if let Some(mut stderr) = child.stderr.take() { stderr.read_to_string(&mut stderr_str).unwrap(); }
+
+        assert_eq!(buffer.len(), 640 * 360 * 3, "Buffer size mismatch. Stderr: {}", stderr_str);
     }
 }
