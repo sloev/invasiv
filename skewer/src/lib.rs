@@ -77,7 +77,7 @@ impl BeatMapper {
         }
 
         format!(
-            "ffmpeg -i "{}" -filter_complex "{}" -map "[outv]" -an -c:v libx264 -crf 18 -preset veryfast -g 30 "{}"",
+            "ffmpeg -i \"{}\" -filter_complex \"{}\" -map \"[outv]\" -an -c:v libx264 -crf 18 -preset veryfast -g 30 \"{}\"",
             input, filter_complex, output_name
         )
     }
