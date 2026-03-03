@@ -14,12 +14,11 @@ title: "SKEWER // ONLINE_WARPER"
 
     <div id="controls" style="display:none; margin-bottom: 2rem;">
         <input type="file" id="uploader" accept="video/*" style="display:none;">
-        <button id="load-btn" class="btn" style="padding: 1rem 2rem; font-size: 0.8rem;">📁 LOAD VIDEO FOR PREVIEW</button>
     </div>
 
     <p style="margin-bottom: 2rem; color: var(--text-dim); font-size: 0.8rem;">
-        <b>Instruction:</b> Use this online tool to mark your rhythmic events. The preview is powered by FFmpeg.wasm. 
-        When done, copy the generated command to re-encode the file locally for Invasiv.
+        <b>Instruction:</b> Mark your rhythmic events on the timeline. The preview is powered by FFmpeg.wasm. 
+        When done, copy the generated command to re-encode the file locally.
     </p>
     
     <div style="border: 2px solid var(--accent); background: #000; min-height: 600px; position: relative; overflow: hidden;">
@@ -33,41 +32,40 @@ title: "SKEWER // ONLINE_WARPER"
     import init, { WebHandle } from './skewer_wasm/skewer.js';
     
     let ffmpeg = null;
+    let handle = null;
 
     async function setup() {
-        // Load SKEWER WASM
         await init();
-        const handle = new WebHandle();
+        handle = new WebHandle();
         await handle.start("the_canvas_id");
 
-        // Load FFmpeg WASM with robust cross-origin workarounds
         ffmpeg = new FFmpeg();
-        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
-        const ffmpegURL = 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm';
-        
+        // Load from local lib/ folder to avoid origin security errors
+        const baseURL = './lib';
         await ffmpeg.load({
             coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
             wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-            // Explicitly load worker via Blob to bypass origin security errors
-            workerURL: await toBlobURL(`${ffmpegURL}/worker.js`, 'text/javascript'),
+            workerURL: await toBlobURL(`${baseURL}/worker.js`, 'text/javascript'),
         });
 
         document.getElementById('loading-overlay').style.display = 'none';
         document.getElementById('controls').style.display = 'block';
 
         const uploader = document.getElementById('uploader');
-        const loadBtn = document.getElementById('load-btn');
-        
-        loadBtn.addEventListener('click', () => uploader.click());
-        
         uploader.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            
             const data = new Uint8Array(await file.arrayBuffer());
             await ffmpeg.writeFile('input.mp4', data);
-            console.log("Video loaded into FFmpeg.wasm virtual FS");
+            handle.load_video('input.mp4');
         });
+
+        setInterval(() => {
+            if (handle.is_load_clicked()) {
+                uploader.click();
+                handle.reset_load_clicked();
+            }
+        }, 100);
     }
 
     setup().catch((err) => {

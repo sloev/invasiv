@@ -134,7 +134,6 @@ jobs:
   # Job 4: INVASIV (oF) - Build & Test
   invasiv-test:
     needs: [filter, base]
-    # Run if src or tests changed
     if: always() && (needs.filter.outputs.invasiv_src == 'true' || needs.filter.outputs.invasiv_tests == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
@@ -169,7 +168,6 @@ jobs:
   # Job 5: INVASIV (oF) - Release Artifacts
   invasiv-release-artifacts:
     needs: [filter, invasiv-test]
-    # Only build AppImage if src changed
     if: needs.filter.outputs.invasiv_src == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
@@ -272,7 +270,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         continue-on-error: true
-        with: { name: skewer-wasm, path: docs/skewer_wasm/ }
+        with:
+          name: skewer-wasm
+          path: docs/skewer_wasm/
+      - name: Download FFmpeg Assets
+        run: |
+          mkdir -p docs/lib
+          curl -L https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/worker.js -o docs/lib/worker.js
+          curl -L https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js -o docs/lib/ffmpeg-core.js
+          curl -L https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm -o docs/lib/ffmpeg-core.wasm
       - uses: actions/configure-pages@v4
       - uses: actions/jekyll-build-pages@v1
         with: { source: ./docs, destination: ./_site }

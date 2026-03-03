@@ -1,0 +1,5 @@
+exclude:
+  - lib
+  - skewer_wasm
+  - coi-serviceworker.js
+  - screencast.gif
