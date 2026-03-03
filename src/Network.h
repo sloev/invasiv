@@ -53,6 +53,7 @@ public:
 
     int receive(char *buf, int max);
     void updatePeers();
+    void updatePeer(string id, AppRole role, bool syncing, float progress, string file);
 
 private:
     ofxUDPManager sender;

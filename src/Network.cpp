@@ -190,6 +190,17 @@ void Network::updatePeers()
     }
 }
 
+void Network::updatePeer(string id, AppRole role, bool syncing, float progress, string file)
+{
+    PeerData &p = peers[id];
+    p.id = id;
+    p.role = role;
+    p.isSyncing = syncing;
+    p.syncProgress = progress;
+    p.syncingFile = file;
+    p.lastSeen = ofGetElapsedTimef();
+}
+
 void Network::fillHeader(PacketHeader &h, uint8_t type)
 {
     h.id = PACKET_ID;

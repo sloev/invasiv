@@ -55,7 +55,7 @@ RUN projectGenerator -r -o"/of" /of/apps/myApps/invasiv \
 # Stage 6: Tester - verify binary and protocol
 FROM builder AS tester
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    xvfb dbus-x11 python3 libmpv2 libgl1-mesa-dri \
+    xvfb dbus-x11 python3 libmpv2 libgl1-mesa-dri libgtk-3-0 \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /of/apps/myApps/invasiv
 RUN g++ -O3 tests/unit_tests.cpp -DTEST_MODE -o tests/unit_tests && ./tests/unit_tests

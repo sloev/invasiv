@@ -14,8 +14,10 @@ Full feature list available in [FEATURES.md](./FEATURES.md).
 
 ## Ecosystem
 
-- **Invasiv**: The main VJ engine. Distributed, symmetric, and fast.
-- **Skewer**: A dedicated Rust-based utility for rhythmic media preparation. It allows you to warp video events to a perfect 2-second grid, ensuring they stay locked to the Invasiv metronome.
+- **Invasiv (v0.1.x)**: The main VJ engine. Distributed, symmetric, and fast.
+- **Skewer (v0.1.x)**: A dedicated Rust-based utility for rhythmic media preparation. It allows you to warp video events to a perfect 2-second grid, ensuring they stay locked to the Invasiv metronome.
+
+**Compatibility**: Both tools require Protocol V1 for network sync.
 
 ## Installation
 
