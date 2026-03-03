@@ -3,325 +3,313 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>INVASIV // THE_VOID_IS_LOUD</title>
+    <title>INVASIV — TOTAL_DOMINANCE</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=VT323&family=Comic+Neue:wght@700&family=Inter:wght@900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@900&family=JetBrains+Mono:wght@400;800&display=swap');
 
         :root {
-            --neon-pink: #ff00ff;
-            --neon-cyan: #00ffff;
-            --neon-green: #00ff00;
-            --danger-red: #ff3b30;
-            --expert-bg: #000000;
-            --idiot-yellow: #ffff00;
+            --bg: #000000;
+            --accent: #ff0000;
+            --accent-glow: #ff000088;
+            --wireframe: #00ffff11;
+            --text: #ffffff;
+            --text-dim: #666666;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
-        @keyframes glitch-anim {
-            0% { clip-path: inset(40% 0 61% 0); transform: translate(-20px, -10px); }
-            20% { clip-path: inset(92% 0 1% 0); transform: translate(20px, 10px); }
-            40% { clip-path: inset(43% 0 1% 0); transform: translate(-20px, -10px); }
-            60% { clip-path: inset(25% 0 58% 0); transform: translate(20px, 10px); }
-            80% { clip-path: inset(54% 0 7% 0); transform: translate(-20px, -10px); }
-            100% { clip-path: inset(58% 0 43% 0); transform: translate(20px, 10px); }
-        }
-
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-
         body {
-            background-color: var(--expert-bg);
-            color: #fff;
-            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'JetBrains Mono', monospace;
+            line-height: 1.1;
             overflow-x: hidden;
-            cursor: cell;
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* The "Expert" Background */
-        body::after {
-            content: "";
+        /* 80s Synthwire Background */
+        .grid-bg {
             position: fixed;
-            top: 0; left: 0; width: 100vw; height: 100vh;
-            background: 
-                repeating-linear-gradient(0deg, rgba(0,0,0,0.1) 0px, rgba(0,0,0,0.1) 1px, transparent 1px, transparent 2px),
-                repeating-linear-gradient(90deg, rgba(255,255,255,0.01) 0px, rgba(255,255,255,0.01) 1px, transparent 1px, transparent 50px);
-            pointer-events: none;
-            z-index: 100;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: 
+                linear-gradient(var(--wireframe) 1px, transparent 1px),
+                linear-gradient(90deg, var(--wireframe) 1px, transparent 1px);
+            background-size: 40px 40px;
+            z-index: -1;
+            perspective: 1000px;
+            transform: rotateX(60deg) translateY(-200px);
+            transform-origin: top;
         }
 
-        .marquee-wrapper {
-            background: var(--neon-pink);
-            color: #000;
-            padding: 5px 0;
-            font-family: 'VT323', monospace;
-            font-size: 1.5rem;
-            text-transform: uppercase;
-            white-space: nowrap;
-            overflow: hidden;
-            border-bottom: 4px solid var(--idiot-yellow);
-        }
+        .container { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
 
-        .marquee-content {
-            display: inline-block;
-            animation: marquee 20s linear infinite;
-        }
-
-        @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
-
-        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; position: relative; }
-
-        /* HERO - THE GLITCH */
-        .hero { padding: 10vh 0; position: relative; }
-        
-        h1 {
-            font-size: clamp(5rem, 20vw, 15rem);
-            color: #fff;
+        /* Akira / EFNY Header */
+        header {
+            padding: 10vh 0;
+            text-align: center;
             position: relative;
-            z-index: 1;
-            mix-blend-mode: difference;
         }
 
-        h1::before, h1::after {
+        .invasiv-logo {
+            font-family: 'Inter', sans-serif;
+            font-size: clamp(5rem, 25vw, 22rem);
+            font-weight: 900;
+            font-style: italic;
+            color: var(--bg);
+            -webkit-text-stroke: 4px var(--accent);
+            text-shadow: 0 0 40px var(--accent-glow);
+            letter-spacing: -0.08em;
+            line-height: 0.8;
+            text-transform: uppercase;
+            position: relative;
+            transform: skewX(-10deg);
+            margin-bottom: 2rem;
+        }
+
+        .invasiv-logo::after {
             content: "INVASIV";
             position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
+            left: 0; top: 0;
+            color: var(--accent);
             z-index: -1;
+            filter: blur(20px);
+            opacity: 0.5;
         }
 
-        h1::before { color: var(--neon-cyan); left: 5px; animation: glitch-anim 2s infinite linear alternate-reverse; }
-        h1::after { color: var(--neon-pink); left: -5px; animation: glitch-anim 3s infinite linear alternate-reverse; }
+        .status-strip {
+            background: var(--accent);
+            color: white;
+            padding: 0.5rem 0;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5em;
+            font-size: 0.7rem;
+            margin-bottom: 4rem;
+        }
+
+        /* Responsive Layout */
+        .hero-layout {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4rem;
+            align-items: flex-end;
+            margin-bottom: 10rem;
+        }
 
         .manifesto {
-            background: var(--idiot-yellow);
-            color: #000;
+            flex: 1 1 600px;
+            font-size: clamp(1.5rem, 4vw, 3rem);
+            font-weight: 800;
+            text-transform: uppercase;
+            border-left: 10px solid var(--accent);
+            padding-left: 2rem;
+        }
+
+        .snark-box {
+            flex: 1 1 300px;
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            background: #0a0a0a;
             padding: 2rem;
-            font-family: 'Comic Neue', cursive;
-            font-size: 2rem;
-            transform: rotate(-2deg);
-            display: inline-block;
-            margin-top: -2rem;
-            box-shadow: 10px 10px 0 #000;
-            z-index: 10;
-            position: relative;
+            border: 1px solid #222;
         }
 
-        .expert-subtext {
-            font-family: 'VT323', monospace;
-            color: var(--neon-green);
-            font-size: 1.2rem;
-            margin-top: 2rem;
-            border: 1px solid var(--neon-green);
-            padding: 1rem;
-            max-width: 500px;
-        }
+        .snark-box span { color: var(--accent); font-weight: bold; }
 
-        /* THE SCREENCAST */
+        /* Demo Window */
         .demo-window {
-            margin: 10vh 0;
-            border: 10px solid #fff;
-            outline: 5px solid var(--neon-cyan);
+            border: 2px solid var(--accent);
             background: #000;
-            transform: skewY(1deg);
+            box-shadow: 0 0 50px rgba(255,0,0,0.2);
+            margin-bottom: 10rem;
         }
-        .demo-window img { width: 100%; display: block; filter: contrast(1.5) hue-rotate(45deg); }
+        .demo-window-header {
+            background: var(--accent);
+            padding: 0.5rem 1rem;
+            font-size: 0.6rem;
+            color: black;
+            font-weight: 900;
+            display: flex; justify-content: space-between;
+        }
+        .demo-window img { width: 100%; display: block; filter: saturate(1.2) contrast(1.1); }
 
-        /* FEATURES */
+        /* Logic Grid */
         .logic-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
             gap: 2px;
-            background: #fff;
-            border: 2px solid #fff;
+            background: var(--accent);
+            border: 2px solid var(--accent);
+            margin-bottom: 10rem;
         }
-
         .logic-card {
-            background: #000;
-            padding: 3rem;
-            transition: 0.1s;
+            background: var(--bg);
+            padding: 4rem 3rem;
+            transition: background 0.2s;
         }
-        .logic-card:hover { background: var(--danger-red); transform: scale(0.98); }
-        .logic-card h3 { font-size: 2.5rem; margin-bottom: 1rem; color: var(--neon-cyan); }
-        .logic-card p { font-family: 'VT323', monospace; font-size: 1.4rem; color: #aaa; }
+        .logic-card:hover { background: #110000; }
+        .logic-card h3 { font-size: 2rem; margin-bottom: 1.5rem; color: var(--accent); text-transform: uppercase; }
+        .logic-card p { font-size: 1rem; line-height: 1.4; color: #888; }
 
-        /* THE COMPARISON TABLE OF DOOM */
-        .vs-section { margin: 15vh 0; }
-        .vs-section h2 { font-size: 4rem; color: var(--idiot-yellow); margin-bottom: 2rem; }
-        
-        .comp-row {
+        /* Comparison - No Mercry */
+        .reality-check { padding: 5rem 0; }
+        .reality-check h2 { font-size: 3rem; margin-bottom: 3rem; text-transform: uppercase; color: var(--accent); }
+        .comp-table { width: 100%; border-collapse: collapse; margin-bottom: 5rem; }
+        .comp-table th { text-align: left; padding: 1rem; color: var(--text-dim); border-bottom: 2px solid var(--accent); }
+        .comp-table td { padding: 2rem 1rem; border-bottom: 1px solid #222; font-size: 1.2rem; }
+        .comp-val { font-weight: 800; text-transform: uppercase; }
+        .comp-invasiv { color: #fff; text-shadow: 0 0 10px var(--accent-glow); }
+        .comp-legacy { color: #222; text-decoration: line-through; }
+
+        /* Call to Action */
+        .cta-group {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            border-bottom: 1px solid #333;
-            padding: 1.5rem 0;
-            font-size: 1.2rem;
-        }
-        .comp-row:first-child { color: var(--neon-pink); font-weight: bold; }
-        .comp-invasiv { color: var(--neon-green); font-weight: 900; }
-        .comp-legacy { opacity: 0.3; text-decoration: line-through; }
-
-        /* THE CTA */
-        .cta-box {
-            background: linear-gradient(45deg, var(--neon-pink), var(--neon-cyan));
-            padding: 5rem;
-            text-align: center;
-            margin: 10vh 0;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 10rem;
         }
         .btn {
-            background: #000;
-            color: #fff;
-            padding: 2rem 4rem;
+            display: block;
+            padding: 2rem;
+            text-align: center;
+            background: transparent;
+            color: var(--accent);
+            border: 3px solid var(--accent);
             text-decoration: none;
-            font-size: 2rem;
             font-weight: 900;
-            display: inline-block;
-            border: 5px solid #fff;
-            transition: 0.2s;
+            font-size: 1.2rem;
+            transition: 0.1s;
         }
-        .btn:hover { background: #fff; color: #000; transform: rotate(3deg); }
-
-        .support-area {
-            text-align: left;
-            border: 5px dashed var(--idiot-yellow);
-            padding: 4rem;
-            margin-bottom: 10vh;
-        }
-        .support-area h2 { font-size: 3rem; margin-bottom: 2rem; }
-        .coffee-btn {
-            font-size: 3rem;
-            color: var(--idiot-yellow);
-            text-decoration: none;
-            animation: blink 0.5s infinite;
-        }
+        .btn:hover { background: var(--accent); color: black; box-shadow: 0 0 30px var(--accent-glow); }
 
         footer {
-            padding: 2rem;
-            font-family: 'VT323', monospace;
-            text-align: right;
-            background: #111;
-            color: #444;
+            border-top: 1px solid #222;
+            padding: 5rem 0;
+            text-align: center;
+            font-size: 0.7rem;
+            color: #333;
+            letter-spacing: 0.5em;
         }
 
-        .idiot-stamp {
-            position: absolute;
-            top: 10%; right: 5%;
-            width: 150px; height: 150px;
-            background: var(--danger-red);
-            border-radius: 50%;
-            display: flex; align-items: center; text-align: center;
-            font-family: 'Comic Neue', cursive;
+        /* Support Button */
+        .coffee-btn {
+            display: inline-block;
+            margin-top: 4rem;
+            padding: 1rem 2rem;
+            background: white;
+            color: black;
+            text-decoration: none;
+            font-weight: 900;
+            text-transform: uppercase;
             font-size: 0.8rem;
-            transform: rotate(15deg);
-            padding: 10px;
-            color: #fff;
-            border: 5px double #fff;
-            z-index: 100;
         }
+        .coffee-btn:hover { background: var(--accent); color: white; }
 
         @media (max-width: 768px) {
-            h1 { font-size: 4rem; }
-            .manifesto { font-size: 1.2rem; }
-            .comp-row { grid-template-columns: 1fr; gap: 1rem; }
+            .container { padding: 0 1rem; }
+            .invasiv-logo { -webkit-text-stroke: 2px var(--accent); }
+            .manifesto { border-left-width: 5px; padding-left: 1rem; }
+            .logic-card { padding: 2rem; }
         }
     </style>
 </head>
 <body>
 
-    <div class="marquee-wrapper">
-        <div class="marquee-content">
-            +++ INVASIV ALPHA 0.1.14 +++ SYMMETRIC NODE TOPOLOGY ACTIVE +++ NO DONGLES ALLOWED +++ RECODE YOUR BRAIN +++ SKEWER YOUR MEDIA +++ INVASIV ALPHA 0.1.14 +++ SYMMETRIC NODE TOPOLOGY ACTIVE +++ NO DONGLES ALLOWED +++ RECODE YOUR BRAIN +++ SKEWER YOUR MEDIA +++
-        </div>
+    <div class="grid-bg"></div>
+
+    <div class="status-strip container">
+        <center>INITIATING_DISTRIBUTED_TAKEOVER // ENCRYPTED_BROADCAST_ACTIVE // NODE_0.1.14</center>
     </div>
 
-    <div class="idiot-stamp">CERTIFIED<br>100% ORGANIC<br>BY SOME GUY<br>ON THE INTERNET</div>
+    <header class="container">
+        <div class="invasiv-logo">INVASIV</div>
+    </header>
 
-    <section class="hero container">
-        <h1>INVASIV</h1>
-        <div class="manifesto">
-            "I JUST WANT THE VIDEO TO SYNC WITHOUT PAYING MY RENT TO A CORPORATION"
-        </div>
-        <div class="expert-subtext">
-            // CRITICAL_ASSET: Decentralized C++20 Spatial Engine<br>
-            // SYNC_CORE: Phase-Locked Loop (PLL) Hardware Integration<br>
-            // LATENCY: < 1ms Jitter Over Standard Ethernet
-        </div>
-    </section>
+    <main class="container">
+        <section class="hero-layout">
+            <div class="manifesto">
+                THE SHOW IS NOT A DEBATE.<br>
+                IT IS AN OCCUPATION.
+            </div>
+            <div class="snark-box">
+                "We heard you like paying <span>$2000</span> for a video player that crashes if you look at it wrong. We decided to fix that. <span>INVASIV</span> is spreading through the network. It's lighter, it's faster, and it doesn't care about your license dongle."
+            </div>
+        </section>
 
-    <section class="container">
-        <div class="demo-window">
-            <img src="../.github/screencast.gif" alt="THE SYSTEM IN MOTION">
-        </div>
-    </section>
+        <section class="demo-window">
+            <div class="demo-window-header">
+                <span>SYSTEM_INTERCEPT_V01.GIF</span>
+                <span>SIGNAL_STRENGTH: MAXIMUM</span>
+            </div>
+            <img src="../.github/screencast.gif" alt="System Intercept">
+        </section>
 
-    <section class="container">
-        <div class="logic-grid">
+        <section class="logic-grid">
             <div class="logic-card">
-                <h3>NO MASTER<br>NO SLAVE</h3>
-                <p>We deleted the hierarchy. Every node is identical. If the master laptop explodes, the peer laptop takes the crown. The show is immortal.</p>
+                <h3>Symmetric Dominance</h3>
+                <p>No master servers. No fragile hierarchies. Every instance of INVASIV is both the brain and the body. If one node fails, the network adapts. It's not a feature; it's survival.</p>
             </div>
             <div class="logic-card">
-                <h3>THE SKEW<br>ENGINE</h3>
-                <p>Looping is for babies. We warp the actual playback speed using SKEWER pre-calculated grids to ensure frames hit the beat. Exactly.</p>
+                <h3>Frame-Lock Skewing</h3>
+                <p>Looping is approximation. Our Skew Engine micro-warps playback speed in real-time to align every single frame with the master clock. Perfect sync is now the baseline.</p>
             </div>
             <div class="logic-card">
-                <h3>PURE<br>C++20</h3>
-                <p>Built on openFrameworks. No Java VM. No Electron bloat. Just raw hardware access and fast shaders. Run it on a toaster if you have to.</p>
+                <h3>C++20 Architecture</h3>
+                <p>Zero bloat. Zero Java. Zero Electron. Just raw, unadulterated hardware access. Run 4K surfaces on hardware the 'Industry Standards' wouldn't even boot on.</p>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <section class="vs-section container">
-        <h2>DEBT VS REALITY</h2>
-        <div class="comp-row">
-            <div>FEATURE</div>
-            <div>INVASIV</div>
-            <div>THE BLOATWARE</div>
-        </div>
-        <div class="comp-row">
-            <div>LICENSING</div>
-            <div class="comp-invasiv">MIT (FREE)</div>
-            <div class="comp-legacy">SUBSCRIPTION HELL</div>
-        </div>
-        <div class="comp-row">
-            <div>NETWORK</div>
-            <div class="comp-invasiv">SYMMETRIC</div>
-            <div class="comp-legacy">FRAGILE/BROKEN</div>
-        </div>
-        <div class="comp-row">
-            <div>BRAINPOWER</div>
-            <div class="comp-invasiv">REQUIRED</div>
-            <div class="comp-legacy">MARKETING DRIVEN</div>
-        </div>
-    </section>
+        <section class="reality-check">
+            <h2>DEBT VS. DOMINANCE</h2>
+            <table class="comp-table">
+                <thead>
+                    <tr>
+                        <th>INTEL</th>
+                        <th>INVASIV</th>
+                        <th>THE OTHERS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Sync Precision</td>
+                        <td class="comp-val comp-invasiv">Continuous PLL</td>
+                        <td class="comp-val comp-legacy">Jumpy BPM Logic</td>
+                    </tr>
+                    <tr>
+                        <td>Network</td>
+                        <td class="comp-val comp-invasiv">Symmetric P2P</td>
+                        <td class="comp-val comp-legacy">Fragile Client/Server</td>
+                    </tr>
+                    <tr>
+                        <td>Installation</td>
+                        <td class="comp-val comp-invasiv">Portable AppImage</td>
+                        <td class="comp-val comp-legacy">Bloated Installers</td>
+                    </tr>
+                    <tr>
+                        <td>Ownership</td>
+                        <td class="comp-val comp-invasiv">MIT / Free</td>
+                        <td class="comp-val comp-legacy">Subscription Hell</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
 
-    <section class="cta-box">
-        <a href="https://github.com/nihil/invasiv/releases" class="btn">GET_APPIMAGE_NOW</a>
-        <p style="margin-top: 2rem; font-weight: bold; color: #000;">(IT'S JUST ONE FILE. NO INSTALLERS. NO LIES.)</p>
-    </section>
+        <section class="cta-group">
+            <a href="https://github.com/nihil/invasiv/releases" class="btn">DOWNLOAD_INVASIV</a>
+            <a href="https://github.com/nihil/invasiv/releases" class="btn">GET_SKEWER_TOOL</a>
+            <a href="https://github.com/nihil/invasiv" class="btn">GIVE_US_CODE</a>
+        </section>
 
-    <section class="support-area container">
-        <h2>KEEP THE CODE CLEAN</h2>
-        <p style="font-size: 1.5rem; margin-bottom: 2rem;">
-            Invasiv is built by people who actually do shows. We don't have a marketing team. We have a skew engine.
-        </p>
-        <a href="https://buymeacoffee.com/sloev" class="coffee-btn">>>> BUY_A_COFFEE <<<</a>
-    </section>
-
-    <section class="container" style="padding-bottom: 10vh; display: flex; gap: 4rem; flex-wrap: wrap;">
-        <div>
-            <h4 style="color: var(--neon-cyan);">REPORT_INTEL</h4>
-            <a href="https://github.com/nihil/invasiv/issues" style="color: #fff;">GH_ISSUES</a>
-        </div>
-        <div>
-            <h4 style="color: var(--neon-pink);">PUSH_CODE</h4>
-            <a href="https://github.com/nihil/invasiv/pulls" style="color: #fff;">GH_PULLS</a>
-        </div>
-        <div>
-            <h4 style="color: var(--neon-green);">ROADMAP</h4>
-            <a href="https://github.com/nihil/invasiv/blob/main/FEATURES.md" style="color: #fff;">FEATURES.MD</a>
-        </div>
-    </section>
+        <center>
+            <p style="color: var(--text-dim); max-width: 600px;">
+                The Invasion has already started. We don't have a marketing budget because we spent all our time on sub-millisecond network discovery. If you want to keep the neons glowing, support the logic.
+            </p>
+            <a href="https://buymeacoffee.com/sloev" class="coffee-btn">BUY_A_COFFEE</a>
+        </center>
+    </main>
 
     <footer>
-        [ SYSTEM_ERROR: TOO_MUCH_PERFORMANCE ] // 2026 // BY_ARTISTS_FOR_ARTISTS // NO_BULLSHIT
+        // INVASIV // NO_BULLSHIT_VISUALS // EST_2026 // NEO_TOKYO_VIBES //
     </footer>
 
 </body>
