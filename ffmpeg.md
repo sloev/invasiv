@@ -13,6 +13,19 @@
 
 - [X] **Attempt 2: CDN-based ESM loading (esm.sh)**
     - **Result:** Failed. `SecurityError: Failed to construct 'Worker'`.
+    - **Console Output:**
+      ```
+      skewer:263 [WASM_STATUS] BOOTING_RUST_ENGINE...
+      skewer:263 [WASM_STATUS] RUST_READY. LOADING_FFMPEG_CORE...
+      skewer:263 [WASM_STATUS] INITIALIZING_VIRTUAL_HARDWARE...
+      skewer:317 [WASM_FATAL] SecurityError: Failed to construct 'Worker': Script at 'https://esm.sh/@ffmpeg/ffmpeg@0.12.10/es2022/worker.js' cannot be accessed from origin 'https://invasiv.github.io'.
+          at d.load (classes.js:109:17)
+          at setup (skewer:305:26)
+      setup @ skewer:317
+      await in setup
+      (anonymous) @ skewer:380
+      skewer:263 [WASM_STATUS] FATAL_ERROR: Failed to construct 'Worker': Script at 'https://esm.sh/@ffmpeg/ffmpeg@0.12.10/es2022/worker.js' cannot be accessed from origin 'https://invasiv.github.io'.<br><br>Please ensure you are using a modern browser with Cross-Origin Isolation enabled.
+      ```
     - **Root Cause:** Browsers block cross-origin Workers unless they are explicitly permitted via `import { ... }` or proxied through a Blob. ESM.sh's worker resolution didn't bypass the origin check.
 
 - [X] **Attempt 3: Revert to UMD + toBlobURL for classWorkerURL**
