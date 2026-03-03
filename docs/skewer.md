@@ -35,7 +35,7 @@ title: "SKEWER // ONLINE_WARPER"
 <script type="module">
     import init, { WebHandle } from './skewer_wasm/skewer.js';
     
-    const { FFmpeg } = window.FFmpeg;
+    const { FFmpeg } = window.FFmpegWASM;
     const { fetchFile, toBlobURL } = window.FFmpegUtil;
 
     const canvas = document.getElementById('the_canvas_id');
