@@ -149,16 +149,33 @@ void Core::syncFullState() {
 void Core::saveSettings(string path) {
     ofJson settings;
     settings["projectPath"] = path;
+    
+    // Local save
     ofSaveJson(ofFilePath::join(ofFilePath::getCurrentWorkingDirectory(), "settings.json"), settings);
+    
+    // Global save fallback
+    string globalPath = ofFilePath::join(ofFilePath::getUserHomeDir(), ".invasiv");
+    if (!ofDirectory(globalPath).exists()) ofDirectory(globalPath).create();
+    ofSaveJson(ofFilePath::join(globalPath, "settings.json"), settings);
 }
 
 string Core::loadSettings() {
-    ofFile f(ofFilePath::join(ofFilePath::getCurrentWorkingDirectory(), "settings.json"));
-    if (f.exists()) {
+    // 1. Try local
+    ofFile fLocal(ofFilePath::join(ofFilePath::getCurrentWorkingDirectory(), "settings.json"));
+    if (fLocal.exists()) {
         ofJson settings;
-        f >> settings;
+        fLocal >> settings;
         return settings.value("projectPath", "");
     }
+    
+    // 2. Try global
+    ofFile fGlobal(ofFilePath::join(ofFilePath::join(ofFilePath::getUserHomeDir(), ".invasiv"), "settings.json"));
+    if (fGlobal.exists()) {
+        ofJson settings;
+        fGlobal >> settings;
+        return settings.value("projectPath", "");
+    }
+    
     return "";
 }
 

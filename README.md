@@ -1,8 +1,19 @@
 ![demo time](./docs/screencast.gif)
 
-# Invasiv
+# Invasiv // Rhythmic Projection Mapping
 
-**Invasiv** is a high-performance VJ and projection mapping software built with [openFrameworks](https://openframeworks.cc/). It features real-time multi-peer synchronization, spline-based warping, and a robust media management system.
+**Invasiv** is a high-performance VJ and projection mapping ecosystem designed for rhythmic precision and effortless distributed performance.
+
+### Why Invasiv?
+Most mapping software treats networking as an afterthought. Invasiv treats it as the foundation.
+- **No Master/Slave Complexity**: Every instance is the same. Toggle roles on the fly. Sync one machine or twenty with a single broadcast.
+- **Automatic Orchestration**: Master machines automatically distribute media and mapping configurations to peers. Stop manually copying files over USB sticks.
+- **Rhythmic Soul**: Deep integration with a distributed metronome. Your visuals don't just "play"—they dance.
+
+### Why Skewer?
+Skewer is the companion tool that makes your media musical.
+- **Frame-Perfect Rhythms**: Mark visual "anchors" (like a hammer hitting a nail) and let Skewer warp the video segments between them to fit a perfect musical grid.
+- **Metronome Ready**: Exported loops are optimized for Invasiv's dynamic speed-skewing engine, ensuring your video events land exactly on the beat, every single time.
 
 ## Key Features
 - **Symmetric Architecture**: Run the same binary on all machines; toggle roles (Master/Peer) on the fly.

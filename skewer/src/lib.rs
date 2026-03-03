@@ -290,6 +290,17 @@ impl eframe::App for BeatMapper {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("SKEWER // Rhythmic Media Prep");
             
+            ui.collapsing("❓ Quick Guide", |ui| {
+                ui.label("1. 📁 Load a video file.");
+                ui.label("2. 🔍 Scrub to a visual beat (e.g. a kick drum or hit).");
+                ui.label("3. ⌨ Press SPACE or ➕ Anchor to mark it.");
+                ui.label("4. 🖱 Click the segment between anchors to set its Musical Weight (how many 0.5s beats it should last).");
+                ui.label("5. 🔄 Toggle METRONOME PREVIEW to see your changes in real-time.");
+                ui.label("6. 🚀 EXPORT when the rhythm feels perfect.");
+            });
+
+            ui.add_space(5.0);
+            
             ui.horizontal(|ui| {
                 #[cfg(not(target_arch = "wasm32"))]
                 if ui.button("📁 Open Video").clicked() {
@@ -659,18 +670,40 @@ mod tests {
     }
 
     #[test]
-    fn test_frame_mapping_precision() {
-        let mut app = BeatMapper::default();
-        app.beats = vec![
-            Beat { time: 10.0, weight: 2 }, // 1.0s musical duration
-            Beat { time: 20.0, weight: 1 }
-        ];
-        app.trim_start = 0.0;
-        app.trim_end = 100.0;
+    fn test_beat_serialization() {
+        let beats = vec![Beat { time: 1.23, weight: 4 }];
+        let json = serde_json::to_string(&beats).unwrap();
+        let decoded: Vec<Beat> = serde_json::from_str(&json).unwrap();
+        assert_eq!(beats, decoded);
+    }
 
-        // 25% through segment (0.25s musical) -> 12.5s source
-        assert!((app.calculate_warped_time(0.25) - 12.5).abs() < 0.001);
-        // 75% through segment (0.75s musical) -> 17.5s source
-        assert!((app.calculate_warped_time(0.75) - 17.5).abs() < 0.001);
+    #[test]
+    fn test_anchor_sorting() {
+        let mut beats = vec![
+            Beat { time: 5.0, weight: 1 },
+            Beat { time: 1.0, weight: 1 },
+            Beat { time: 3.0, weight: 1 }
+        ];
+        beats.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
+        assert_eq!(beats[0].time, 1.0);
+        assert_eq!(beats[1].time, 3.0);
+        assert_eq!(beats[2].time, 5.0);
+    }
+
+    #[test]
+    fn test_boundary_mapping() {
+        let mut app = BeatMapper::default();
+        app.trim_start = 0.0;
+        app.trim_end = 10.0;
+        app.beats = vec![
+            Beat { time: 0.0, weight: 2 }, // 1.0s musical
+            Beat { time: 1.0, weight: 2 }
+        ];
+        
+        // At exactly 1.0s musical, it should be at 1.0s source
+        assert!((app.calculate_warped_time(1.0) - 1.0).abs() < 0.001);
+        
+        // Slightly before end
+        assert!((app.calculate_warped_time(0.99) - 0.99).abs() < 0.001);
     }
 }

@@ -22,4 +22,7 @@ public:
     GuiManager gui;
     
     char pathInputBuf[256];
+    
+    bool bShowHelp = true;
+    float helpTimer = 10.0f;
 };

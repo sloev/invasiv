@@ -29,6 +29,7 @@ void ofApp::setup() {
 
 void ofApp::update() {
     core.update();
+    if (helpTimer > 0) helpTimer -= ofGetLastFrameTime();
 }
 
 void ofApp::onFilesChanged(std::vector<std::string> &files) {
@@ -62,6 +63,18 @@ void ofApp::draw() {
             }
         }
     }
+
+    if (bShowHelp || helpTimer > 0) {
+        string help = "INVASIV // QUICK HELP\n\n";
+        help += "[m] - Master Edit Mode\n";
+        help += "[n] - Master Perform Mode\n";
+        help += "[p] - Peer Mode\n";
+        help += "[f] - Toggle Fullscreen\n";
+        help += "[h] - Toggle This Help\n\n";
+        help += "Support development: invasiv.github.io";
+        
+        ofDrawBitmapStringHighlight(help, ofGetWidth() - 250, 20, ofColor::black, ofColor::yellow);
+    }
 }
 
 void ofApp::mousePressed(int x, int y, int button) {
@@ -81,6 +94,7 @@ void ofApp::mouseReleased(int x, int y, int button) {
 void ofApp::keyPressed(int key) {
     if (!core.net.isEditing()) core.stateMgr.processKey(key, core.warper, core.net);
     if (key == 'f') core.identity.toggleFullscreen();
+    if (key == 'h') { bShowHelp = !bShowHelp; helpTimer = 0; }
     if (key == 'm') { core.warper.reset(); core.net.setRole(ROLE_MASTER_EDIT); core.syncFullState(); }
     if (key == 'n') { core.warper.reset(); core.net.setRole(ROLE_MASTER_PERFORM); core.syncFullState(); }
     if (key == 'p') { core.warper.reset(); core.warper.targetPeerId = core.identity.myId; core.net.setRole(ROLE_PEER); }

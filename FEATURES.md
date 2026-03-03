@@ -56,4 +56,10 @@
 * [x] invasiv: in the "media status" add a button to open the media folder
 * [x] invasiv:  surface settings - > surface id: label should before field
 * [x] add a toggle button to all instances FULLSCREEN  to toglle fullscreen for that peer instance remotely
-
+* [x] iterate on how to pitch the skewer and invasiv apps to people, what is it they can and what does it bring. "why should i bother" etc. and put it in the readme for now
+* [x] skewer: analyze the current design and see if there is a simpler way to present the core idea and thereby increase self explanatory design 
+* [x] invasiv: when started it should look for a settings.json file in current directory or look for a "last project folder path" in the file in ~/.invasiv and if not found it should ask the user to choose/create a project folder, it should then save the path to that project folder in a setting in ~/.invasiv
+* [x] invasiv: when invasiv is started it should have some help text for the first 10 seconds that tell the hotkeys including "h" to see the help text again, plus a mention about donation via invasiv.github.io
+* [ ] ROLE_MASTER_PERFORM: expand triggers to OSC and MIDI input
+* [ ] ROLE_MASTER_PERFORM: add transition times (fade) between states
+* [ ] ROLE_MASTER_PERFORM: add audio analysis triggers (beat/envelope)
