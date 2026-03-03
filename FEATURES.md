@@ -45,6 +45,13 @@
   * [x] the timeline of the video is the scrubbing now, no need for the other scrubbing fader
   * [x] add the ability to delete a specific video beat
   * [x] add buttons to move one frame back or forth in the timeframe
+  * [x] Skewer: Implement "Musical Weight" for segments (integer multiplier of 0.5s).
+  * [x] Skewer: Hammer & Nail UI: Tap `Space` to drop anchor (hammer) and drag to fine-tune (nail).
+  * [x] Skewer: Segment Editor: A panel to set the beat count (1, 2, 4, 8) for each interval between anchors.
+  * [x] Skewer: Virtual Warp Playhead: A "PREVIEW" mode that moves at a steady 120 BPM while remapping source frames.
+  * [x] Skewer: Warp Intensity Heatmap: Visual color-coding on the timeline (Green = Natural, Red = Fast, Blue = Slow).
+  * [x] Skewer: Automatic loop calculation: Ensure the total warped duration is a perfect multiple of 0.5s.
+  * [x] Skewer: FFmpeg Command Update: Generate precise `setpts` filters using the formula `(Weight * 0.5) / SourceDuration`.
 * [x] invasiv: make the project folder selector open a file picker to choose/create a project folder
 * [x] invasiv: in the "media status" add a button to open the media folder
 * [x] invasiv:  surface settings - > surface id: label should before field
