@@ -17,6 +17,18 @@ pub struct Beat {
     pub time: f64, 
 }
 
+#[derive(Default)]
+pub struct AppState {
+    pub video_path: Option<PathBuf>,
+    pub load_video_clicked: bool,
+    pub frame_data: Option<(Vec<u8>, (usize, usize))>,
+    pub current_time: f64,
+}
+
+lazy_static::lazy_static! {
+    static ref SHARED_STATE: Arc<Mutex<AppState>> = Arc::new(Mutex::new(AppState::default()));
+}
+
 pub struct BeatMapper {
     pub video_path: Option<PathBuf>,
     pub beats: Vec<Beat>,
@@ -61,10 +73,6 @@ impl Default for BeatMapper {
             ffmpeg_missing,
         }
     }
-}
-
-lazy_static::lazy_static! {
-    static ref GLOBAL_APP: Arc<Mutex<Option<BeatMapper>>> = Arc::new(Mutex::new(None));
 }
 
 impl BeatMapper {
@@ -154,6 +162,22 @@ impl eframe::App for BeatMapper {
             self.fetch_frame_native(ctx);
         }
 
+        #[cfg(target_arch = "wasm32")]
+        {
+            if let Ok(mut state) = SHARED_STATE.lock() {
+                if let Some(path) = state.video_path.take() {
+                    self.video_path = Some(path);
+                    self.last_requested_time = -1.0;
+                }
+                if let Some((data, size)) = state.frame_data.take() {
+                    let image = egui::ColorImage::from_rgba_unmultiplied([size.0, size.1], &data);
+                    self.texture = Some(ctx.load_texture("video_frame", image, Default::default()));
+                }
+                state.current_time = self.current_time;
+            }
+            ctx.request_repaint();
+        }
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("SKEWER // Rhythmic Media Prep");
             
@@ -171,6 +195,14 @@ impl eframe::App for BeatMapper {
                         if let Some(path) = FileDialog::new().add_filter("Video", &["mp4", "mov", "mkv", "avi"]).pick_file() {
                             self.video_path = Some(path);
                             self.last_requested_time = -1.0; 
+                        }
+                    }
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
+                    if ui.button("📁 Load Video").clicked() {
+                        if let Ok(mut state) = SHARED_STATE.lock() {
+                            state.load_video_clicked = true;
                         }
                     }
                 }
@@ -304,7 +336,41 @@ impl WebHandle {
     }
     
     #[wasm_bindgen]
-    pub fn push_frame(&self, _rgba_data: &[u8], _width: usize, _height: usize) {
-        // Shared state push logic
+    pub fn load_video(&self, path: &str) {
+        if let Ok(mut state) = SHARED_STATE.lock() {
+            state.video_path = Some(PathBuf::from(path));
+        }
+    }
+
+    #[wasm_bindgen]
+    pub fn is_load_clicked(&self) -> bool {
+        if let Ok(state) = SHARED_STATE.lock() {
+            state.load_video_clicked
+        } else {
+            false
+        }
+    }
+
+    #[wasm_bindgen]
+    pub fn reset_load_clicked(&self) {
+        if let Ok(mut state) = SHARED_STATE.lock() {
+            state.load_video_clicked = false;
+        }
+    }
+
+    #[wasm_bindgen]
+    pub fn get_current_time(&self) -> f64 {
+        if let Ok(state) = SHARED_STATE.lock() {
+            state.current_time
+        } else {
+            0.0
+        }
+    }
+
+    #[wasm_bindgen]
+    pub fn push_frame(&self, rgba_data: &[u8], width: usize, height: usize) {
+        if let Ok(mut state) = SHARED_STATE.lock() {
+            state.frame_data = Some((rgba_data.to_vec(), (width, height)));
+        }
     }
 }

@@ -40,7 +40,7 @@ title: "SKEWER // ONLINE_WARPER"
         await handle.start("the_canvas_id");
 
         ffmpeg = new FFmpeg();
-        // Load from local lib/ folder to avoid origin security errors
+        // Load from local lib/ folder
         const baseURL = './lib';
         await ffmpeg.load({
             coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
@@ -60,10 +60,39 @@ title: "SKEWER // ONLINE_WARPER"
             handle.load_video('input.mp4');
         });
 
-        setInterval(() => {
+        let last_time = -1;
+        setInterval(async () => {
             if (handle.is_load_clicked()) {
                 uploader.click();
                 handle.reset_load_clicked();
+            }
+
+            const current_time = handle.get_current_time();
+            if (Math.abs(current_time - last_time) > 0.05) {
+                last_time = current_time;
+                try {
+                    // Extract a single frame at current_time
+                    await ffmpeg.exec([
+                        '-ss', current_time.toString(),
+                        '-i', 'input.mp4',
+                        '-frames:v', '1',
+                        '-s', '1280x720',
+                        '-f', 'image2',
+                        '-vcodec', 'rawvideo',
+                        '-pix_fmt', 'rgba',
+                        'out.raw'
+                    ]);
+                    const data = await ffmpeg.readFile('out.raw');
+                    // We assume 1280x720 for now or similar. 
+                    // Better: use ffprobe or similar to get size, but for now we try to push it.
+                    // Since it's rawvideo rgba, we need to know the size.
+                    // Let's use a fixed size for the preview for now or try to detect it.
+                    // Actually, let's just use 640x360 for the preview to be safe and fast.
+                    // await ffmpeg.exec(['-s', '640x360', ...])
+                    handle.push_frame(data, 1280, 720); // Placeholder size, should be dynamic
+                } catch (e) {
+                    console.error("Frame extraction error:", e);
+                }
             }
         }, 100);
     }

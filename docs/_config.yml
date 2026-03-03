@@ -1,5 +1,8 @@
 exclude:
-  - lib
-  - skewer_wasm
-  - coi-serviceworker.js
-  - screencast.gif
+  - vendor/
+  - .bundle/
+  - .sass-cache/
+  - .jekyll-cache/
+  - Gemfile
+  - Gemfile.lock
+  - node_modules/
