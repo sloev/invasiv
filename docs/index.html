@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>INVASIV // DISTRIBUTED_VISUALS</title>
+    <title>INVASIV // THE_DISTRIBUTED_STANDARD</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;900&family=JetBrains+Mono:wght@400;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@400;800&display=swap');
 
         :root {
             --bg: #000000;
@@ -14,6 +14,7 @@
             --text: #ffffff;
             --text-dim: #888888;
             --border: #222222;
+            --card-bg: #080808;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -27,7 +28,7 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        .container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 0 1.5rem; }
 
         /* Flyover Grid */
         .grid-bg {
@@ -61,16 +62,7 @@
             text-transform: uppercase;
         }
 
-        .tagline {
-            font-size: clamp(1.2rem, 3vw, 2rem);
-            font-weight: 400;
-            color: var(--accent);
-            margin-top: 2rem;
-            text-transform: uppercase;
-            letter-spacing: 0.2em;
-        }
-
-        /* Hero Layout */
+        /* Hero Section */
         .hero-grid {
             display: grid;
             grid-template-columns: 1fr 1.2fr;
@@ -78,68 +70,62 @@
             margin: 5rem 0;
             align-items: center;
         }
-
         .hero-text { font-size: 1.2rem; color: var(--text-dim); }
         .hero-text b { color: #fff; }
+        .screencast { width: 100%; border: 1px solid var(--border); filter: contrast(1.1) brightness(1.1); }
 
-        .screencast {
-            width: 100%;
-            border: 1px solid var(--border);
-            filter: contrast(1.1) brightness(1.1);
-        }
-
-        /* Setup Comparison Diagrams */
-        section.diagrams { padding: 5rem 0; border-top: 1px solid var(--border); }
-        .diag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
-        .diag-card { background: #050505; border: 1px solid var(--border); padding: 2rem; }
-        .diag-title { font-weight: 900; text-transform: uppercase; margin-bottom: 2rem; color: var(--accent); font-size: 0.8rem; }
+        /* SaaS Style Intel Table */
+        section.intel { padding: 10rem 0; }
+        section.intel h2 { font-size: 3rem; text-transform: uppercase; color: var(--accent); margin-bottom: 4rem; text-align: center; }
         
-        .setup-visual { 
-            height: 200px; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            gap: 10px;
-            position: relative;
+        .intel-table-wrapper { 
+            overflow-x: auto; 
+            border: 1px solid var(--border); 
+            border-radius: 8px;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
         }
+        
+        .intel-table { width: 100%; border-collapse: collapse; min-width: 1000px; }
+        .intel-table th, .intel-table td { padding: 1.5rem; text-align: left; font-size: 0.9rem; border-bottom: 1px solid var(--border); }
+        
+        /* Headers */
+        .intel-table th { background: #111; color: var(--text-dim); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em; }
+        .intel-table th:nth-child(2) { color: var(--accent); border-top: 2px solid var(--accent); }
+        
+        /* Highlight Invasiv Column */
+        .intel-table td:nth-child(2) { background: rgba(255,0,0,0.03); font-weight: 600; color: #fff; border-left: 1px solid var(--accent-dim); border-right: 1px solid var(--accent-dim); }
+        
+        /* Row Groups */
+        .row-group { background: #080808; color: var(--accent); font-weight: 900; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.2em; }
+        
+        .feature-name { font-weight: 700; color: #aaa; width: 220px; }
+        .check { color: #4cd964; }
+        .cross { color: #ff3b30; }
 
-        /* Legacy Style */
-        .pc-heavy { width: 60px; height: 80px; border: 2px solid #444; background: #111; position: relative; }
-        .cables { position: absolute; height: 2px; background: #333; width: 100px; }
+        /* SKEWER Card */
+        section.skewer { padding: 10rem 0; }
+        .skewer-card { border: 2px solid var(--accent); background: #110000; padding: 4rem; }
+        .skewer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 3rem; margin-top: 3rem; }
+        .skewer-step h3 { color: var(--accent); margin-bottom: 1rem; text-transform: uppercase; }
 
-        /* Invasiv Style */
-        .laptop-light { width: 40px; height: 30px; border: 1px solid var(--accent); background: #110000; }
-        .network-line { border: 1px dashed var(--accent); flex-grow: 1; }
-
-        .projector { width: 30px; height: 20px; border: 1px solid #fff; opacity: 0.5; }
-
-        /* Logic Section */
-        .logic-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin: 5rem 0; }
-        .logic-card { background: #080808; border: 1px solid var(--border); padding: 2.5rem; }
-        .logic-card h3 { font-size: 1.2rem; text-transform: uppercase; color: var(--accent); margin-bottom: 1rem; }
-        .logic-card p { font-size: 0.9rem; color: #888; }
-
-        /* Comparison Table */
-        .comparison-section { padding: 5rem 0; }
-        .comp-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-        .comp-table th { text-align: left; padding: 1rem; border-bottom: 2px solid var(--accent); color: var(--text-dim); text-transform: uppercase; }
-        .comp-table td { padding: 1.5rem 1rem; border-bottom: 1px solid var(--border); }
-        .val-invasiv { color: var(--accent); font-weight: 800; }
-
-        /* CTA */
-        .cta-area { text-align: center; padding: 8rem 0; }
+        /* CTAs */
+        .cta-area { text-align: center; padding: 10rem 0; border-top: 1px solid var(--border); }
         .btn-group { display: flex; flex-wrap: wrap; justify-content: center; gap: 1rem; margin-bottom: 4rem; }
         .btn { padding: 1.5rem 3rem; background: transparent; color: var(--accent); border: 2px solid var(--accent); text-decoration: none; font-weight: 900; text-transform: uppercase; transition: 0.2s; }
         .btn:hover { background: var(--accent); color: black; }
         .btn-filled { background: var(--accent); color: black; }
 
-        footer { padding: 4rem 0; text-align: center; font-size: 0.7rem; color: #222; letter-spacing: 0.5em; border-top: 1px solid var(--border); }
+        .support-strip { background: #fff; color: #000; padding: 4rem; text-align: center; font-weight: 900; margin-top: 4rem; }
+        .coffee-btn { display: inline-block; margin-top: 2rem; background: black; color: white; padding: 1rem 2rem; text-decoration: none; }
 
-        /* Responsive Overrides */
+        footer { padding: 5rem 0; text-align: center; font-size: 0.7rem; color: #333; }
+        footer a { color: #666; text-decoration: none; }
+
         @media (max-width: 900px) {
-            .hero-grid, .diag-grid { grid-template-columns: 1fr; }
-            .hero-grid { text-align: center; }
+            .hero-grid { grid-template-columns: 1fr; text-align: center; }
             .container { padding: 0 1rem; }
+            .skewer-card { padding: 2rem; }
         }
     </style>
 </head>
@@ -151,116 +137,171 @@
         
         <header>
             <div class="logo">INVASIV</div>
-            <div class="tagline">Distributed Spatial Intelligence</div>
+            <p class="tagline">Distributed Spatial Intelligence</p>
         </header>
 
         <section class="hero-grid">
             <div class="hero-text">
-                <p style="font-size: 1.8rem; line-height: 1.2; color: #fff; margin-bottom: 2rem;">
-                    Visuals should scale with your <b>imagination</b>, not your <b>budget</b>.
+                <p style="font-size: 2rem; line-height: 1.2; color: #fff; margin-bottom: 2rem; font-weight: 900;">
+                    SCALE WITH LOGIC,<br>NOT BUDGET.
                 </p>
                 <p>
-                    Invasiv is a lightweight, C++ powered engine designed for distributed environments. Instead of one massive computer struggling with cables, Invasiv uses <b>multiple affordable nodes</b>—one at every projector—synchronized instantly over a standard network.
+                    Invasiv is a lightweight C++20 engine designed to turn a network of affordable laptops into a single, high-performance projection mapping system. Frame-accurate synchronization, automated file distribution, and native speed on any hardware.
                 </p>
             </div>
-            <img src="./screencast.gif" class="screencast" alt="Real-time dominance">
+            <img src="./screencast.gif" class="screencast" alt="System Preview">
         </section>
 
-        <section class="diagrams">
-            <h2 style="text-align: center; margin-bottom: 4rem; text-transform: uppercase; letter-spacing: 0.1em;">Rethinking the Setup</h2>
-            <div class="diag-grid">
-                
-                <div class="diag-card">
-                    <div class="diag-title">Legacy Setup (Centralized)</div>
-                    <div class="setup-visual">
-                        <div class="pc-heavy"></div>
-                        <div style="display:flex; flex-direction: column; gap: 5px;">
-                            <div style="width: 80px; height: 2px; background: #333;"></div>
-                            <div style="width: 80px; height: 2px; background: #333;"></div>
-                            <div style="width: 80px; height: 2px; background: #333;"></div>
-                            <div style="width: 80px; height: 2px; background: #333;"></div>
-                        </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                            <div class="projector"></div><div class="projector"></div>
-                            <div class="projector"></div><div class="projector"></div>
-                        </div>
+        <section class="intel">
+            <h2>MASTER_INTEL // THE_DISTRIBUTED_DIFFERENCE</h2>
+            
+            <div class="intel-table-wrapper">
+                <table class="intel-table">
+                    <thead>
+                        <tr>
+                            <th>Capability</th>
+                            <th>Invasiv</th>
+                            <th>Resolume</th>
+                            <th>VDMX</th>
+                            <th>MadMapper</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="row-group"><td colspan="5">Economics & Deployment</td></tr>
+                        <tr>
+                            <td class="feature-name">License Type</td>
+                            <td>MIT (Open & Free)</td>
+                            <td>Commercial / Subscription</td>
+                            <td>Commercial License</td>
+                            <td>Commercial / Rent-to-own</td>
+                        </tr>
+                        <tr>
+                            <td class="feature-name">Price (Per Instance)</td>
+                            <td class="val-invasiv">$0.00</td>
+                            <td>$799+</td>
+                            <td>$349+</td>
+                            <td>$400+</td>
+                        </tr>
+                        <tr>
+                            <td class="feature-name">Binary Weight</td>
+                            <td class="val-invasiv">~20MB Portable</td>
+                            <td>~2GB+ Installer</td>
+                            <td>Moderate Installer</td>
+                            <td>Managed Installer</td>
+                        </tr>
+                        <tr>
+                            <td class="feature-name">Startup Time</td>
+                            <td>Near-Instant</td>
+                            <td>Activation / Drivers</td>
+                            <td>Standard App</td>
+                            <td>Activation Step</td>
+                        </tr>
+
+                        <tr class="row-group"><td colspan="5">Hardware Architecture</td></tr>
+                        <tr>
+                            <td class="feature-name">System Topology</td>
+                            <td class="val-invasiv">Distributed (Many Nodes)</td>
+                            <td>Centralized (One Server)</td>
+                            <td>Centralized (One Server)</td>
+                            <td>Centralized (One Server)</td>
+                        </tr>
+                        <tr>
+                            <td class="feature-name">Cabling Strategy</td>
+                            <td class="val-invasiv">Standard Ethernet Backbone</td>
+                            <td>Expensive Active Video Cables</td>
+                            <td>HDMI / DisplayPort</td>
+                            <td>Active Video Extensions</td>
+                        </tr>
+                        <tr>
+                            <td class="feature-name">Hardware Requirement</td>
+                            <td class="val-invasiv">Low (Toaster Friendly)</td>
+                            <td>High (High-end Discrete GPU)</td>
+                            <td>Moderate (Mac-dependent)</td>
+                            <td>Moderate</td>
+                        </tr>
+                        <tr>
+                            <td class="feature-name">Redundancy</td>
+                            <td class="val-invasiv">Full (Any node can lead)</td>
+                            <td>None (Single point of failure)</td>
+                            <td>None (Single point of failure)</td>
+                            <td>None (Single point of failure)</td>
+                        </tr>
+
+                        <tr class="row-group"><td colspan="5">Network & Workflow</td></tr>
+                        <tr>
+                            <td class="feature-name">Node Discovery</td>
+                            <td class="val-invasiv">Automatic (UDP Broadcast)</td>
+                            <td>Manual IP / OSC Config</td>
+                            <td>Manual Mapping</td>
+                            <td>Manual Setup</td>
+                        </tr>
+                        <tr>
+                            <td class="feature-name">Distributed Editing</td>
+                            <td class="val-invasiv">Real-time Master-to-Peer</td>
+                            <td>Local Only</td>
+                            <td>Local Only</td>
+                            <td>Local Only</td>
+                        </tr>
+                        <tr>
+                            <td class="feature-name">File Synchronization</td>
+                            <td class="val-invasiv">Automated Network Sync</td>
+                            <td>Manual Copy / External Tools</td>
+                            <td>Manual</td>
+                            <td>Manual</td>
+                        </tr>
+                        <tr>
+                            <td class="feature-name">Rhythmic Sync</td>
+                            <td class="val-invasiv">Smart Speed Adjustment</td>
+                            <td>Jump-to-Beat (Jumpy)</td>
+                            <td>BPM Clock</td>
+                            <td>BPM Triggers</td>
+                        </tr>
+
+                        <tr class="row-group"><td colspan="5">Core Visuals</td></tr>
+                        <tr>
+                            <td class="feature-name">Warping Engine</td>
+                            <td class="val-invasiv">Catmull-Rom Splines</td>
+                            <td>Mesh / Perspective</td>
+                            <td>N/A (Module based)</td>
+                            <td>Mesh / Spline</td>
+                        </tr>
+                        <tr>
+                            <td class="feature-name">Media Preparation</td>
+                            <td class="val-invasiv">Integrated SKEWER tool</td>
+                            <td>Generic / Third Party</td>
+                            <td>Generic</td>
+                            <td>Generic</td>
+                        </tr>
+                        <tr>
+                            <td class="feature-name">Source Code Access</td>
+                            <td class="val-invasiv">Full C++20 Access</td>
+                            <td>Closed / Proprietary</td>
+                            <td>Closed / Proprietary</td>
+                            <td>Closed / Proprietary</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="skewer">
+            <div class="skewer-card">
+                <h2 style="font-size: 3rem; font-weight: 900; text-transform: uppercase;">The Skewer Method</h2>
+                <div class="skewer-grid">
+                    <div class="skewer-step">
+                        <h3>1. Pin the Action</h3>
+                        <p>Open raw footage in <b>SKEWER</b>. Mark exactly when significant visual events occur. Pin the action to the timeline, not just the time.</p>
                     </div>
-                    <p style="font-size: 0.8rem; color: #666; margin-top: 1rem;">
-                        One expensive PC + Many long, fragile video cables. Single point of failure. High hardware cost.
-                    </p>
-                </div>
-
-                <div class="diag-card" style="border-color: var(--accent);">
-                    <div class="diag-title">Invasiv Setup (Distributed)</div>
-                    <div class="setup-visual">
-                        <div style="display: flex; gap: 15px; align-items: center;">
-                            <div style="display: flex; flex-direction: column; gap: 15px;">
-                                <div class="laptop-light"></div>
-                                <div class="laptop-light"></div>
-                            </div>
-                            <div class="network-line"></div>
-                            <div style="display: flex; flex-direction: column; gap: 15px;">
-                                <div class="laptop-light"></div>
-                                <div class="laptop-light"></div>
-                            </div>
-                        </div>
+                    <div class="skewer-step">
+                        <h3>2. Warp the Loop</h3>
+                        <p>Export from Skewer. It non-linearly time-stretches your video so every marked event lands on a perfect 2-second grid.</p>
                     </div>
-                    <p style="font-size: 0.8rem; color: #888; margin-top: 1rem;">
-                        Many affordable laptops + Standard Ethernet. Modular, redundant, and scales to any size.
-                    </p>
+                    <div class="skewer-step">
+                        <h3>3. Lock the Beat</h3>
+                        <p>Load into <b>INVASIV</b> and tap your BPM. The engine micro-adjusts playback speed so your video events stay phase-locked to the pulse.</p>
+                    </div>
                 </div>
-
             </div>
-        </section>
-
-        <section class="logic-grid">
-            <div class="logic-card">
-                <h3>Symmetric Network</h3>
-                <p>Every node is identical. Any computer can be the Master or a Peer. If a machine fails, just swap roles. No more show-stopping crashes.</p>
-            </div>
-            <div class="logic-card">
-                <h3>Smart Beat-Matching</h3>
-                <p>Using our Skewer tool, video events are pinned to a grid. Invasiv micro-adjusts playback speed to ensure frames always hit the beat without jumpy loop restarts.</p>
-            </div>
-            <div class="logic-card">
-                <h3>Architectural Lean</h3>
-                <p>Pure C++20 with zero bloat. The binary is ~20MB. It runs natively on your hardware, making the most of every CPU cycle on even older laptops.</p>
-            </div>
-        </section>
-
-        <section class="comparison-section">
-            <h2 style="text-transform: uppercase; margin-bottom: 2rem;">Setup Comparison</h2>
-            <table class="comp-table">
-                <thead>
-                    <tr>
-                        <th>Metric</th>
-                        <th>Distributed (Invasiv)</th>
-                        <th>Centralized (Standard)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Hardware Cost</td>
-                        <td class="val-invasiv">Low (Use existing laptops)</td>
-                        <td>High (Pro GPU + Server)</td>
-                    </tr>
-                    <tr>
-                        <td>Cable Runs</td>
-                        <td class="val-invasiv">Short Video / Long Ethernet</td>
-                        <td>Long, Expensive Video Cables</td>
-                    </tr>
-                    <tr>
-                        <td>Sync Method</td>
-                        <td class="val-invasiv">Continuous Speed Adjustment</td>
-                        <td>Discrete Trigger Jumps</td>
-                    </tr>
-                    <tr>
-                        <td>Failure Mode</td>
-                        <td class="val-invasiv">Redundant (Only one node affected)</td>
-                        <td>Total Show Blackout</td>
-                    </tr>
-                </tbody>
-            </table>
         </section>
 
         <section class="cta-area">
@@ -268,17 +309,29 @@
                 <a href="https://github.com/nihil/invasiv/releases" class="btn btn-filled">Download Invasiv</a>
                 <a href="https://github.com/nihil/invasiv/releases" class="btn">Get Skewer Tool</a>
             </div>
+            <div class="btn-group">
+                <a href="https://github.com/nihil/invasiv" class="btn" style="font-size: 0.8rem; padding: 1rem 2rem;">Github</a>
+                <a href="https://github.com/nihil/invasiv/issues" class="btn" style="font-size: 0.8rem; padding: 1rem 2rem;">Report Bug</a>
+            </div>
             
-            <p style="color: var(--text-dim); max-width: 600px; margin: 0 auto 2rem auto;">
-                Invasiv is an open system for independent artists. If it helps you build a bigger show with a smaller budget, consider supporting the core development.
-            </p>
-            <a href="https://buymeacoffee.com/sloev" class="btn" style="border-color: #fff; color: #fff; font-size: 0.8rem; padding: 1rem 2rem;">Support Invasiv</a>
+            <div class="support-strip">
+                SUPPORT INDEPENDENT LOGIC.<br>
+                <a href="https://buymeacoffee.com/sloev" class="coffee-btn">DONATE_TO_INVASIV_DEVELOPMENT</a>
+            </div>
         </section>
 
     </main>
 
     <footer>
-        // INVASIV_SYSTEM // DISTRIBUTED_WISDOM // 2026 //
+        <div class="container">
+            <div style="color: #444; margin-bottom: 2rem; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em;">
+                THIRD PARTY ATTRIBUTIONS:<br><br>
+                <a href="https://openframeworks.cc/">OPENFRAMEWORKS (MIT)</a> // 
+                <a href="https://github.com/petehaughie/ofxMPVPlayer">OFXMPVPLAYER (MIT)</a> // 
+                <a href="https://github.com/jvcleave/ofxImGui">OFXIMGUI (MIT)</a>
+            </div>
+            <p>// INVASIV // DISTRIBUTED_WISDOM // 2026 // NO_BULLSHIT_VISUALS //</p>
+        </div>
     </footer>
 
 </body>
