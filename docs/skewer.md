@@ -25,8 +25,8 @@ title: "SKEWER // ONLINE_WARPER"
             When done, copy the generated command to re-encode the file locally.
         </p>
         
-        <div style="border: 2px solid var(--accent); background: #000; height: 70vh; max-height: 800px; position: relative; overflow: hidden; margin-bottom: 4rem;">
-            <canvas id="the_canvas_id" style="width: 100%; height: 100%; display: block;"></canvas>
+        <div id="canvas-container" style="border: 2px solid var(--accent); background: #000; min-height: 800px; height: auto; position: relative; overflow: hidden; margin-bottom: 4rem; display: flex; flex-direction: column;">
+            <canvas id="the_canvas_id" style="width: 100%; flex-grow: 1; display: block;"></canvas>
         </div>
     </div>
 </section>
