@@ -77,12 +77,14 @@ RUN wget -qO /linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/do
     && chmod +x /linuxdeploy-plugin-appimage
 # Copy resources for AppImage
 COPY resources ./resources
-RUN mkdir -p AppDir \
-    && (/linuxdeploy --appimage-extract-and-run --app-dir AppDir \
+ENV APPIMAGE_EXTRACT_AND_RUN=1
+RUN set -ex; \
+    mkdir -p AppDir; \
+    /linuxdeploy --appdir AppDir \
        -e bin/invasiv \
-       -i resources/icon.svg \
-       -d resources/invasiv.desktop > /tmp/ld.log 2>&1 && echo "AppImage Packing: Succeeded" || (echo "AppImage Packing: Failed" && cat /tmp/ld.log && exit 1)) \
-    && (OUTPUT=Invasiv-x86_64.AppImage /linuxdeploy-plugin-appimage --appimage-extract-and-run --app-dir AppDir >> /tmp/ld.log 2>&1 && echo "AppImage Distribution: Succeeded" || (echo "AppImage Distribution: Failed" && cat /tmp/ld.log && exit 1))
+       -i resources/invasiv.svg \
+       -d resources/invasiv.desktop; \
+    OUTPUT=Invasiv-x86_64.AppImage /linuxdeploy-plugin-appimage --appdir AppDir
 
 # Stage 8: Runtime
 FROM ubuntu:24.04 AS runtime

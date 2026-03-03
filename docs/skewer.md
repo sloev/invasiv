@@ -62,41 +62,6 @@ title: "SKEWER // ONLINE_WARPER"
         }
     };
 
-    async function toBlobURL(url, type, onProgress) {
-        console.log(`[WASM] Fetching asset: ${url}`);
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
-        
-        const contentLength = response.headers.get('content-length');
-        if (!contentLength) {
-            console.warn(`[WASM] No content-length for ${url}`);
-            const buffer = await response.arrayBuffer();
-            return URL.createObjectURL(new Blob([buffer], { type }));
-        }
-
-        const total = parseInt(contentLength, 10);
-        let loaded = 0;
-        const reader = response.body.getReader();
-        const chunks = [];
-
-        while(true) {
-            const {done, value} = await reader.read();
-            if (done) break;
-            chunks.push(value);
-            loaded += value.length;
-            if (onProgress) onProgress(Math.round((loaded / total) * 100));
-        }
-
-        const allChunks = new Uint8Array(loaded);
-        let offset = 0;
-        for (const chunk of chunks) {
-            allChunks.set(chunk, offset);
-            offset += chunk.length;
-        }
-
-        return URL.createObjectURL(new Blob([allChunks], { type }));
-    }
-
     // Trigger uploader on canvas click if WASM state requested it.
     canvas.addEventListener('click', () => {
         if (handle && handle.is_load_clicked()) {
