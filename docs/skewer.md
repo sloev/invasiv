@@ -8,8 +8,11 @@ title: "SKEWER // ONLINE_WARPER"
 <section class="skewer-wasm">
     <h2 style="color: var(--accent); margin-bottom: 2rem;">SKEWER ONLINE</h2>
     
-    <div id="loading-overlay" style="padding: 2rem; background: #111; color: var(--accent); margin-bottom: 2rem; border: 1px dashed var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 0.9rem;">
-        INITIALIZING SKEWER_WASM...
+    <div id="loading-overlay" style="padding: 2rem; background: #111; color: var(--accent); margin-bottom: 2rem; border: 1px dashed var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; display: flex; flex-direction: column; align-items: center; gap: 1rem;">
+        <div id="status-text">INITIALIZING SKEWER_WASM...</div>
+        <div id="progress-container" style="width: 100%; max-width: 300px; height: 4px; background: #222; border-radius: 2px; overflow: hidden; display: none;">
+            <div id="progress-bar" style="width: 0%; height: 100%; background: var(--accent); transition: width 0.3s ease;"></div>
+        </div>
     </div>
 
     <div id="controls" style="display:none; margin-bottom: 2rem;">
@@ -30,27 +33,62 @@ title: "SKEWER // ONLINE_WARPER"
     import { FFmpeg } from './lib/index.js';
     import init, { WebHandle } from './skewer_wasm/skewer.js';
     
-    async function toBlobURL(url, type) {
-        console.log(`[WASM] Fetching asset: ${url}`);
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
-        const buffer = await response.arrayBuffer();
-        const blob = new Blob([buffer], { type });
-        return URL.createObjectURL(blob);
-    }
-
     const canvas = document.getElementById('the_canvas_id');
     const uploader = document.getElementById('uploader');
     const overlay = document.getElementById('loading-overlay');
+    const statusText = document.getElementById('status-text');
+    const progressContainer = document.getElementById('progress-container');
+    const progressBar = document.getElementById('progress-bar');
     
     let ffmpeg = null;
     let handle = null;
     let ffmpegBusy = false;
 
-    const setStatus = (msg) => {
+    const setStatus = (msg, progress = -1) => {
         console.log(`[WASM_STATUS] ${msg}`);
-        overlay.innerHTML = msg;
+        statusText.innerHTML = msg;
+        if (progress >= 0) {
+            progressContainer.style.display = 'block';
+            progressBar.style.width = `${progress}%`;
+        } else {
+            progressContainer.style.display = 'none';
+        }
     };
+
+    async function toBlobURL(url, type, onProgress) {
+        console.log(`[WASM] Fetching asset: ${url}`);
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
+        
+        const contentLength = response.headers.get('content-length');
+        if (!contentLength) {
+            console.warn(`[WASM] No content-length for ${url}`);
+            const buffer = await response.arrayBuffer();
+            return URL.createObjectURL(new Blob([buffer], { type }));
+        }
+
+        const total = parseInt(contentLength, 10);
+        let loaded = 0;
+        const reader = response.body.getReader();
+        const chunks = [];
+
+        while(true) {
+            const {done, value} = await reader.read();
+            if (done) break;
+            chunks.push(value);
+            loaded += value.length;
+            if (onProgress) onProgress(Math.round((loaded / total) * 100));
+        }
+
+        const allChunks = new Uint8Array(loaded);
+        let offset = 0;
+        for (const chunk of chunks) {
+            allChunks.set(chunk, offset);
+            offset += chunk.length;
+        }
+
+        return URL.createObjectURL(new Blob([allChunks], { type }));
+    }
 
     // Trigger uploader on canvas click if WASM state requested it.
     canvas.addEventListener('click', () => {
@@ -62,25 +100,34 @@ title: "SKEWER // ONLINE_WARPER"
     });
 
     async function setup() {
-        setStatus("BOOTING_RUST_ENGINE...");
         try {
+            setStatus("BOOTING_RUST_ENGINE...");
             await init();
             handle = new WebHandle();
             await handle.start("the_canvas_id");
             
-            setStatus("RUST_READY. LOADING_FFMPEG...");
+            setStatus("RUST_READY. LOADING_FFMPEG_CORE...", 0);
 
             ffmpeg = new FFmpeg();
-            const baseURL = '/lib'; // Root-relative path
+            const baseURL = './lib'; // Use relative path to stay within current directory scope
             
             ffmpeg.on('log', ({ message }) => {
                 console.log(`[FFmpeg] ${message}`);
             });
 
+            const workerURL = await toBlobURL(`${baseURL}/worker.js`, 'text/javascript');
+            setStatus("LOADING_FFMPEG_CORE (1/2)...", 30);
+            const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
+            setStatus("LOADING_FFMPEG_WASM (2/2)...", 60);
+            const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm', (p) => {
+                setStatus("LOADING_FFMPEG_WASM (2/2)...", 60 + (p * 0.4));
+            });
+
+            setStatus("INITIALIZING_VIRTUAL_HARDWARE...", 100);
             await ffmpeg.load({
-                classWorkerURL: await toBlobURL(`${baseURL}/worker.js`, 'text/javascript'),
-                coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-                wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+                classWorkerURL: workerURL,
+                coreURL: coreURL,
+                wasmURL: wasmURL,
             });
 
             setStatus("SYSTEM_ONLINE.");
@@ -91,7 +138,7 @@ title: "SKEWER // ONLINE_WARPER"
 
         } catch (err) {
             console.error("[WASM_FATAL]", err);
-            setStatus(`FATAL_ERROR: ${err.message}<br><br>Check console for details.`);
+            setStatus(`FATAL_ERROR: ${err.message}<br><br>Please ensure you are using a modern browser with Cross-Origin Isolation enabled.`);
             return;
         }
 
@@ -124,7 +171,7 @@ title: "SKEWER // ONLINE_WARPER"
 
         let last_time = -1;
         setInterval(async () => {
-            if (ffmpegBusy || !ffmpeg) return;
+            if (ffmpegBusy || !ffmpeg || !ffmpeg.loaded) return;
 
             const current_time = handle.get_current_time();
             if (Math.abs(current_time - last_time) > 0.05) {
@@ -145,7 +192,7 @@ title: "SKEWER // ONLINE_WARPER"
                     const data = await ffmpeg.readFile('out.raw');
                     handle.push_frame(data, 640, 360); 
                 } catch (e) {
-                    // console.warn("[WASM] Frame extraction failed (expected if no video yet)");
+                    // console.warn("[WASM] Frame extraction failed");
                 } finally {
                     ffmpegBusy = false;
                 }
