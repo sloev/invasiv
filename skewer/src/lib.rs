@@ -101,9 +101,6 @@ impl BeatMapper {
         let mut active_beats = self.beats.clone();
         active_beats.retain(|b| b.time >= self.trim_start && b.time <= self.trim_end);
         
-        // Ensure markers at start and end of trim if not present? 
-        // Or just use the existing beats.
-        
         let segments = active_beats.len().saturating_sub(1);
         
         for (i, pair) in active_beats.windows(2).enumerate() {
@@ -111,13 +108,15 @@ impl BeatMapper {
             let end = pair[1].time;
             let segment_duration = end - start;
             if segment_duration <= 0.001 { continue; }
-            let scale = 2.0 / segment_duration;
+            
+            // Target each beat-to-beat segment to be exactly 0.5s (120 BPM beat)
+            let multiplier = 0.5 / segment_duration;
             
             let out_tag = if segments == 1 { "outv".to_string() } else { format!("v{}", i) };
             
             filter_complex.push_str(&format!(
                 "[0:v]trim=start={}:end={},setpts={:.6}*(PTS-STARTPTS)[{}];",
-                start, end, 1.0 / scale, out_tag
+                start, end, multiplier, out_tag
             ));
             if segments > 1 {
                 concat_parts.push_str(&format!("[{}]", out_tag));
@@ -346,10 +345,6 @@ impl eframe::App for BeatMapper {
                 ui.painter().rect_filled(marker_rect, 1.0, color);
             }
 
-            if let Some(idx) = to_delete {
-                self.beats.remove(idx);
-            }
-
             if mt_response.drag_stopped() { 
                 self.dragging_beat = None; 
                 self.beats.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
@@ -363,18 +358,37 @@ impl eframe::App for BeatMapper {
                     self.is_playing = !self.is_playing;
                 }
 
+                if ui.button("⏪ -1f").clicked() {
+                    self.current_time = (self.current_time - 0.033).clamp(0.0, self.duration);
+                }
+                if ui.button("⏩ +1f").clicked() {
+                    self.current_time = (self.current_time + 0.033).clamp(0.0, self.duration);
+                }
+
                 if ui.button("➕ Beat").clicked() {
                     self.beats.push(Beat { time: self.current_time });
                     self.beats.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
                 }
-                if ui.button("🗑 Reset").clicked() {
+                
+                if let Some(dragging_idx) = self.dragging_beat {
+                    if ui.button("🗑 Delete Active Beat").clicked() {
+                        to_delete = Some(dragging_idx);
+                        self.dragging_beat = None;
+                    }
+                }
+
+                if ui.button("🗑 Reset All").clicked() {
                     self.beats = vec![Beat { time: 0.0 }];
                 }
-                ui.add(egui::Slider::new(&mut self.current_time, 0.0..=self.duration).text("Scrub"));
-            });
+                });
 
-            ui.add_space(10.0);
-            
+                if let Some(idx) = to_delete {
+                if idx < self.beats.len() {
+                    self.beats.remove(idx);
+                }
+                }
+
+                ui.add_space(10.0);
             ui.group(|ui| {
                 ui.label("Trim Settings");
                 ui.horizontal(|ui| {

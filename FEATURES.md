@@ -41,7 +41,12 @@
   * [x] user can see a counter with number of videobeats 
   * [x] user can select start and end of the video by the use of a slider in both ends, if adjusting start/end of the video makes any videobeat markers outside of the selected part of the video they should be deleted
   * [x] user should be able to export the final video to a codec that is great for transmitting over network in the file sync layer + great for the pll skewer algo and great for detail and viewing
+  * [x] implement export video that takes the selected part of the video and squeezes/expands each segment between a video beat to be exactly 0.5 second, then it should save afterwards
+  * [x] the timeline of the video is the scrubbing now, no need for the other scrubbing fader
+  * [x] add the ability to delete a specific video beat
+  * [x] add buttons to move one frame back or forth in the timeframe
 * [x] invasiv: make the project folder selector open a file picker to choose/create a project folder
 * [x] invasiv: in the "media status" add a button to open the media folder
 * [x] invasiv:  surface settings - > surface id: label should before field
 * [x] add a toggle button to all instances FULLSCREEN  to toglle fullscreen for that peer instance remotely
+
