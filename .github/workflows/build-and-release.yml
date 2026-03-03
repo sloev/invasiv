@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Job -1: Check Previous Run
+  # Job -1: Check History for unpassed stages
   previous-run:
     runs-on: ubuntu-latest
     outputs:
@@ -23,22 +23,37 @@ jobs:
       invasiv_failed: ${{ steps.check.outputs.invasiv_failed }}
       base_failed: ${{ steps.check.outputs.base_failed }}
     steps:
-      - name: Check status of previous run
+      - name: Check historical success of stages
         id: check
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PREV_RUN_ID=$(gh run list --limit 2 --json databaseId,conclusion -q ".[] | select(.conclusion != \"\") | .databaseId" | head -n 1)
-          if [ -n "$PREV_RUN_ID" ]; then
-            gh run view $PREV_RUN_ID --json jobs > jobs.json
-            echo "skewer_failed=$(jq -r '.jobs[] | select(.name == "skewer-native" or .name == "skewer-wasm" or .name == "release-skewer") | .conclusion' jobs.json | grep -q failure && echo true || echo false)" >> $GITHUB_OUTPUT
-            echo "invasiv_failed=$(jq -r '.jobs[] | select(.name == "invasiv-test" or .name == "invasiv-release-artifacts" or .name == "release-invasiv") | .conclusion' jobs.json | grep -q failure && echo true || echo false)" >> $GITHUB_OUTPUT
-            echo "base_failed=$(jq -r '.jobs[] | select(.name == "base") | .conclusion' jobs.json | grep -q failure && echo true || echo false)" >> $GITHUB_OUTPUT
-          else
-            echo "skewer_failed=false" >> $GITHUB_OUTPUT
-            echo "invasiv_failed=false" >> $GITHUB_OUTPUT
-            echo "base_failed=false" >> $GITHUB_OUTPUT
-          fi
+          # We check if these stages EVER passed in recent history for this branch.
+          # If not, we re-run them.
+          
+          function check_stage() {
+            local stage_name=$1
+            # Get last 5 completed runs on this branch
+            local runs=$(gh run list --branch ${{ github.ref_name }} --status completed --limit 5 --json databaseId,conclusion -q ".[] | .databaseId")
+            
+            for run_id in $runs; do
+               # If any of these runs had a SUCCESS for this specific stage, we're good
+               local status=$(gh run view $run_id --json jobs --jq ".jobs[] | select(.name == \"$stage_name\") | .conclusion")
+               if [ "$status" == "success" ]; then
+                 echo "false"
+                 return
+               fi
+               if [ "$status" == "failure" ]; then
+                 echo "true"
+                 return
+               fi
+            done
+            echo "true" # Default to true if no history found
+          }
+
+          echo "base_failed=$(check_stage "base")" >> $GITHUB_OUTPUT
+          echo "skewer_failed=$(check_stage "skewer-native")" >> $GITHUB_OUTPUT
+          echo "invasiv_failed=$(check_stage "invasiv-test")" >> $GITHUB_OUTPUT
 
   # Job 0: Path Filtering
   filter:
