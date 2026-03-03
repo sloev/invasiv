@@ -7,7 +7,7 @@ public:
     bool fullscreen = false;
     string configPath;
 
-    void setup(string _configPath);
+    void setup(string _configPath, bool bHeadless = false);
     void toggleFullscreen();
     void save();
 

@@ -106,7 +106,7 @@ void Core::reloadProject(string path) {
     mediaDir = ofFilePath::join(path, "media");
     if (!ofDirectory(mediaDir).exists()) ofDirectory(mediaDir).create();
 
-    identity.setup(ofFilePath::join(configsDir, "config.json"));
+    identity.setup(ofFilePath::join(configsDir, "config.json"), bHeadless);
     if (!net.isThreadRunning()) net.setup(identity.myId, mediaDir);
     else net.setMediaPath(mediaDir);
 
@@ -114,6 +114,7 @@ void Core::reloadProject(string path) {
     warper.setup(ofFilePath::join(configsDir, "warps.json"), mediaDir, identity.myId);
     stateMgr.setup(ofFilePath::join(configsDir, "states.json"));
     watcher.setup(mediaDir);
+    ofAddListener(watcher.filesChanged, this, &Core::onFilesChanged);
 }
 
 void Core::onFilesChanged(std::vector<std::string> &files) {

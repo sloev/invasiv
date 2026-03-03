@@ -1,6 +1,6 @@
 #include "Identity.h"
 
-void Identity::setup(string _configPath) {
+void Identity::setup(string _configPath, bool bHeadless) {
     configPath = _configPath;
     ofFile file(configPath);
     ofJson config;
@@ -12,7 +12,7 @@ void Identity::setup(string _configPath) {
         }
         if(config.contains("fullscreen")) {
             fullscreen = config["fullscreen"].get<bool>();
-            ofSetFullscreen(fullscreen);
+            if (!bHeadless) ofSetFullscreen(fullscreen);
         }
     }
 

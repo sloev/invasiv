@@ -9,7 +9,7 @@ TestTexture &TestTexture::getInstance()
 
 ofTexture &TestTexture::getTexture()
 {
-    if (!tex.isAllocated())
+    if (ofGetWindowPtr() != nullptr && !tex.isAllocated())
     {
         ofPixels pix;
         pix.allocate(256, 256, OF_PIXELS_RGB);

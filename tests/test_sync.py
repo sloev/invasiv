@@ -20,7 +20,8 @@ def setup_node(name, peer_id, role):
     path = f"test_env/{name}"
     os.makedirs(f"{path}/configs", exist_ok=True)
     os.makedirs(f"{path}/media", exist_ok=True)
-    with open(f"{path}/configs/identity.json", "w") as f:
+    # Correct filename is config.json according to Core.cpp
+    with open(f"{path}/configs/config.json", "w") as f:
         f.write(f'{{"identity":{{"id":"{peer_id}"}},"role":{role},"fullscreen":false}}')
     with open(f"{path}/configs/warps.json", "w") as f:
         f.write('{"peers":{}}')
@@ -66,7 +67,7 @@ def test_protocol_driver():
 
     process = None
     try:
-        print(f"Launching Invasiv in Headless CLI mode...")
+        print(f"Launching Invasiv in Headless CLI mode from {work_node}")
         # Capture stdout/stderr to debug app crashes
         process = subprocess.Popen(
             [bin_path, "--headless"], 
@@ -75,7 +76,8 @@ def test_protocol_driver():
             preexec_fn=os.setsid,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True
+            text=True,
+            bufsize=0
         )
         
         # 1. TEST: Heartbeat
@@ -86,8 +88,15 @@ def test_protocol_driver():
             # Check if process is still alive
             if process.poll() is not None:
                 print(f"FAILED: Invasiv process exited prematurely with code {process.returncode}")
-                stdout, stderr = process.communicate()
-                print(f"STDOUT: {stdout}\nSTDERR: {stderr}")
+                # Try to get ldd output if it failed with exit code
+                try:
+                    ldd_res = subprocess.check_output(["ldd", bin_path], text=True)
+                    print(f"--- LDD OUTPUT ---\n{ldd_res}")
+                except: pass
+                
+                stdout, stderr = process.communicate(timeout=2)
+                print(f"--- STDOUT ---\n{stdout}")
+                print(f"--- STDERR ---\n{stderr}")
                 return False
 
             try:
@@ -108,9 +117,9 @@ def test_protocol_driver():
             print("FAILED: No heartbeat broadcast. Checking app logs...")
             # We can't use communicate() here because it blocks, but we can kill and read
             os.killpg(os.getpgid(process.pid), signal.SIGTERM)
-            stdout, stderr = process.communicate()
-            print(f"APP STDOUT:\n{stdout}")
-            print(f"APP STDERR:\n{stderr}")
+            stdout, stderr = process.communicate(timeout=2)
+            print(f"--- APP STDOUT ---\n{stdout}")
+            print(f"--- APP STDERR ---\n{stderr}")
             process = None
             return False
 

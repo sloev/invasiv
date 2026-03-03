@@ -42,6 +42,10 @@ test:
 	@docker build -t invasiv-tester $(BASE_ARG) --target tester . > docker_test.log 2>&1 && echo "PASSED" || (echo "FAILED" && cat docker_test.log && rm -f docker_test.log && exit 1)
 	@rm -f docker_test.log
 
+test-verbose:
+	@echo -n "Running Tests (Docker)... "
+	@docker build -t invasiv-tester $(BASE_ARG) --target tester . && echo "PASSED" || (echo "FAILED" && exit 1)
+
 extract:
 	@mkdir -p artifacts
 	docker rm -f $(CONTAINER_NAME) 2>/dev/null || true

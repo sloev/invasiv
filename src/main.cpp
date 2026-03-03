@@ -1,6 +1,7 @@
 #include "ofMain.h"
 #include "ofApp.h"
 #include "Core.h"
+#include "ofAppNoWindow.h"
 
 int main(int argc, char *argv[]) {
     bool headless = false;
@@ -13,6 +14,9 @@ int main(int argc, char *argv[]) {
 
     if (headless) {
         // Pure CLI mode: No window, no OpenGL context
+        auto window = std::make_shared<ofAppNoWindow>();
+        ofSetupOpenGL(window, 1024, 768, OF_WINDOW);
+        
         Core core;
         core.setup(true);
 
