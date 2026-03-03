@@ -15,8 +15,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Job -1: Check Previous Run
+  previous-run:
+    runs-on: ubuntu-latest
+    outputs:
+      skewer_failed: ${{ steps.check.outputs.skewer_failed }}
+      invasiv_failed: ${{ steps.check.outputs.invasiv_failed }}
+      base_failed: ${{ steps.check.outputs.base_failed }}
+    steps:
+      - name: Check status of previous run
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PREV_RUN_ID=$(gh run list --limit 2 --json databaseId,conclusion -q ".[] | select(.conclusion != \"\") | .databaseId" | head -n 1)
+          if [ -n "$PREV_RUN_ID" ]; then
+            gh run view $PREV_RUN_ID --json jobs > jobs.json
+            echo "skewer_failed=$(jq -r '.jobs[] | select(.name == "skewer-native" or .name == "skewer-wasm" or .name == "release-skewer") | .conclusion' jobs.json | grep -q failure && echo true || echo false)" >> $GITHUB_OUTPUT
+            echo "invasiv_failed=$(jq -r '.jobs[] | select(.name == "invasiv-test" or .name == "invasiv-release-artifacts" or .name == "release-invasiv") | .conclusion' jobs.json | grep -q failure && echo true || echo false)" >> $GITHUB_OUTPUT
+            echo "base_failed=$(jq -r '.jobs[] | select(.name == "base") | .conclusion' jobs.json | grep -q failure && echo true || echo false)" >> $GITHUB_OUTPUT
+          else
+            echo "skewer_failed=false" >> $GITHUB_OUTPUT
+            echo "invasiv_failed=false" >> $GITHUB_OUTPUT
+            echo "base_failed=false" >> $GITHUB_OUTPUT
+          fi
+
   # Job 0: Path Filtering
   filter:
+    needs: previous-run
     runs-on: ubuntu-latest
     outputs:
       base: ${{ steps.filter.outputs.base }}
@@ -52,8 +78,11 @@ jobs:
 
   # Job 1: Build the Heavy openFrameworks Base
   base:
-    needs: filter
-    if: needs.filter.outputs.base == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [filter, previous-run]
+    if: |
+      needs.filter.outputs.base == 'true' || 
+      needs.previous-run.outputs.base_failed == 'true' ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -81,8 +110,11 @@ jobs:
 
   # Job 2: SKEWER (Native)
   skewer-native:
-    needs: filter
-    if: needs.filter.outputs.skewer == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [filter, previous-run]
+    if: |
+      needs.filter.outputs.skewer == 'true' || 
+      needs.previous-run.outputs.skewer_failed == 'true' ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -108,8 +140,11 @@ jobs:
 
   # Job 3: SKEWER (WASM)
   skewer-wasm:
-    needs: filter
-    if: needs.filter.outputs.skewer == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [filter, previous-run]
+    if: |
+      needs.filter.outputs.skewer == 'true' || 
+      needs.previous-run.outputs.skewer_failed == 'true' ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -133,8 +168,13 @@ jobs:
 
   # Job 4: INVASIV (oF) - Build & Test
   invasiv-test:
-    needs: [filter, base]
-    if: always() && (needs.filter.outputs.invasiv_src == 'true' || needs.filter.outputs.invasiv_tests == 'true' || github.event_name == 'workflow_dispatch')
+    needs: [filter, base, previous-run]
+    if: |
+      always() && !cancelled() && 
+      (needs.filter.outputs.invasiv_src == 'true' || 
+       needs.filter.outputs.invasiv_tests == 'true' || 
+       needs.previous-run.outputs.invasiv_failed == 'true' ||
+       github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -167,8 +207,12 @@ jobs:
 
   # Job 5: INVASIV (oF) - Release Artifacts
   invasiv-release-artifacts:
-    needs: [filter, invasiv-test]
-    if: needs.filter.outputs.invasiv_src == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [filter, invasiv-test, previous-run]
+    if: |
+      (needs.filter.outputs.invasiv_src == 'true' || 
+       needs.previous-run.outputs.invasiv_failed == 'true' ||
+       github.event_name == 'workflow_dispatch') &&
+      (needs.invasiv-test.result == 'success' || needs.invasiv-test.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -217,8 +261,12 @@ jobs:
 
   # Job 6: Release SKEWER
   release-skewer:
-    needs: [filter, skewer-native]
-    if: needs.filter.outputs.skewer == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [filter, skewer-native, previous-run]
+    if: |
+      (needs.filter.outputs.skewer == 'true' || 
+       needs.previous-run.outputs.skewer_failed == 'true' ||
+       github.event_name == 'workflow_dispatch') &&
+      (needs.skewer-native.result == 'success' || needs.skewer-native.result == 'skipped')
     runs-on: ubuntu-latest
     permissions: { contents: write }
     steps:
@@ -238,8 +286,12 @@ jobs:
 
   # Job 7: Release INVASIV
   release-invasiv:
-    needs: [filter, invasiv-release-artifacts]
-    if: needs.filter.outputs.invasiv_src == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [filter, invasiv-release-artifacts, previous-run]
+    if: |
+      (needs.filter.outputs.invasiv_src == 'true' || 
+       needs.previous-run.outputs.invasiv_failed == 'true' ||
+       github.event_name == 'workflow_dispatch') &&
+      (needs.invasiv-release-artifacts.result == 'success' || needs.invasiv-release-artifacts.result == 'skipped')
     runs-on: ubuntu-latest
     permissions: { contents: write }
     steps:
@@ -262,8 +314,8 @@ jobs:
 
   # Job 8: Deploy Pages
   deploy-pages:
-    needs: [filter, skewer-wasm]
-    if: always() && !cancelled() && (needs.filter.outputs.docs == 'true' || needs.filter.outputs.skewer == 'true' || needs.filter.outputs.invasiv_src == 'true' || github.event_name == 'workflow_dispatch')
+    needs: [filter, skewer-wasm, previous-run]
+    if: always() && !cancelled() && (needs.filter.outputs.docs == 'true' || needs.filter.outputs.skewer == 'true' || needs.filter.outputs.invasiv_src == 'true' || needs.previous_run.outputs.skewer_failed == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions: { contents: write, pages: write, id-token: write }
     steps:
