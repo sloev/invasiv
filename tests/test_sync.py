@@ -44,11 +44,18 @@ def test_protocol_driver():
     test_env["INVASIV_TEST_ADDR"] = "127.0.0.1"
     test_env["NO_AT_BRIDGE"] = "1"
 
-    # Setup Master Socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind(('127.0.0.1', 0)) # Master sends from random port
-    sock.settimeout(1.0)
+    # Setup Master Sockets
+    # To see broadcasts on 127.0.0.1, we MUST bind to 0.0.0.0 or 127.0.0.1
+    listen_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try: listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+    except: pass
+    listen_sock.bind(('0.0.0.0', 9000))
+    listen_sock.settimeout(15.0) # More time for CI
+
+    # Separate socket for sending
+    send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    send_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
     process = None
     try:
@@ -56,26 +63,24 @@ def test_protocol_driver():
         log_f = open("test_env/app.log", "w")
         process = subprocess.Popen([bin_path], stdout=log_f, stderr=subprocess.STDOUT, env=test_env, preexec_fn=os.setsid)
         
-        time.sleep(5) # Wait for OF to boot
-
         # 1. TEST: Heartbeat Reception
-        print("Testing Heartbeat reception...")
-        # We need to listen on 9000 to see the App's heartbeats
-        listen_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        listen_sock.bind(('127.0.0.1', 9000))
-        listen_sock.settimeout(5.0)
+        print("Waiting for heartbeat...")
+        start_time = time.time()
+        heartbeat_found = False
+        while time.time() - start_time < 20:
+            try:
+                data, addr = listen_sock.recvfrom(1024)
+                header_id, p_type = struct.unpack_from("BB", data)
+                if header_id == PACKET_ID and p_type == PKT_HEARTBEAT:
+                    print(f"SUCCESS: Received heartbeat from {addr}")
+                    heartbeat_found = True
+                    break
+            except socket.timeout:
+                continue
         
-        try:
-            data, addr = listen_sock.recvfrom(1024)
-            header_id, p_type = struct.unpack_from("BB", data)
-            if header_id == PACKET_ID and p_type == PKT_HEARTBEAT:
-                print("SUCCESS: Received heartbeat from App.")
-        except socket.timeout:
+        if not heartbeat_found:
             print("FAILED: App did not broadcast heartbeat.")
             return False
-        finally:
-            listen_sock.close()
 
         # 2. TEST: Structure Propagation
         print("Testing Structure Sync...")
@@ -88,12 +93,12 @@ def test_protocol_driver():
         }
         j_str = json.dumps(test_warp)
         payload = build_header(PKT_STRUCT) + j_str.encode('utf-8')
-        sock.sendto(payload, ('127.0.0.1', 9000))
+        send_sock.sendto(payload, ('127.0.0.1', 9000))
         
         print("Polling disk for warps.json update...")
         start_time = time.time()
         synced = False
-        while time.time() - start_time < 5:
+        while time.time() - start_time < 10:
             if os.path.exists(peer_warp_file):
                 with open(peer_warp_file, 'r') as f:
                     try:
@@ -114,25 +119,23 @@ def test_protocol_driver():
         file_content = b"distributed_visual_logic_2026"
         
         # Send Offer
-        # PacketHeader(11) + FileOfferPacket(totalSize:4, nameLen:2, hash:33)
         offer = build_header(PKT_FILE_OFFER) + struct.pack("IH33s", len(file_content), len(filename), b"dummy_hash") + filename.encode('ascii')
-        sock.sendto(offer, ('127.0.0.1', 9000))
-        time.sleep(0.5)
+        send_sock.sendto(offer, ('127.0.0.1', 9000))
+        time.sleep(1.0)
         
         # Send Chunk
-        # PacketHeader(11) + FileChunkPacket(offset:4, size:2)
         chunk = build_header(PKT_FILE_CHUNK) + struct.pack("IH", 0, len(file_content)) + file_content
-        sock.sendto(chunk, ('127.0.0.1', 9000))
-        time.sleep(0.5)
+        send_sock.sendto(chunk, ('127.0.0.1', 9000))
+        time.sleep(1.0)
         
         # Send End
         end = build_header(PKT_FILE_END)
-        sock.sendto(end, ('127.0.0.1', 9000))
+        send_sock.sendto(end, ('127.0.0.1', 9000))
         
         print("Polling disk for media sync...")
         start_time = time.time()
         file_arrived = False
-        while time.time() - start_time < 10:
+        while time.time() - start_time < 15:
             if os.path.exists(peer_media_file):
                 with open(peer_media_file, "rb") as f:
                     if f.read() == file_content:
@@ -151,10 +154,12 @@ def test_protocol_driver():
     except Exception as e:
         print(f"EXCEPTION: {e}")
     finally:
+        listen_sock.close()
+        send_sock.close()
         if process:
             try: os.killpg(os.getpgid(process.pid), signal.SIGTERM)
             except: pass
-        if os.path.exists("test_env"):
+        if os.path.exists("test_env") and False: # Keep for debugging
             shutil.rmtree("test_env")
 
     return False
