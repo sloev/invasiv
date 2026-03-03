@@ -212,7 +212,7 @@ jobs:
           load: true
           tags: invasiv-tester:latest
           build-args: |
-            VERSION_NAME=test-build
+            VERSION_NAME=v0.1.${{ github.run_number }}
             HEADLESS_SUPPORT=1
           cache-from: |
             type=gha
