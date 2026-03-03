@@ -279,11 +279,7 @@ jobs:
   # Job 6: Release SKEWER
   release-skewer:
     needs: [filter, skewer-native, previous-run]
-    if: |
-      (needs.filter.outputs.skewer == 'true' || 
-       needs.previous-run.outputs.skewer_failed == 'true' ||
-       github.event_name == 'workflow_dispatch') &&
-      (needs.skewer-native.result == 'success' || needs.skewer-native.result == 'skipped')
+    if: always() && !cancelled() && needs.skewer-native.result == 'success'
     runs-on: ubuntu-latest
     permissions: { contents: write }
     steps:
@@ -304,11 +300,7 @@ jobs:
   # Job 7: Release INVASIV
   release-invasiv:
     needs: [filter, invasiv-release-artifacts, previous-run]
-    if: |
-      (needs.filter.outputs.invasiv_src == 'true' || 
-       needs.previous-run.outputs.invasiv_failed == 'true' ||
-       github.event_name == 'workflow_dispatch') &&
-      (needs.invasiv-release-artifacts.result == 'success' || needs.invasiv-release-artifacts.result == 'skipped')
+    if: always() && !cancelled() && needs.invasiv-release-artifacts.result == 'success'
     runs-on: ubuntu-latest
     permissions: { contents: write }
     steps:

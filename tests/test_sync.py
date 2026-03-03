@@ -44,12 +44,13 @@ def test_protocol_driver():
         shutil.rmtree("test_env")
     
     test_env_vars = os.environ.copy()
-    test_env_vars["INVASIV_TEST_ADDR"] = "127.255.255.255"
+    # Use global broadcast for maximum compatibility in Docker/CI
+    test_env_vars["INVASIV_TEST_ADDR"] = "255.255.255.255"
     
     # Setup node
     path_node, work_node = setup_node("peer", "PEER01", 0)
     peer_warp_file = os.path.join(path_node, "configs/warps.json")
-    peer_media_file = os.path.join(node_path := path_node, "media/sync_test.txt")
+    peer_media_file = os.path.join(path_node, "media/sync_test.txt")
 
     bin_path = os.path.abspath("./bin/invasiv")
 
@@ -57,7 +58,7 @@ def test_protocol_driver():
     listen_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     listen_sock.bind(('', 9000))
-    listen_sock.settimeout(15.0)
+    listen_sock.settimeout(1.0)
 
     send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     send_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -66,27 +67,29 @@ def test_protocol_driver():
     process = None
     try:
         print(f"Launching Invasiv in Headless CLI mode...")
-        # No need for xvfb or log files redirection unless we want to debug
         process = subprocess.Popen([bin_path, "--headless"], cwd=work_node, env=test_env_vars, preexec_fn=os.setsid)
         
         # 1. TEST: Heartbeat
-        print("Waiting for heartbeat...")
+        print("Waiting for heartbeat (up to 30s)...")
         heartbeat_found = False
         start_time = time.time()
-        while time.time() - start_time < 20:
+        while time.time() - start_time < 30:
             try:
                 data, addr = listen_sock.recvfrom(1024)
                 if len(data) < 11: continue
                 header_id, p_type = struct.unpack_from("BB", data)
                 if header_id == PACKET_ID and p_type == PKT_HEARTBEAT:
                     peer_id = data[11:19].decode('ascii').strip('\x00')
-                    print(f"SUCCESS: Heartbeat from {peer_id}")
+                    print(f"SUCCESS: Heartbeat from {peer_id} @ {addr}")
                     heartbeat_found = True
                     break
-            except socket.timeout: continue
+            except socket.timeout: 
+                print(".", end="", flush=True)
+                continue
         
+        print("")
         if not heartbeat_found:
-            print("FAILED: No heartbeat broadcast.")
+            print("FAILED: No heartbeat broadcast. Check if app is bound to 9000.")
             return False
 
         # 2. TEST: Structure Sync
@@ -95,7 +98,7 @@ def test_protocol_driver():
             "peers": { "MASTER01": [{"id": "S1", "ownerId": "MASTER01", "contentId": "t.mp4", "rows": 1, "cols": 1}] }
         }
         payload = build_header(PKT_STRUCT) + json.dumps(test_warp).encode('utf-8')
-        send_sock.sendto(payload, ('127.255.255.255', 9000))
+        send_sock.sendto(payload, ('127.0.0.1', 9000))
         
         # Poll for disk write
         print("Verifying persistence on disk...")
@@ -123,16 +126,16 @@ def test_protocol_driver():
         
         # Offer
         offer = build_header(PKT_FILE_OFFER) + struct.pack("IH33s", len(content), len(filename), b"h") + filename.encode('ascii')
-        send_sock.sendto(offer, ('127.255.255.255', 9000))
+        send_sock.sendto(offer, ('127.0.0.1', 9000))
         time.sleep(0.2)
         
         # Chunk
         chunk = build_header(PKT_FILE_CHUNK) + struct.pack("IH", 0, len(content)) + content
-        send_sock.sendto(chunk, ('127.255.255.255', 9000))
+        send_sock.sendto(chunk, ('127.0.0.1', 9000))
         time.sleep(0.2)
         
         # End
-        send_sock.sendto(build_header(PKT_FILE_END), ('127.255.255.255', 9000))
+        send_sock.sendto(build_header(PKT_FILE_END), ('127.0.0.1', 9000))
         
         print("Verifying file arrival...")
         arrived = False

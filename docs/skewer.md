@@ -32,6 +32,7 @@ title: "SKEWER // ONLINE_WARPER"
     
     // Inline toBlobURL to avoid dependency on missing export in util.js
     async function toBlobURL(url, type) {
+        console.log(`[WASM] Fetching blob URL for: ${url}`);
         const response = await fetch(url);
         const buffer = await response.arrayBuffer();
         const blob = new Blob([buffer], { type });
@@ -47,24 +48,35 @@ title: "SKEWER // ONLINE_WARPER"
 
     // Trigger uploader on canvas click if WASM state requested it.
     canvas.addEventListener('click', () => {
+        console.log("[WASM] Canvas clicked");
         if (handle && handle.is_load_clicked()) {
+            console.log("[WASM] Load requested by Rust, triggering uploader");
             uploader.click();
             handle.reset_load_clicked();
         }
     });
 
     async function setup() {
+        console.log("[WASM] Starting setup...");
         await init();
         handle = new WebHandle();
         await handle.start("the_canvas_id");
+        console.log("[WASM] Rust engine started");
 
         ffmpeg = new FFmpeg();
         const baseURL = './lib';
+        
+        ffmpeg.on('log', ({ message }) => {
+            // console.log(`[FFmpeg] ${message}`);
+        });
+
+        console.log("[WASM] Loading FFmpeg...");
         await ffmpeg.load({
             classWorkerURL: await toBlobURL(`${baseURL}/worker.js`, 'text/javascript'),
             coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
             wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
         });
+        console.log("[WASM] FFmpeg Loaded");
 
         document.getElementById('loading-overlay').style.display = 'none';
         document.getElementById('controls').style.display = 'block';
@@ -73,10 +85,13 @@ title: "SKEWER // ONLINE_WARPER"
             const file = e.target.files[0];
             if (!file) return;
             
+            console.log(`[WASM] File selected: ${file.name} (${file.size} bytes)`);
+            
             // Get Metadata using Browser Video Element
             const video = document.createElement('video');
             video.preload = 'metadata';
             video.onloadedmetadata = () => {
+                console.log(`[WASM] Video duration detected: ${video.duration}s`);
                 handle.set_duration(video.duration);
                 window.URL.revokeObjectURL(video.src);
             };
@@ -85,16 +100,18 @@ title: "SKEWER // ONLINE_WARPER"
             const data = new Uint8Array(await file.arrayBuffer());
             await ffmpeg.writeFile('input.mp4', data);
             handle.load_video('input.mp4');
+            console.log("[WASM] Video transferred to FFmpeg filesystem");
         });
 
         let last_time = -1;
         setInterval(async () => {
-            if (ffmpegBusy) return;
+            if (ffmpegBusy || !ffmpeg) return;
 
             const current_time = handle.get_current_time();
             if (Math.abs(current_time - last_time) > 0.05) {
                 ffmpegBusy = true;
                 last_time = current_time;
+                console.log(`[WASM] Seeking to ${current_time.toFixed(2)}s`);
                 try {
                     // Extract a single frame at current_time (optimized size for preview)
                     await ffmpeg.exec([
@@ -109,8 +126,9 @@ title: "SKEWER // ONLINE_WARPER"
                     ]);
                     const data = await ffmpeg.readFile('out.raw');
                     handle.push_frame(data, 640, 360); 
+                    // console.log("[WASM] Frame pushed to Rust");
                 } catch (e) {
-                    // Silent fail if video not loaded yet or seek error
+                    // console.error("[WASM] Frame extraction error:", e);
                 }
                 ffmpegBusy = false;
             }
@@ -118,7 +136,7 @@ title: "SKEWER // ONLINE_WARPER"
     }
 
     setup().catch((err) => {
-        console.error("FFmpeg Initialization Error:", err);
+        console.error("[WASM] Global Setup Error:", err);
         document.getElementById('loading-overlay').innerHTML = "ERROR: " + err.message;
     });
 </script>
