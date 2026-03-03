@@ -3,6 +3,9 @@ name = "skewer"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 eframe = { version = "0.27.2", features = ["serde"] }
 egui = "0.27.2"
