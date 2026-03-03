@@ -8,24 +8,26 @@ title: "SKEWER // ONLINE_WARPER"
 <section class="skewer-wasm">
     <h2 style="color: var(--accent); margin-bottom: 2rem;">SKEWER ONLINE</h2>
     
-    <div id="loading-overlay" style="padding: 2rem; background: #111; color: var(--accent); margin-bottom: 2rem; border: 1px dashed var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; display: flex; flex-direction: column; align-items: center; gap: 1rem;">
+    <div id="loading-overlay" style="padding: 2rem; background: #111; color: var(--accent); margin-bottom: 2rem; border: 1px dashed var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; display: flex; flex-direction: column; align-items: center; gap: 1rem; position: relative; z-index: 10;">
         <div id="status-text">INITIALIZING SKEWER_WASM...</div>
         <div id="progress-container" style="width: 100%; max-width: 300px; height: 4px; background: #222; border-radius: 2px; overflow: hidden; display: none;">
             <div id="progress-bar" style="width: 0%; height: 100%; background: var(--accent); transition: width 0.3s ease;"></div>
         </div>
     </div>
 
-    <div id="controls" style="display:none; margin-bottom: 2rem;">
-        <input type="file" id="uploader" accept="video/*" style="display:none;">
-    </div>
+    <div id="skewer-ui-root" style="opacity: 0.2; pointer-events: none; transition: opacity 0.5s ease;">
+        <div id="controls" style="display:none; margin-bottom: 2rem;">
+            <input type="file" id="uploader" accept="video/*" style="display:none;">
+        </div>
 
-    <p style="margin-bottom: 2rem; color: var(--text-dim); font-size: 0.8rem;">
-        <b>Instruction:</b> Mark your rhythmic events on the timeline. The preview is powered by FFmpeg.wasm. 
-        When done, copy the generated command to re-encode the file locally.
-    </p>
-    
-    <div style="border: 2px solid var(--accent); background: #000; min-height: 600px; position: relative; overflow: hidden;">
-        <canvas id="the_canvas_id" style="width: 100%; height: 100%;"></canvas>
+        <p style="margin-bottom: 2rem; color: var(--text-dim); font-size: 0.8rem;">
+            <b>Instruction:</b> Mark your rhythmic events on the timeline. The preview is powered by FFmpeg.wasm. 
+            When done, copy the generated command to re-encode the file locally.
+        </p>
+        
+        <div style="border: 2px solid var(--accent); background: #000; height: 70vh; max-height: 800px; position: relative; overflow: hidden; margin-bottom: 4rem;">
+            <canvas id="the_canvas_id" style="width: 100%; height: 100%; display: block;"></canvas>
+        </div>
     </div>
 </section>
 
@@ -100,6 +102,9 @@ title: "SKEWER // ONLINE_WARPER"
             setTimeout(() => {
                 overlay.style.display = 'none';
                 document.getElementById('controls').style.display = 'block';
+                const uiRoot = document.getElementById('skewer-ui-root');
+                uiRoot.style.opacity = "1.0";
+                uiRoot.style.pointerEvents = "all";
             }, 500);
 
         } catch (err) {
