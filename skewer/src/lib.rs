@@ -23,6 +23,7 @@ pub struct AppState {
     pub load_video_clicked: bool,
     pub frame_data: Option<(Vec<u8>, (usize, usize))>,
     pub current_time: f64,
+    pub duration: f64,
 }
 
 lazy_static::lazy_static! {
@@ -172,6 +173,9 @@ impl eframe::App for BeatMapper {
                 if let Some((data, size)) = state.frame_data.take() {
                     let image = egui::ColorImage::from_rgba_unmultiplied([size.0, size.1], &data);
                     self.texture = Some(ctx.load_texture("video_frame", image, Default::default()));
+                }
+                if state.duration > 0.0 {
+                    self.duration = state.duration;
                 }
                 state.current_time = self.current_time;
             }
@@ -339,6 +343,13 @@ impl WebHandle {
     pub fn load_video(&self, path: &str) {
         if let Ok(mut state) = SHARED_STATE.lock() {
             state.video_path = Some(PathBuf::from(path));
+        }
+    }
+
+    #[wasm_bindgen]
+    pub fn set_duration(&self, duration: f64) {
+        if let Ok(mut state) = SHARED_STATE.lock() {
+            state.duration = duration;
         }
     }
 

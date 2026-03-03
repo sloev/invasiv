@@ -43,10 +43,9 @@ title: "SKEWER // ONLINE_WARPER"
     
     let ffmpeg = null;
     let handle = null;
+    let ffmpegBusy = false;
 
     // Trigger uploader on canvas click if WASM state requested it.
-    // This works because the click on the egui button bubbles to the canvas 
-    // and remains a "user-initiated event" context.
     canvas.addEventListener('click', () => {
         if (handle && handle.is_load_clicked()) {
             uploader.click();
@@ -60,7 +59,6 @@ title: "SKEWER // ONLINE_WARPER"
         await handle.start("the_canvas_id");
 
         ffmpeg = new FFmpeg();
-        // Load from local lib/ folder
         const baseURL = './lib';
         await ffmpeg.load({
             classWorkerURL: await toBlobURL(`${baseURL}/worker.js`, 'text/javascript'),
@@ -74,6 +72,16 @@ title: "SKEWER // ONLINE_WARPER"
         uploader.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
+            
+            // Get Metadata using Browser Video Element
+            const video = document.createElement('video');
+            video.preload = 'metadata';
+            video.onloadedmetadata = () => {
+                handle.set_duration(video.duration);
+                window.URL.revokeObjectURL(video.src);
+            };
+            video.src = URL.createObjectURL(file);
+
             const data = new Uint8Array(await file.arrayBuffer());
             await ffmpeg.writeFile('input.mp4', data);
             handle.load_video('input.mp4');
@@ -81,26 +89,30 @@ title: "SKEWER // ONLINE_WARPER"
 
         let last_time = -1;
         setInterval(async () => {
+            if (ffmpegBusy) return;
+
             const current_time = handle.get_current_time();
             if (Math.abs(current_time - last_time) > 0.05) {
+                ffmpegBusy = true;
                 last_time = current_time;
                 try {
-                    // Extract a single frame at current_time
+                    // Extract a single frame at current_time (optimized size for preview)
                     await ffmpeg.exec([
                         '-ss', current_time.toString(),
                         '-i', 'input.mp4',
                         '-frames:v', '1',
-                        '-s', '1280x720',
+                        '-s', '640x360',
                         '-f', 'image2',
                         '-vcodec', 'rawvideo',
                         '-pix_fmt', 'rgba',
                         'out.raw'
                     ]);
                     const data = await ffmpeg.readFile('out.raw');
-                    handle.push_frame(data, 1280, 720); 
+                    handle.push_frame(data, 640, 360); 
                 } catch (e) {
-                    // console.error("Frame extraction error:", e);
+                    // Silent fail if video not loaded yet or seek error
                 }
+                ffmpegBusy = false;
             }
         }, 100);
     }
