@@ -3,16 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>INVASIV // THE_NEW_REALITY</title>
+    <title>INVASIV // DISTRIBUTED_VISUALS</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@900&family=JetBrains+Mono:wght@400;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;900&family=JetBrains+Mono:wght@400;800&display=swap');
 
         :root {
             --bg: #000000;
             --accent: #ff0000;
-            --accent-dim: #880000;
+            --accent-dim: #440000;
             --text: #ffffff;
-            --text-dim: #666666;
+            --text-dim: #888888;
+            --border: #222222;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -20,283 +21,264 @@
         body {
             background-color: var(--bg);
             color: var(--text);
-            font-family: 'JetBrains Mono', monospace;
-            line-height: 1.1;
+            font-family: 'Inter', sans-serif;
+            line-height: 1.4;
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Grit Filter */
-        body::before {
-            content: "";
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: url("https://www.transparenttextures.com/patterns/carbon-fibre.png");
-            opacity: 0.05;
-            pointer-events: none;
-            z-index: 1000;
-        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
 
-        /* Synthwave Grid Flyover */
-        .grid-container {
+        /* Flyover Grid */
+        .grid-bg {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
             z-index: -1;
-            perspective: 500px;
             background: radial-gradient(circle at center, #110000 0%, #000 100%);
+            perspective: 500px;
         }
         .grid-plane {
             position: absolute;
             top: 0; left: -50%; width: 200%; height: 200%;
-            background-image: 
-                linear-gradient(rgba(255, 0, 0, 0.1) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 0, 0, 0.1) 1px, transparent 1px);
-            background-size: 50px 50px;
-            transform: rotateX(60deg) translateY(0);
-            animation: flyover 10s linear infinite;
+            background-image: linear-gradient(rgba(255, 0, 0, 0.05) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(255, 0, 0, 0.05) 1px, transparent 1px);
+            background-size: 60px 60px;
+            transform: rotateX(60deg);
+            animation: flyover 20s linear infinite;
         }
-        @keyframes flyover {
-            0% { transform: rotateX(60deg) translateY(0); }
-            100% { transform: rotateX(60deg) translateY(50px); }
-        }
+        @keyframes flyover { 0% { transform: rotateX(60deg) translateY(0); } 100% { transform: rotateX(60deg) translateY(60px); } }
 
-        .container { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
-
-        /* Block Logo */
-        .logo-box {
-            padding: 10vh 0 5vh 0;
-            text-align: center;
-        }
-        .invasiv-logo {
-            font-family: 'Inter', sans-serif;
-            font-size: clamp(4rem, 25vw, 20rem);
+        /* Header */
+        header { padding: 8vh 0; text-align: center; }
+        .logo {
+            font-size: clamp(3rem, 15vw, 12rem);
             font-weight: 900;
-            font-style: normal;
             background: var(--accent);
             color: black;
             display: inline-block;
             padding: 0 1rem;
             letter-spacing: -0.05em;
             text-transform: uppercase;
-            box-shadow: 20px 20px 0 var(--accent-dim);
         }
 
-        .tv-hook {
-            font-size: 2rem;
+        .tagline {
+            font-size: clamp(1.2rem, 3vw, 2rem);
+            font-weight: 400;
             color: var(--accent);
-            text-align: center;
-            margin-bottom: 4rem;
-            font-weight: 800;
+            margin-top: 2rem;
             text-transform: uppercase;
+            letter-spacing: 0.2em;
         }
 
-        /* Content Sections */
+        /* Hero Layout */
         .hero-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: 1fr 1.2fr;
             gap: 4rem;
-            margin-bottom: 8rem;
+            margin: 5rem 0;
+            align-items: center;
         }
 
-        .snark-text {
-            font-size: 1.2rem;
-            border-top: 2px solid var(--accent);
-            padding-top: 2rem;
-        }
-        .snark-text b { color: var(--accent); }
+        .hero-text { font-size: 1.2rem; color: var(--text-dim); }
+        .hero-text b { color: #fff; }
 
-        /* Screencast */
         .screencast {
             width: 100%;
-            border: 1px solid #333;
-            margin-bottom: 8rem;
-            filter: contrast(1.2) brightness(1.1) grayscale(0.2);
+            border: 1px solid var(--border);
+            filter: contrast(1.1) brightness(1.1);
         }
 
-        /* Feature Logic */
-        .logic-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 1rem;
-            margin-bottom: 10rem;
-        }
-        .logic-card {
-            background: rgba(10, 0, 0, 0.8);
-            border: 1px solid #222;
-            padding: 3rem;
+        /* Setup Comparison Diagrams */
+        section.diagrams { padding: 5rem 0; border-top: 1px solid var(--border); }
+        .diag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+        .diag-card { background: #050505; border: 1px solid var(--border); padding: 2rem; }
+        .diag-title { font-weight: 900; text-transform: uppercase; margin-bottom: 2rem; color: var(--accent); font-size: 0.8rem; }
+        
+        .setup-visual { 
+            height: 200px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            gap: 10px;
             position: relative;
         }
-        .logic-card::after {
-            content: "!!!";
-            position: absolute;
-            top: 1rem; right: 1rem;
-            color: var(--accent);
-            opacity: 0.2;
-        }
-        .logic-card h3 { font-size: 1.5rem; color: var(--accent); margin-bottom: 1.5rem; text-transform: uppercase; }
-        .logic-card p { font-size: 0.9rem; color: #aaa; line-height: 1.4; }
 
-        /* Straight Comparison Table */
-        .comparison-section { padding: 5rem 0; background: rgba(0,0,0,0.9); border-top: 1px solid var(--accent); }
-        .comparison-section h2 { font-size: 3rem; margin-bottom: 3rem; text-transform: uppercase; }
-        .comp-table { width: 100%; border-collapse: collapse; }
-        .comp-table th { text-align: left; padding: 1rem; font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; border-bottom: 1px solid #333; }
-        .comp-table td { padding: 1.5rem 1rem; border-bottom: 1px solid #111; font-size: 1.1rem; }
+        /* Legacy Style */
+        .pc-heavy { width: 60px; height: 80px; border: 2px solid #444; background: #111; position: relative; }
+        .cables { position: absolute; height: 2px; background: #333; width: 100px; }
+
+        /* Invasiv Style */
+        .laptop-light { width: 40px; height: 30px; border: 1px solid var(--accent); background: #110000; }
+        .network-line { border: 1px dashed var(--accent); flex-grow: 1; }
+
+        .projector { width: 30px; height: 20px; border: 1px solid #fff; opacity: 0.5; }
+
+        /* Logic Section */
+        .logic-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin: 5rem 0; }
+        .logic-card { background: #080808; border: 1px solid var(--border); padding: 2.5rem; }
+        .logic-card h3 { font-size: 1.2rem; text-transform: uppercase; color: var(--accent); margin-bottom: 1rem; }
+        .logic-card p { font-size: 0.9rem; color: #888; }
+
+        /* Comparison Table */
+        .comparison-section { padding: 5rem 0; }
+        .comp-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .comp-table th { text-align: left; padding: 1rem; border-bottom: 2px solid var(--accent); color: var(--text-dim); text-transform: uppercase; }
+        .comp-table td { padding: 1.5rem 1rem; border-bottom: 1px solid var(--border); }
         .val-invasiv { color: var(--accent); font-weight: 800; }
-        .val-legacy { color: #333; }
 
-        /* CTA Group */
-        .cta-group {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1px;
-            background: var(--accent);
-            border: 1px solid var(--accent);
-            margin: 5rem 0;
-        }
-        .btn {
-            flex: 1 1 300px;
-            padding: 2.5rem;
-            background: black;
-            color: var(--accent);
-            text-decoration: none;
-            text-align: center;
-            font-weight: 900;
-            font-size: 1.5rem;
-            text-transform: uppercase;
-            transition: 0.1s;
-        }
+        /* CTA */
+        .cta-area { text-align: center; padding: 8rem 0; }
+        .btn-group { display: flex; flex-wrap: wrap; justify-content: center; gap: 1rem; margin-bottom: 4rem; }
+        .btn { padding: 1.5rem 3rem; background: transparent; color: var(--accent); border: 2px solid var(--accent); text-decoration: none; font-weight: 900; text-transform: uppercase; transition: 0.2s; }
         .btn:hover { background: var(--accent); color: black; }
+        .btn-filled { background: var(--accent); color: black; }
 
-        .support-strip {
-            background: #fff;
-            color: #000;
-            padding: 4rem;
-            text-align: center;
-            font-weight: 900;
-            margin-bottom: 5rem;
-        }
-        .coffee-btn {
-            display: inline-block;
-            margin-top: 2rem;
-            background: black;
-            color: white;
-            padding: 1rem 2rem;
-            text-decoration: none;
-        }
+        footer { padding: 4rem 0; text-align: center; font-size: 0.7rem; color: #222; letter-spacing: 0.5em; border-top: 1px solid var(--border); }
 
-        footer {
-            padding: 5rem 0;
-            text-align: center;
-            font-size: 0.7rem;
-            color: #222;
-            letter-spacing: 1em;
-        }
-
-        @media (max-width: 768px) {
+        /* Responsive Overrides */
+        @media (max-width: 900px) {
+            .hero-grid, .diag-grid { grid-template-columns: 1fr; }
+            .hero-grid { text-align: center; }
             .container { padding: 0 1rem; }
-            .invasiv-logo { font-size: 5rem; box-shadow: 10px 10px 0 var(--accent-dim); }
-            .btn { padding: 1.5rem; font-size: 1.1rem; }
         }
     </style>
 </head>
 <body>
 
-    <div class="grid-container">
-        <div class="grid-plane"></div>
-    </div>
+    <div class="grid-bg"><div class="grid-plane"></div></div>
 
     <main class="container">
         
-        <header class="logo-box">
-            <div class="invasiv-logo">INVASIV</div>
+        <header>
+            <div class="logo">INVASIV</div>
+            <div class="tagline">Distributed Spatial Intelligence</div>
         </header>
 
-        <div class="tv-hook">ARE YOU TIRED OF OVERPAYING FOR BLOATWARE?</div>
-
         <section class="hero-grid">
-            <div class="snark-text">
-                Stop living in 2010. Your "industry standard" VJ software is just a <b>subscription-tax</b> on your creativity. It's heavy, it's slow, and it needs a dongle to breathe. <b>INVASIV</b> is the antidote. We don't have a sales team. We have a <b>C++ engine</b> that actually works.
+            <div class="hero-text">
+                <p style="font-size: 1.8rem; line-height: 1.2; color: #fff; margin-bottom: 2rem;">
+                    Visuals should scale with your <b>imagination</b>, not your <b>budget</b>.
+                </p>
+                <p>
+                    Invasiv is a lightweight, C++ powered engine designed for distributed environments. Instead of one massive computer struggling with cables, Invasiv uses <b>multiple affordable nodes</b>—one at every projector—synchronized instantly over a standard network.
+                </p>
             </div>
-            <div class="snark-text">
-                Wait, there's more! While the big guys are adding "AI features" nobody asked for, we're achieving <b>sub-millisecond</b> network discovery and frame-accurate <b>PLL beat-syncing</b>. It's the high-stakes tool for artists who actually show up to the gig.
+            <img src="./screencast.gif" class="screencast" alt="Real-time dominance">
+        </section>
+
+        <section class="diagrams">
+            <h2 style="text-align: center; margin-bottom: 4rem; text-transform: uppercase; letter-spacing: 0.1em;">Rethinking the Setup</h2>
+            <div class="diag-grid">
+                
+                <div class="diag-card">
+                    <div class="diag-title">Legacy Setup (Centralized)</div>
+                    <div class="setup-visual">
+                        <div class="pc-heavy"></div>
+                        <div style="display:flex; flex-direction: column; gap: 5px;">
+                            <div style="width: 80px; height: 2px; background: #333;"></div>
+                            <div style="width: 80px; height: 2px; background: #333;"></div>
+                            <div style="width: 80px; height: 2px; background: #333;"></div>
+                            <div style="width: 80px; height: 2px; background: #333;"></div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div class="projector"></div><div class="projector"></div>
+                            <div class="projector"></div><div class="projector"></div>
+                        </div>
+                    </div>
+                    <p style="font-size: 0.8rem; color: #666; margin-top: 1rem;">
+                        One expensive PC + Many long, fragile video cables. Single point of failure. High hardware cost.
+                    </p>
+                </div>
+
+                <div class="diag-card" style="border-color: var(--accent);">
+                    <div class="diag-title">Invasiv Setup (Distributed)</div>
+                    <div class="setup-visual">
+                        <div style="display: flex; gap: 15px; align-items: center;">
+                            <div style="display: flex; flex-direction: column; gap: 15px;">
+                                <div class="laptop-light"></div>
+                                <div class="laptop-light"></div>
+                            </div>
+                            <div class="network-line"></div>
+                            <div style="display: flex; flex-direction: column; gap: 15px;">
+                                <div class="laptop-light"></div>
+                                <div class="laptop-light"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <p style="font-size: 0.8rem; color: #888; margin-top: 1rem;">
+                        Many affordable laptops + Standard Ethernet. Modular, redundant, and scales to any size.
+                    </p>
+                </div>
+
             </div>
         </section>
 
-        <img src="./screencast.gif" class="screencast" alt="Real-time dominance">
-
-        <div class="tv-hook">ACT NOW: DELETE THE SLOW STUFF.</div>
-
         <section class="logic-grid">
             <div class="logic-card">
-                <h3>Symmetric Logic</h3>
-                <p>Every instance is identical. Master? Peer? It's just a flag. If your main machine catches fire, the next one in the chain is already running. Pure decentralized insurance.</p>
+                <h3>Symmetric Network</h3>
+                <p>Every node is identical. Any computer can be the Master or a Peer. If a machine fails, just swap roles. No more show-stopping crashes.</p>
             </div>
             <div class="logic-card">
-                <h3>The Skew Engine</h3>
-                <p>Forget jumpy BPM restarts. Our Phase-Locked Loop warping micro-adjusts playback speed to ensure every frame hits the grid. Your videos don't loop; they breathe with the music.</p>
+                <h3>Smart Beat-Matching</h3>
+                <p>Using our Skewer tool, video events are pinned to a grid. Invasiv micro-adjusts playback speed to ensure frames always hit the beat without jumpy loop restarts.</p>
             </div>
             <div class="logic-card">
-                <h3>Binary Lean</h3>
-                <p>20MB. Portable. No installers. No drivers. Run it from a USB stick on a laptop you found in a dumpster. Performance is an architectural choice, not a hardware requirement.</p>
+                <h3>Architectural Lean</h3>
+                <p>Pure C++20 with zero bloat. The binary is ~20MB. It runs natively on your hardware, making the most of every CPU cycle on even older laptops.</p>
             </div>
         </section>
 
         <section class="comparison-section">
-            <h2>THE STRAIGHT TRUTH</h2>
+            <h2 style="text-transform: uppercase; margin-bottom: 2rem;">Setup Comparison</h2>
             <table class="comp-table">
                 <thead>
                     <tr>
-                        <th>Feature</th>
-                        <th>Invasiv</th>
-                        <th>Commercial Industry</th>
+                        <th>Metric</th>
+                        <th>Distributed (Invasiv)</th>
+                        <th>Centralized (Standard)</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td>Network Topology</td>
-                        <td class="val-invasiv">Fully Symmetric P2P</td>
-                        <td class="val-legacy">Rigid Master/Client</td>
+                        <td>Hardware Cost</td>
+                        <td class="val-invasiv">Low (Use existing laptops)</td>
+                        <td>High (Pro GPU + Server)</td>
+                    </tr>
+                    <tr>
+                        <td>Cable Runs</td>
+                        <td class="val-invasiv">Short Video / Long Ethernet</td>
+                        <td>Long, Expensive Video Cables</td>
                     </tr>
                     <tr>
                         <td>Sync Method</td>
-                        <td class="val-invasiv">Continuous PLL Speed Skewing</td>
-                        <td class="val-legacy">Discrete BPM Triggers</td>
+                        <td class="val-invasiv">Continuous Speed Adjustment</td>
+                        <td>Discrete Trigger Jumps</td>
                     </tr>
                     <tr>
-                        <td>Deployment</td>
-                        <td class="val-invasiv">Single Portable Binary (AppImage)</td>
-                        <td class="val-legacy">Multi-GB Multi-Step Installers</td>
-                    </tr>
-                    <tr>
-                        <td>Cost & License</td>
-                        <td class="val-invasiv">MIT (Open Source / Free)</td>
-                        <td class="val-legacy">Subscription / $XXX+ Perpetual</td>
-                    </tr>
-                    <tr>
-                        <td>Hardware Requirement</td>
-                        <td class="val-invasiv">Ultra-Low (Native C++20)</td>
-                        <td class="val-legacy">High (Managed Runtimes)</td>
+                        <td>Failure Mode</td>
+                        <td class="val-invasiv">Redundant (Only one node affected)</td>
+                        <td>Total Show Blackout</td>
                     </tr>
                 </tbody>
             </table>
         </section>
 
-        <section class="cta-group">
-            <a href="https://github.com/nihil/invasiv/releases" class="btn">DOWNLOAD_NOW</a>
-            <a href="https://github.com/nihil/invasiv/releases" class="btn">GET_SKEWER_RUST</a>
-            <a href="https://github.com/nihil/invasiv" class="btn">GIVE_US_CODE</a>
+        <section class="cta-area">
+            <div class="btn-group">
+                <a href="https://github.com/nihil/invasiv/releases" class="btn btn-filled">Download Invasiv</a>
+                <a href="https://github.com/nihil/invasiv/releases" class="btn">Get Skewer Tool</a>
+            </div>
+            
+            <p style="color: var(--text-dim); max-width: 600px; margin: 0 auto 2rem auto;">
+                Invasiv is an open system for independent artists. If it helps you build a bigger show with a smaller budget, consider supporting the core development.
+            </p>
+            <a href="https://buymeacoffee.com/sloev" class="btn" style="border-color: #fff; color: #fff; font-size: 0.8rem; padding: 1rem 2rem;">Support Invasiv</a>
         </section>
-
-        <div class="support-strip">
-            STOP SUPPORTING CORPORATE BLOAT. SUPPORT INDEPENDENT LOGIC.<br>
-            <a href="https://buymeacoffee.com/sloev" class="coffee-btn">BUY_A_COFFEE_FOR_THE_DEV</a>
-        </div>
 
     </main>
 
     <footer>
-        // INVASIV_SYSTEM // TOTAL_DOMINANCE // 2026 // NO_BULLSHIT //
+        // INVASIV_SYSTEM // DISTRIBUTED_WISDOM // 2026 //
     </footer>
 
 </body>
