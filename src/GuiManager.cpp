@@ -5,6 +5,7 @@
 #include "MediaWatcher.h"
 #include "StateManager.h"
 #include "Metronome.h"
+#include "Core.h"
 
 void GuiManager::setup() {
     gui.setup();
@@ -317,11 +318,11 @@ void GuiManager::drawEditingUI(AppComponents &c)
             if (ImGui::Button("Open Media Folder")) {
                 string mDir = ofFilePath::join(c.projectPath, "media");
                 #ifdef TARGET_WIN32
-                    system(("explorer \"" + mDir + "\"").c_str());
+                    (void)system(("explorer \"" + mDir + "\"").c_str());
                 #elif defined(TARGET_OSX)
-                    system(("open \"" + mDir + "\"").c_str());
+                    (void)system(("open \"" + mDir + "\"").c_str());
                 #else
-                    system(("xdg-open \"" + mDir + "\"").c_str());
+                    (void)system(("xdg-open \"" + mDir + "\"").c_str());
                 #endif
             }
             vector<string> files = c.watcher.getAllItems();
