@@ -29,10 +29,15 @@ title: "SKEWER // ONLINE_WARPER"
     </div>
 </section>
 
+<script src="./lib/ffmpeg.js"></script>
+<script src="./lib/util.js"></script>
+
 <script type="module">
-    import { FFmpeg } from './lib/index.js';
     import init, { WebHandle } from './skewer_wasm/skewer.js';
     
+    const { FFmpeg } = window.FFmpeg;
+    const { fetchFile, toBlobURL } = window.FFmpegUtil;
+
     const canvas = document.getElementById('the_canvas_id');
     const uploader = document.getElementById('uploader');
     const overlay = document.getElementById('loading-overlay');
@@ -118,14 +123,12 @@ title: "SKEWER // ONLINE_WARPER"
             });
 
             setStatus("LOADING_FFMPEG_CORE (1/2)...", 30);
-            const coreURL = `${baseURL}/ffmpeg-core.js`;
+            const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
             setStatus("LOADING_FFMPEG_WASM (2/2)...", 60);
-            const wasmURL = `${baseURL}/ffmpeg-core.wasm`;
-            const workerURL = `${baseURL}/worker.js`;
+            const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
 
             setStatus("INITIALIZING_VIRTUAL_HARDWARE...", 100);
             await ffmpeg.load({
-                classWorkerURL: workerURL,
                 coreURL: coreURL,
                 wasmURL: wasmURL,
             });

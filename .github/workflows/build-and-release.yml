@@ -282,13 +282,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
-        with: { name: skewer-binary, path: ./ }
+        with: { name: skewer-binary, path: ./release-skewer-bin }
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: skewer-v0.1.${{ github.run_number }}
           name: SKEWER v0.1.${{ github.run_number }}
-          files: skewer
+          files: release-skewer-bin/skewer
           body: |
             SKEWER Rhythmic Prep Tool.
             Requires INVASIV >= v0.1.0.
@@ -339,18 +339,13 @@ jobs:
       - name: Download FFmpeg Assets
         run: |
           mkdir -p docs/lib
-          # @ffmpeg/ffmpeg ESM files
-          curl -sSL https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js -o docs/lib/index.js
-          curl -sSL https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/classes.js -o docs/lib/classes.js
-          curl -sSL https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/worker.js -o docs/lib/worker.js
-          curl -sSL https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/const.js -o docs/lib/const.js
-          curl -sSL https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/utils.js -o docs/lib/utils.js
-          curl -sSL https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/errors.js -o docs/lib/errors.js
-          # @ffmpeg/util ESM
-          curl -sSL https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js -o docs/lib/util.js
-          # @ffmpeg/core ESM
-          curl -sSL https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js -o docs/lib/ffmpeg-core.js
-          curl -sSL https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm -o docs/lib/ffmpeg-core.wasm
+          # @ffmpeg/ffmpeg UMD
+          curl -sSL https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js -o docs/lib/ffmpeg.js
+          # @ffmpeg/util UMD
+          curl -sSL https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js -o docs/lib/util.js
+          # @ffmpeg/core UMD
+          curl -sSL https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js -o docs/lib/ffmpeg-core.js
+          curl -sSL https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm -o docs/lib/ffmpeg-core.wasm
       - uses: actions/configure-pages@v4
       - uses: actions/jekyll-build-pages@v1
         with: { source: ./docs, destination: ./_site }
