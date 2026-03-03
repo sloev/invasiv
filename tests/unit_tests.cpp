@@ -54,9 +54,43 @@ void test_metronome_logic() {
     std::cout << "Metronome Unit Tests PASSED" << std::endl;
 }
 
+void test_skew_logic() {
+    std::cout << "Testing Video Skew Math..." << std::endl;
+    
+    float duration = 10.0f; // 10s video = 20 beats at 120bpm
+    float videoBeatCount = duration * 2.0f; 
+    
+    // Scenario 1: Metronome is at Beat 5.0, Video is at 25% (Beat 5.0)
+    // Result: Speed should be base speed (1.0 at 120bpm)
+    float metroBeat = 5.0f;
+    float targetPos = fmod(metroBeat, videoBeatCount) / videoBeatCount;
+    float currentPos = 0.25f; // 5/20
+    float diff = targetPos - currentPos;
+    assert(std::abs(diff) < 0.001f);
+
+    // Scenario 2: Video is lagging (at 20%, should be at 25%)
+    // Result: Skew should be positive
+    currentPos = 0.20f;
+    diff = targetPos - currentPos;
+    float skew = diff * 2.0f; // P-control
+    assert(skew > 0.0f);
+
+    // Scenario 3: Wrap-around logic (Metro at 0.1, Video at 99%)
+    metroBeat = 0.1f;
+    targetPos = fmod(metroBeat, videoBeatCount) / videoBeatCount;
+    currentPos = 0.99f;
+    diff = targetPos - currentPos;
+    if (diff > 0.5f) diff -= 1.0f;
+    if (diff < -0.5f) diff += 1.0f;
+    assert(diff > 0.0f); // Should still be positive to "catch up" across the loop boundary
+
+    std::cout << "Skew Logic Unit Tests PASSED" << std::endl;
+}
+
 int main() {
     try {
         test_metronome_logic();
+        test_skew_logic();
     } catch (const std::exception& e) {
         std::cerr << "Test failed with exception: " << e.what() << std::endl;
         return 1;
