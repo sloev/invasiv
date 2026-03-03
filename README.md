@@ -15,7 +15,9 @@ Full feature list available in [FEATURES.md](./FEATURES.md).
 ## Ecosystem
 
 - **Invasiv (v0.1.x)**: The main VJ engine. Distributed, symmetric, and fast.
-- **Skewer (v0.1.x)**: A dedicated Rust-based utility for rhythmic media preparation. It allows you to warp video events to a perfect 2-second grid, ensuring they stay locked to the Invasiv metronome.
+- **Skewer (v0.1.x)**: A dedicated Rust-based utility for rhythmic media preparation. 
+  - **Native**: Requires `ffmpeg` installed on your system for preview and export.
+  - **Web**: Uses `ffmpeg.wasm` for browser-based rhythmic planning.
 
 **Compatibility**: Both tools require Protocol V1 for network sync.
 
@@ -30,10 +32,12 @@ chmod +x Invasiv-x86_64.AppImage
 ```
 
 ### Prerequisites (for building/raw binary)
-- **Linux**: libmpv2
-  ```bash
-  sudo apt install libmpv-dev
-  ```
+- **libmpv2**: Required for Invasiv video playback.
+- **ffmpeg**: Required for Skewer media preparation.
+
+```bash
+sudo apt install libmpv-dev ffmpeg
+```
 
 ### Building (Docker - Recommended)
 The easiest way to build Invasiv is using Docker. You can pull a pre-compiled base image to save about 10-15 minutes of build time:
