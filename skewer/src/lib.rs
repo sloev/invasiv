@@ -272,6 +272,7 @@ impl eframe::App for BeatMapper {
 }
 
 fn var_surface_color() -> egui::Color32 { egui::Color32::from_rgb(26, 26, 26) }
+#[allow(dead_code)]
 fn var_text_dim() -> egui::Color32 { egui::Color32::from_rgb(102, 102, 102) }
 fn var_accent() -> egui::Color32 { egui::Color32::from_rgb(255, 59, 48) }
 
