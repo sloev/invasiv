@@ -57,13 +57,14 @@ RUN (projectGenerator -r -o"/of" . > /tmp/pg_run.log 2>&1 && echo "App Project G
 # Stage 6: Tester
 FROM builder AS tester
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 libmpv2 libgl1-mesa-dri libgtk-3-0 \
+    python3 libmpv-dev libgl1-mesa-dri libgtk-3-0 \
     && rm -rf /var/lib/apt/lists/*
 # Copy tests separately
 COPY tests ./tests
-RUN (g++ -O3 tests/unit_tests.cpp -DTEST_MODE -o tests/unit_tests > /tmp/test_build.log 2>&1 && echo "Test Build: Succeeded" || (echo "Test Build: Failed" && cat /tmp/test_build.log && exit 1)) \
-    && (./tests/unit_tests > /tmp/test_run.log 2>&1 && echo "Unit Tests: Succeeded" || (echo "Unit Tests: Failed" && cat /tmp/test_run.log && exit 1)) \
-    && (python3 tests/test_sync.py > /tmp/sync_test.log 2>&1 && echo "Sync Tests: Succeeded" || (echo "Sync Tests: Failed" && cat /tmp/sync_test.log && exit 1))
+RUN set -ex; \
+    g++ -O3 tests/unit_tests.cpp -DTEST_MODE -o tests/unit_tests; \
+    ./tests/unit_tests; \
+    python3 tests/test_sync.py
 
 # Stage 7: Bundler
 FROM builder AS bundler

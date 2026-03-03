@@ -45,7 +45,9 @@ title: "SKEWER // ONLINE_WARPER"
     let ffmpegBusy = false;
 
     const setStatus = (msg, progress = -1) => {
-        console.log(`[WASM_STATUS] ${msg}`);
+        if (progress === -1 || progress === 0 || progress === 100) {
+            console.log(`[WASM_STATUS] ${msg}`);
+        }
         statusText.innerHTML = msg;
         if (progress >= 0) {
             progressContainer.style.display = 'block';
@@ -115,13 +117,11 @@ title: "SKEWER // ONLINE_WARPER"
                 console.log(`[FFmpeg] ${message}`);
             });
 
-            const workerURL = await toBlobURL(`${baseURL}/worker.js`, 'text/javascript');
             setStatus("LOADING_FFMPEG_CORE (1/2)...", 30);
-            const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
+            const coreURL = `${baseURL}/ffmpeg-core.js`;
             setStatus("LOADING_FFMPEG_WASM (2/2)...", 60);
-            const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm', (p) => {
-                setStatus("LOADING_FFMPEG_WASM (2/2)...", 60 + (p * 0.4));
-            });
+            const wasmURL = `${baseURL}/ffmpeg-core.wasm`;
+            const workerURL = `${baseURL}/worker.js`;
 
             setStatus("INITIALIZING_VIRTUAL_HARDWARE...", 100);
             await ffmpeg.load({

@@ -90,6 +90,7 @@ impl BeatMapper {
         
         let mut filter_complex = String::new();
         let mut concat_parts = String::new();
+        let segments = self.beats.len().saturating_sub(1);
         
         for (i, pair) in self.beats.windows(2).enumerate() {
             let start = pair[0].time;
@@ -98,18 +99,22 @@ impl BeatMapper {
             if segment_duration <= 0.0 { continue; }
             let scale = 2.0 / segment_duration;
             
+            let out_tag = if segments == 1 { "outv".to_string() } else { format!("v{}", i) };
+            
             filter_complex.push_str(&format!(
-                "[0:v]trim=start={}:end={},setpts={:.6}*(PTS-STARTPTS)[v{}];",
-                start, end, 1.0 / scale, i
+                "[0:v]trim=start={}:end={},setpts={:.6}*(PTS-STARTPTS)[{}];",
+                start, end, 1.0 / scale, out_tag
             ));
-            concat_parts.push_str(&format!("[v{}]", i));
+            if segments > 1 {
+                concat_parts.push_str(&format!("[{}]", out_tag));
+            }
         }
         
-        if self.beats.len() > 1 {
+        if segments > 1 {
             filter_complex.push_str(&format!(
                 "{}concat=n={}:v=1:a=0[outv]",
                 concat_parts,
-                self.beats.len() - 1
+                segments
             ));
         }
 
@@ -383,5 +388,66 @@ impl WebHandle {
         if let Ok(mut state) = SHARED_STATE.lock() {
             state.frame_data = Some((rgba_data.to_vec(), (width, height)));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ffmpeg_cmd_generation_single_beat() {
+        let mut app = BeatMapper::default();
+        app.video_path = Some(PathBuf::from("test.mp4"));
+        app.beats = vec![Beat { time: 0.0 }];
+        let cmd = app.generate_ffmpeg_cmd_string("out.mp4");
+        // No segments because only one beat
+        assert_eq!(cmd, r#"ffmpeg -i "test.mp4" -filter_complex "" -map "[outv]" -an -c:v libx264 -crf 18 -preset veryfast -g 30 "out.mp4""#);
+    }
+
+    #[test]
+    fn test_ffmpeg_cmd_generation_two_beats() {
+        let mut app = BeatMapper::default();
+        app.video_path = Some(PathBuf::from("my_vid.mp4"));
+        app.beats = vec![Beat { time: 1.0 }, Beat { time: 2.0 }];
+        let cmd = app.generate_ffmpeg_cmd_string("out.mp4");
+        // Segment duration is 1.0, scale is 2.0/1.0 = 2.0
+        // 1.0 / scale = 0.5
+        assert_eq!(cmd, r#"ffmpeg -i "my_vid.mp4" -filter_complex "[0:v]trim=start=1:end=2,setpts=0.500000*(PTS-STARTPTS)[outv];" -map "[outv]" -an -c:v libx264 -crf 18 -preset veryfast -g 30 "out.mp4""#);
+    }
+
+    #[test]
+    fn test_ffmpeg_cmd_generation_three_beats() {
+        let mut app = BeatMapper::default();
+        app.video_path = Some(PathBuf::from("my_vid.mp4"));
+        app.beats = vec![Beat { time: 0.0 }, Beat { time: 1.0 }, Beat { time: 1.5 }];
+        let cmd = app.generate_ffmpeg_cmd_string("out.mp4");
+        // Segment 1: 0.0 to 1.0 -> duration 1.0, scale 2.0, pts 0.5
+        // Segment 2: 1.0 to 1.5 -> duration 0.5, scale 4.0, pts 0.25
+        assert!(cmd.contains("setpts=0.500000*(PTS-STARTPTS)[v0]"));
+        assert!(cmd.contains("setpts=0.250000*(PTS-STARTPTS)[v1]"));
+        assert!(cmd.contains("concat=n=2:v=1:a=0[outv]"));
+    }
+
+    #[test]
+    fn test_app_state_initialization() {
+        let state = AppState::default();
+        assert_eq!(state.current_time, 0.0);
+        assert_eq!(state.duration, 0.0);
+        assert_eq!(state.load_video_clicked, false);
+    }
+
+    #[test]
+    fn test_shared_state_interaction() {
+        let state = SHARED_STATE.lock().unwrap();
+        assert_eq!(state.current_time, 0.0);
+    }
+
+    #[test]
+    fn test_beat_mapper_initialization() {
+        let mapper = BeatMapper::default();
+        assert_eq!(mapper.beats.len(), 1);
+        assert_eq!(mapper.beats[0].time, 0.0);
+        assert_eq!(mapper.current_time, 0.0);
     }
 }

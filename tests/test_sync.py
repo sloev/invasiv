@@ -46,8 +46,8 @@ def test_protocol_driver():
         shutil.rmtree("test_env")
     
     test_env_vars = os.environ.copy()
-    # Use 127.0.0.1 for maximum reliability in isolated CI/Docker environments
-    test_env_vars["INVASIV_TEST_ADDR"] = "127.0.0.1"
+    # Use broadcast for isolated CI/Docker environments to ensure all REUSEADDR sockets get it
+    test_env_vars["INVASIV_TEST_ADDR"] = "127.255.255.255"
     
     # Setup node
     path_node, work_node = setup_node("peer", "PEER01", 0)
@@ -59,11 +59,12 @@ def test_protocol_driver():
     # Setup sockets
     listen_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    listen_sock.bind(('127.0.0.1', 9000))
+    listen_sock.bind(('0.0.0.0', 9000))
     listen_sock.settimeout(1.0)
 
     send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     send_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    send_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
     process = None
     try:
@@ -129,7 +130,7 @@ def test_protocol_driver():
             "peers": { "MASTER01": [{"id": "S1", "ownerId": "MASTER01", "contentId": "t.mp4", "rows": 1, "cols": 1}] }
         }
         payload = build_header(PKT_STRUCT) + json.dumps(test_warp).encode('utf-8')
-        send_sock.sendto(payload, ('127.0.0.1', 9000))
+        send_sock.sendto(payload, ('127.255.255.255', 9000))
         
         # Poll for disk write
         print("Verifying persistence on disk...")
@@ -157,16 +158,16 @@ def test_protocol_driver():
         
         # Offer
         offer = build_header(PKT_FILE_OFFER) + struct.pack("IH33s", len(content), len(filename), b"h") + filename.encode('ascii')
-        send_sock.sendto(offer, ('127.0.0.1', 9000))
+        send_sock.sendto(offer, ('127.255.255.255', 9000))
         time.sleep(0.2)
         
         # Chunk
         chunk = build_header(PKT_FILE_CHUNK) + struct.pack("IH", 0, len(content)) + content
-        send_sock.sendto(chunk, ('127.0.0.1', 9000))
+        send_sock.sendto(chunk, ('127.255.255.255', 9000))
         time.sleep(0.2)
         
         # End
-        send_sock.sendto(build_header(PKT_FILE_END), ('127.0.0.1', 9000))
+        send_sock.sendto(build_header(PKT_FILE_END), ('127.255.255.255', 9000))
         
         print("Verifying file arrival...")
         arrived = False
@@ -192,11 +193,12 @@ def test_protocol_driver():
     finally:
         if process:
             try: 
-                os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+                os.killpg(os.getpgid(process.pid), signal.SIGKILL)
                 stdout, stderr = process.communicate(timeout=2)
-                if stdout or stderr:
-                    print(f"--- APP LOGS ---\n{stdout}\n{stderr}")
-            except: pass
+                print(f"--- APP LOGS (STDOUT) ---\n{stdout}")
+                print(f"--- APP LOGS (STDERR) ---\n{stderr}")
+            except Exception as e: 
+                print(f"Error fetching app logs: {e}")
         if os.path.exists("test_env"):
             shutil.rmtree("test_env")
     return False

@@ -37,8 +37,15 @@ void Core::handlePackets() {
     int size = 0;
     while ((size = net.receive(packetBuffer, 65535)) > 0) {
         PacketHeader *h = (PacketHeader *)packetBuffer;
-        if (h->id != PACKET_ID || strncmp(h->senderId, identity.myId.c_str(), 8) == 0)
+        if (h->id != PACKET_ID) {
+            ofLogWarning("Core") << "Invalid packet ID: " << (int)h->id;
             continue;
+        }
+        if (strncmp(h->senderId, identity.myId.c_str(), 8) == 0) {
+            continue; // Ignore our own packets
+        }
+
+        ofLogNotice("Core") << "Received packet type " << (int)h->type << " from " << h->senderId << ", size " << size;
 
         if (h->type == PKT_HEARTBEAT) {
             HeartbeatPacket *p = (HeartbeatPacket *)packetBuffer;
@@ -54,6 +61,7 @@ void Core::handlePackets() {
         } else if (h->type == PKT_STRUCT && !net.isAuthority()) {
             string jStr(packetBuffer + sizeof(PacketHeader), size - sizeof(PacketHeader));
             string warpPath = ofFilePath::join(ofFilePath::join(projectPath, "configs"), "warps.json");
+            ofLogNotice("Core") << "Saving PKT_STRUCT to " << warpPath << ". Content: " << jStr;
             ofBufferToFile(warpPath, ofBuffer(jStr.c_str(), jStr.length()));
             warper.loadJson(jStr);
         } else if (h->type == PKT_FILE_OFFER && !net.isAuthority()) {
@@ -62,6 +70,8 @@ void Core::handlePackets() {
             string remoteHash = string(p->hash, 32);
             string fullPath = ofFilePath::join(mediaDir, name);
             string localHash = TinyMD5::getFileMD5(fullPath);
+            
+            ofLogNotice("Core") << "File offer: " << name << " remoteHash: " << remoteHash << " localHash: " << localHash;
 
             if (localHash != remoteHash) {
                 incoming.active = true;
@@ -75,6 +85,7 @@ void Core::handlePackets() {
             if (p->offset + p->size <= incoming.total) {
                 memcpy(incoming.buf.getData() + p->offset, packetBuffer + sizeof(FileChunkPacket), p->size);
                 incoming.current += p->size;
+                ofLogNotice("Core") << "Chunk received: " << incoming.current << "/" << incoming.total;
             }
         } else if (h->type == PKT_FILE_END && incoming.active) {
             incoming.active = false;
@@ -83,6 +94,7 @@ void Core::handlePackets() {
             ofBufferToFile(tmpPath, incoming.buf);
             ofFile(tmpPath).renameTo(finalPath, true, true);
             warper.refreshContent();
+            ofLogNotice("Core") << "File sync complete: " << finalPath;
         } else if (h->type == PKT_WARP_MOVE_ALL && !net.isAuthority()) {
             WarpMoveAllPacket *p = (WarpMoveAllPacket *)packetBuffer;
             auto subset = warper.getSurfacesForPeer(p->ownerId);
@@ -134,11 +146,11 @@ void Core::syncFullState() {
 void Core::saveSettings(string path) {
     ofJson settings;
     settings["projectPath"] = path;
-    ofSaveJson("settings.json", settings);
+    ofSaveJson(ofFilePath::join(ofFilePath::getCurrentWorkingDirectory(), "settings.json"), settings);
 }
 
 string Core::loadSettings() {
-    ofFile f("settings.json");
+    ofFile f(ofFilePath::join(ofFilePath::getCurrentWorkingDirectory(), "settings.json"));
     if (f.exists()) {
         ofJson settings;
         f >> settings;
