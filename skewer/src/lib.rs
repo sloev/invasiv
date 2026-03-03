@@ -619,20 +619,58 @@ mod tests {
     }
 
     #[test]
-    fn test_warped_time_calculation() {
+    fn test_total_warped_duration() {
+        let mut app = BeatMapper::default();
+        app.trim_start = 0.0;
+        app.trim_end = 10.0;
+        app.beats = vec![
+            Beat { time: 0.0, weight: 4 }, 
+            Beat { time: 1.0, weight: 8 }, 
+            Beat { time: 2.0, weight: 1 }
+        ];
+        // Seg 1: 4 beats (2.0s)
+        // Seg 2: 8 beats (4.0s)
+        // Total should be 6.0s
+        assert_eq!(app.total_warped_duration(), 6.0);
+    }
+
+    #[test]
+    fn test_trim_logic_consistency() {
         let mut app = BeatMapper::default();
         app.beats = vec![
-            Beat { time: 0.0, weight: 4 }, // 0.0s - 2.0s musical
-            Beat { time: 1.0, weight: 1 }, // 2.0s - 2.5s musical
-            Beat { time: 1.5, weight: 1 }
+            Beat { time: 0.0, weight: 1 },
+            Beat { time: 1.0, weight: 4 },
+            Beat { time: 2.0, weight: 1 },
+            Beat { time: 3.0, weight: 1 }
         ];
         
-        // Halfway through segment 1 (1.0s musical) -> should be 0.5s source
-        let t1 = app.calculate_warped_time(1.0);
-        assert!((t1 - 0.5).abs() < 0.001);
+        // Trim to only include the middle segment
+        app.trim_start = 0.5;
+        app.trim_end = 2.5;
         
-        // Start of segment 2 (2.0s musical) -> should be 1.0s source
-        let t2 = app.calculate_warped_time(2.0);
-        assert!((t2 - 1.0).abs() < 0.001);
+        // Active beats should be [1.0, 2.0]
+        // One segment: 4 beats (2.0s)
+        assert_eq!(app.total_warped_duration(), 2.0);
+        
+        // Musical time 1.0 (halfway through the 2.0s warped duration)
+        // Should map to 1.5s in source
+        let t = app.calculate_warped_time(1.0);
+        assert!((t - 1.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_frame_mapping_precision() {
+        let mut app = BeatMapper::default();
+        app.beats = vec![
+            Beat { time: 10.0, weight: 2 }, // 1.0s musical duration
+            Beat { time: 20.0, weight: 1 }
+        ];
+        app.trim_start = 0.0;
+        app.trim_end = 100.0;
+
+        // 25% through segment (0.25s musical) -> 12.5s source
+        assert!((app.calculate_warped_time(0.25) - 12.5).abs() < 0.001);
+        // 75% through segment (0.75s musical) -> 17.5s source
+        assert!((app.calculate_warped_time(0.75) - 17.5).abs() < 0.001);
     }
 }
