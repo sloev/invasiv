@@ -76,8 +76,9 @@ impl BeatMapper {
             ));
         }
 
+        // Use raw string to avoid escaping hell
         format!(
-            "ffmpeg -i \"{}\" -filter_complex \"{}\" -map \"[outv]\" -an -c:v libx264 -crf 18 -preset veryfast -g 30 \"{}\"",
+            r#"ffmpeg -i "{}" -filter_complex "{}" -map "[outv]" -an -c:v libx264 -crf 18 -preset veryfast -g 30 "{}""#,
             input, filter_complex, output_name
         )
     }
@@ -157,11 +158,10 @@ impl eframe::App for BeatMapper {
                     if let Some(output) = FileDialog::new().set_file_name("warped_loop.mp4").save_file() {
                         let cmd_str = self.generate_ffmpeg_cmd_string(&output.to_string_lossy());
                         println!("Executing: {}", cmd_str);
-                        // Basic synchronous execution for now
                         let parts: Vec<&str> = cmd_str.split_whitespace().collect();
                         if !parts.is_empty() {
                             let mut cmd = Command::new(parts[0]);
-                            for arg in &parts[1..] { cmd.arg(arg.replace(""", "")); }
+                            for arg in &parts[1..] { cmd.arg(arg.replace("\"", "")); }
                             match cmd.status() {
                                 Ok(s) => println!("Success: {}", s),
                                 Err(e) => println!("Error: {}", e),

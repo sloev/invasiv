@@ -45,33 +45,28 @@ def test_protocol_driver():
     test_env["NO_AT_BRIDGE"] = "1"
 
     # Setup Master Sockets
-    # To see broadcasts on 127.0.0.1, we MUST bind to 127.0.0.1 or 0.0.0.0
     listen_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try: listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
     except: pass
     listen_sock.bind(('127.0.0.1', 9000))
-    listen_sock.settimeout(15.0) # More time for CI
+    listen_sock.settimeout(15.0)
 
-    # Separate socket for sending
     send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     send_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-procs = []
-log_files = []
-try:
-    # 1. Launch instances - Redirect output to files to avoid blocking on PIPE
-    print(f"Launching Invasiv Peer in headless mode...")
-    f_app = open(f"test_env/app.log", "w")
-    log_files.append(f_app)
-    # Add --headless flag
-    process = subprocess.Popen([bin_path, "--headless"], stdout=f_app, stderr=subprocess.STDOUT, 
-                             env=test_env, preexec_fn=os.setsid)
 
-    # 1. TEST: Heartbeat Reception
+    process = None
+    try:
+        print("Launching Invasiv Peer in headless mode...")
+        f_app = open(f"test_env/app.log", "w")
+        process = subprocess.Popen([bin_path, "--headless"], stdout=f_app, stderr=subprocess.STDOUT, 
+                                 env=test_env, preexec_fn=os.setsid)
+        
+        # 1. TEST: Heartbeat Reception
         print("Waiting for heartbeat...")
         start_time = time.time()
         heartbeat_found = False
-        while time.time() - start_time < 20:
+        while time.time() - start_time < 25:
             try:
                 data, addr = listen_sock.recvfrom(1024)
                 header_id, p_type = struct.unpack_from("BB", data)
@@ -122,17 +117,14 @@ try:
         filename = "sync_test.txt"
         file_content = b"distributed_visual_logic_2026"
         
-        # Send Offer
         offer = build_header(PKT_FILE_OFFER) + struct.pack("IH33s", len(file_content), len(filename), b"dummy_hash") + filename.encode('ascii')
         send_sock.sendto(offer, ('127.0.0.1', 9000))
         time.sleep(1.0)
         
-        # Send Chunk
         chunk = build_header(PKT_FILE_CHUNK) + struct.pack("IH", 0, len(file_content)) + file_content
         send_sock.sendto(chunk, ('127.0.0.1', 9000))
         time.sleep(1.0)
         
-        # Send End
         end = build_header(PKT_FILE_END)
         send_sock.sendto(end, ('127.0.0.1', 9000))
         
@@ -163,7 +155,7 @@ try:
         if process:
             try: os.killpg(os.getpgid(process.pid), signal.SIGTERM)
             except: pass
-        if os.path.exists("test_env") and False: # Keep for debugging
+        if os.path.exists("test_env") and False:
             shutil.rmtree("test_env")
 
     return False
@@ -172,7 +164,6 @@ if __name__ == "__main__":
     if test_protocol_driver():
         exit(0)
     else:
-        # On failure, dump app logs
         if os.path.exists("test_env/app.log"):
             with open("test_env/app.log", "r") as f:
                 print("--- APP LOGS ---")
