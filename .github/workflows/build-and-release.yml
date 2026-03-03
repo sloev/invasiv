@@ -22,6 +22,7 @@ jobs:
       base: ${{ steps.filter.outputs.base }}
       skewer: ${{ steps.filter.outputs.skewer }}
       invasiv: ${{ steps.filter.outputs.invasiv }}
+      docs: ${{ steps.filter.outputs.docs }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -41,6 +42,9 @@ jobs:
               - 'Makefile'
               - 'Dockerfile'
               - 'tests/**'
+              - '.github/workflows/build-and-release.yml'
+            docs:
+              - 'docs/**'
               - '.github/workflows/build-and-release.yml'
 
   # Job 1: Build the Heavy openFrameworks Base
@@ -129,7 +133,9 @@ jobs:
     needs: [filter, base]
     if: always() && (needs.filter.outputs.invasiv == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
-    permissions: { contents: write, packages: read }
+    permissions:
+      contents: write
+      packages: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -144,7 +150,7 @@ jobs:
       - name: Generate Version
         id: version
         run: echo "VERSION=v0.1.${{ github.run_number }}" >> $GITHUB_OUTPUT
-      - name: Build & Test
+      - name: Build and Test
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -168,7 +174,7 @@ jobs:
           cache-from: |
             type=gha
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-      - name: Extract
+      - name: Extract Artifacts
         run: |
           mkdir -p release/raw
           docker create --name ex-t invasiv-tester:latest
@@ -181,20 +187,25 @@ jobs:
           docker cp ex-d:/of/apps/myApps/invasiv/bin/ release/bin-folder
           docker rm ex-d
           cd release && tar -czvf ../invasiv-linux-x64.tar.gz bin-folder/
-      - name: Upload
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
-        with: { name: invasiv-artifacts, path: release/ }
+        with:
+          name: invasiv-artifacts
+          path: release/
 
   # Job 5: Release SKEWER
   release-skewer:
     needs: [filter, skewer-native]
     if: needs.filter.outputs.skewer == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    permissions: { contents: write }
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
-        with: { name: skewer-binary, path: ./ }
+        with:
+          name: skewer-binary
+          path: ./
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
@@ -204,18 +215,22 @@ jobs:
           body: |
             SKEWER Rhythmic Prep Tool.
             Requires INVASIV >= v0.1.0.
-        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # Job 6: Release INVASIV
   release-invasiv:
     needs: [filter, invasiv]
     if: needs.filter.outputs.invasiv == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    permissions: { contents: write }
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
-        with: { name: invasiv-artifacts, path: ./release }
+        with:
+          name: invasiv-artifacts
+          path: ./release
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
@@ -228,23 +243,33 @@ jobs:
           body: |
             INVASIV VJ Engine.
             Requires SKEWER >= v0.1.0 for rhythmic prep.
-        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # Job 7: Deploy Pages
   deploy-pages:
-    needs: [filter, skewer-wasm]
-    if: always() && !cancelled()
+    needs: [filter, skewer-wasm, release-skewer, release-invasiv]
+    # Run if docs changed, or if we released new versions of either tool
+    if: always() && !cancelled() && (needs.filter.outputs.docs == 'true' || needs.filter.outputs.skewer == 'true' || needs.filter.outputs.invasiv == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
-    permissions: { contents: write, pages: write, id-token: write }
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         continue-on-error: true
-        with: { name: skewer-wasm, path: docs/skewer_wasm/ }
+        with:
+          name: skewer-wasm
+          path: docs/skewer_wasm/
       - uses: actions/configure-pages@v4
       - uses: actions/jekyll-build-pages@v1
-        with: { source: ./docs, destination: ./_site }
-      - uses: actions/upload-pages-artifact@v3
+        with:
+          source: ./docs
+          destination: ./_site
+      - name: Upload pages artifact
+        uses: actions/upload-pages-artifact@v3
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

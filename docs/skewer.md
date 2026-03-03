@@ -7,12 +7,12 @@ title: "SKEWER // ONLINE_WARPER"
     <h2 style="color: var(--accent); margin-bottom: 2rem;">SKEWER ONLINE</h2>
     
     <div id="loading-overlay" style="padding: 2rem; background: #111; color: var(--accent); margin-bottom: 2rem; border: 1px dashed var(--accent);">
-        INITIALIZING FFmpeg.wasm... (This might take a moment)
+        INITIALIZING SKEWER_WASM + FFmpeg.wasm...
     </div>
 
     <div id="controls" style="display:none; margin-bottom: 2rem;">
         <input type="file" id="uploader" accept="video/*" style="display:none;">
-        <button onclick="document.getElementById('uploader').click()" class="btn" style="padding: 1rem 2rem; font-size: 0.8rem;">📁 LOAD VIDEO FOR PREVIEW</button>
+        <button id="load-btn" class="btn" style="padding: 1rem 2rem; font-size: 0.8rem;">📁 LOAD VIDEO FOR PREVIEW</button>
     </div>
 
     <p style="margin-bottom: 2rem; color: var(--text-dim); font-size: 0.8rem;">
@@ -25,37 +25,42 @@ title: "SKEWER // ONLINE_WARPER"
     </div>
 </section>
 
-<!-- Load FFmpeg.wasm from CDN -->
-<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/ffmpeg.min.js"></script>
-<script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/index.min.js"></script>
-
 <script type="module">
+    import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
+    import { toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
     import init, { WebHandle } from './skewer_wasm/skewer.js';
     
-    const { createFFmpeg, fetchFile } = FFmpeg;
-    const ffmpeg = createFFmpeg({ log: true });
+    let ffmpeg = null;
 
     async function setup() {
+        // Load SKEWER WASM
         await init();
         const handle = new WebHandle();
         await handle.start("the_canvas_id");
 
-        // Load FFmpeg
-        await ffmpeg.load();
+        // Load FFmpeg WASM
+        ffmpeg = new FFmpeg();
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+        await ffmpeg.load({
+            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        });
+
         document.getElementById('loading-overlay').style.display = 'none';
         document.getElementById('controls').style.display = 'block';
 
         const uploader = document.getElementById('uploader');
+        const loadBtn = document.getElementById('load-btn');
+        
+        loadBtn.addEventListener('click', () => uploader.click());
+        
         uploader.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
             
-            // Write to FFmpeg virtual FS
-            ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(file));
-            console.log("Video loaded into FFmpeg.wasm FS");
-            
-            // Logic to grab frames periodically or on-demand could go here
-            // For now, we allow the UI to boot.
+            const data = new Uint8Array(await file.arrayBuffer());
+            await ffmpeg.writeFile('input.mp4', data);
+            console.log("Video loaded into FFmpeg.wasm virtual FS");
         });
     }
 
