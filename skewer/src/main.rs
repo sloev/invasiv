@@ -193,6 +193,8 @@ fn var_surface_color() -> egui::Color32 { egui::Color32::from_rgb(26, 26, 26) }
 fn var_text_dim() -> egui::Color32 { egui::Color32::from_rgb(102, 102, 102) }
 fn var_accent() -> egui::Color32 { egui::Color32::from_rgb(255, 59, 48) }
 
+// Entry point for native
+#[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([800.0, 600.0]),
@@ -203,4 +205,28 @@ fn main() -> eframe::Result<()> {
         options,
         Box::new(|_cc| Box::new(BeatMapper::default())),
     )
+}
+
+// Entry point for wasm
+#[cfg(target_arch = "wasm32")]
+fn main() {
+    // Redirect panics to the browser console.
+    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+
+    let web_options = eframe::WebOptions::default();
+
+    wasm_bindgen_futures::spawn_local(async {
+        eframe::WebRunner::new()
+            .start(
+                "the_canvas_id",
+                web_options,
+                Box::new(|_cc| {
+                    // This is required for animation/continuous updates in egui web
+                    _cc.egui_ctx.request_repaint();
+                    Box::new(BeatMapper::default())
+                }),
+            )
+            .await
+            .expect("failed to start eframe");
+    });
 }

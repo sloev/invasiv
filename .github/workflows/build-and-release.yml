@@ -84,7 +84,32 @@ jobs:
           name: skewer-binary
           path: skewer/target/release/skewer
 
-  # Job 3: Build Invasiv (oF), Run Tests, and Bundle AppImage
+  # Job 3: Build SKEWER (WASM)
+  skewer-wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache-workdir: skewer
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build WASM
+        run: wasm-pack build --target web --out-dir ../docs/skewer_wasm
+        working-directory: skewer
+
+      - name: Upload WASM Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: skewer-wasm
+          path: docs/skewer_wasm/
+
+  # Job 4: Build Invasiv (oF), Run Tests, and Bundle AppImage
   build:
     needs: base
     runs-on: ubuntu-latest
@@ -148,14 +173,6 @@ jobs:
             type=gha
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
-      - name: Upload AppImage
-        uses: actions/upload-artifact@v4
-        with:
-          name: invasiv-appimage
-          path: |
-            # We still need to extract it from the container image
-            # Wait, easier to just extract it in a later step.
-
       - name: Extract Artifacts from Docker
         run: |
           mkdir -p release/raw
@@ -176,12 +193,14 @@ jobs:
           name: invasiv-build-artifacts
           path: release/
 
-  # Job 4: Release
+  # Job 5: Release & Deploy Pages
   release:
-    needs: [build, skewer]
+    needs: [build, skewer, skewer-wasm]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pages: write
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -197,6 +216,12 @@ jobs:
         with:
           name: skewer-binary
           path: release/raw/
+
+      - name: Download SKEWER WASM
+        uses: actions/download-artifact@v4
+        with:
+          name: skewer-wasm
+          path: docs/skewer_wasm/
 
       - name: Generate Version
         id: version
@@ -218,11 +243,19 @@ jobs:
             Rolling release build.
             Version: ${{ steps.version.outputs.VERSION }}
             Commit: ${{ github.sha }}
-            
-            Artifacts:
-            - **Invasiv-x86_64.AppImage**: Standalone bundle (recommended)
-            - **invasiv**: Core application raw binary
-            - **skewer**: Rhythmic warping utility (Rust)
-            - **invasiv-linux-x64.tar.gz**: Full data folder assets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Handle GitHub Pages Deployment (Jekyll)
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+      - name: Build with Jekyll
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./docs
+          destination: ./_site
+      - name: Upload pages artifact
+        uses: actions/upload-pages-artifact@v3
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

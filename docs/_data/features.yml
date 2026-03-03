@@ -1,0 +1,48 @@
+- name: Price
+  invasiv: "<b>MIT Open Source.</b> Free forever."
+  industry: "$400 – $1000+ per machine / Subscriptions"
+- name: Setup
+  invasiv: "<b>Distributed Nodes.</b> One cheap laptop per output."
+  industry: "Centralized Server. One heavy GPU for all."
+- name: Networking
+  invasiv: "<b>Zero-Config UDP.</b> Automated peer discovery."
+  industry: "Manual IP/OSC Mapping. Complex routing."
+- name: Editing
+  invasiv: "<b>Master-Peer Propagation.</b> Network-wide real-time edits."
+  industry: "Local Edits Only. Manual state syncing."
+- name: File Sync
+  invasiv: "<b>Automated.</b> Master media auto-syncs to peers."
+  industry: "Manual. USB drives or external cloud sync."
+- name: Sync Logic
+  invasiv: "<b>Smart Speed Skewing.</b> Frames always hit the beat."
+  industry: "Loop Restarts. Jumpy 'bang' triggers."
+- name: Requirements
+  invasiv: "<b>Ultra-Low.</b> Runs on old hardware natively."
+  industry: "Heavy. Requires modern high-end workstation."
+- name: Binary Size
+  invasiv: "<b>~20MB.</b> Portable AppImage."
+  industry: "~2GB+. Massive managed installers."
+- name: Redundancy
+  invasiv: "<b>Full P2P.</b> Any node can lead the show."
+  industry: "Single Point of Failure. Server crash = Blackout."
+- name: Warping
+  invasiv: "<b>Organic Splines.</b> Fast Catmull-Rom surfaces."
+  industry: "Basic Mesh. Perspective / Point warping."
+- name: Customization
+  invasiv: "<b>Full Source Access.</b> Inspect and extend."
+  industry: "Black Box. Trust the corporate roadmap."
+- name: Media Prep
+  invasiv: "<b>Integrated SKEWER.</b> Surgical rhythmic warping."
+  industry: "Generic. External third-party editors only."
+- name: OS
+  invasiv: "<b>Native Linux.</b> Performance optimized."
+  industry: "General Purpose. Win/Mac background tasks."
+- name: Deployment
+  invasiv: "<b>Instant.</b> One file, no installation."
+  industry: "Slow. Drivers, installers, and activation."
+- name: Latency
+  invasiv: "<b>Sub-millisecond.</b> Native C++ network core."
+  industry: "Variable. Overhead from managed runtimes."
+- name: License
+  invasiv: "<b>MIT.</b> Yours forever. No strings."
+  industry: "Proprietary. Subscriptions or active keys."

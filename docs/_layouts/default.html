@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page.title | default: "INVASIV // DISTRIBUTED_DOMINANCE" }}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@400;800&display=swap');
+
+        :root {
+            --bg: #000000;
+            --accent: #ff0000;
+            --accent-dim: #440000;
+            --text: #ffffff;
+            --text-dim: #888888;
+            --border: #222222;
+            --neon-glow: 0 0 20px rgba(255, 0, 0, 0.7);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            line-height: 1.4;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Gritty Overlay */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: url("https://www.transparenttextures.com/patterns/carbon-fibre.png");
+            opacity: 0.05;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .container { max-width: 1400px; margin: 0 auto; padding: 0 1.5rem; }
+
+        /* Animated Grid Background */
+        .grid-bg {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1;
+            background: radial-gradient(circle at center, #110000 0%, #000 100%);
+            perspective: 500px;
+        }
+        .grid-plane {
+            position: absolute;
+            top: 0; left: -50%; width: 200%; height: 200%;
+            background-image: linear-gradient(rgba(255, 0, 0, 0.05) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(255, 0, 0, 0.05) 1px, transparent 1px);
+            background-size: 60px 60px;
+            transform: rotateX(60deg);
+            animation: flyover 20s linear infinite;
+        }
+        @keyframes flyover { 0% { transform: rotateX(60deg) translateY(0); } 100% { transform: rotateX(60deg) translateY(60px); } }
+
+        /* Header - Block Logo */
+        header { padding: 10vh 0 8vh 0; text-align: center; }
+        .logo {
+            font-size: clamp(3rem, 18vw, 14rem);
+            font-weight: 900;
+            background: var(--accent);
+            color: black;
+            display: inline-block;
+            padding: 0 1.5rem;
+            letter-spacing: -0.05em;
+            text-transform: uppercase;
+            box-shadow: 15px 15px 0 var(--accent-dim);
+            font-style: normal;
+            text-decoration: none;
+        }
+
+        /* Hero */
+        .hero-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4rem;
+            margin-bottom: 8rem;
+            align-items: center;
+        }
+        .hero-text { flex: 1 1 500px; }
+        .hero-text p.huge { font-size: 1.8rem; line-height: 1.2; color: #fff; margin-bottom: 2rem; font-weight: 700; }
+        .hero-text p.small { color: var(--text-dim); font-size: 1.1rem; }
+        .hero-text b { color: #fff; }
+        .screencast-box { flex: 1 1 500px; }
+        .screencast { width: 100%; border: 1px solid var(--border); filter: contrast(1.1) brightness(1.1); }
+
+        /* Master Comparison Table */
+        section.comparison { padding: 10rem 0; border-top: 1px solid var(--border); }
+        section.comparison h2 { font-size: clamp(3rem, 8vw, 5rem); text-transform: uppercase; color: var(--accent); margin-bottom: 4rem; letter-spacing: -0.05em; }
+        
+        .comp-table {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            border: 1px solid var(--border);
+            background: rgba(0,0,0,0.8);
+        }
+
+        .comp-header {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr 1.5fr;
+            background: #111;
+            font-weight: 900;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.2em;
+            color: var(--text-dim);
+            border-bottom: 2px solid var(--accent);
+        }
+
+        .comp-row {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr 1.5fr;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.1s;
+        }
+        .comp-row:hover { background: rgba(255,255,255,0.02); }
+
+        .comp-cell { padding: 1.5rem; font-size: 0.95rem; line-height: 1.4; display: flex; align-items: center; }
+        
+        .comp-feature { font-weight: 900; color: var(--text-dim); text-transform: uppercase; font-size: 0.75rem; border-right: 1px solid var(--border); background: #080808; }
+        .comp-invasiv { font-weight: 600; color: #fff; background: rgba(255,0,0,0.03); border-right: 1px solid var(--border); }
+        .comp-invasiv b { color: var(--accent); font-weight: 900; }
+        .comp-industry { color: #666; font-weight: 300; }
+
+        /* SKEWER Block */
+        section.skewer { padding: 10vh 0; }
+        .skewer-card { border: 2px solid var(--accent); background: #110000; padding: clamp(2rem, 5vw, 4rem); }
+        .skewer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 3rem; margin-top: 3rem; }
+        .skewer-step h3 { color: var(--accent); margin-bottom: 1rem; text-transform: uppercase; font-size: 1.5rem; }
+
+        /* Neon Gritty Support */
+        .support-strip {
+            background: var(--bg);
+            color: #fff;
+            padding: 8rem 2rem;
+            text-align: center;
+            margin: 10rem 0;
+            border: 10px solid var(--accent);
+            position: relative;
+            animation: neon-flicker 5s infinite;
+        }
+        @keyframes neon-flicker {
+            0%, 18%, 22%, 25%, 53%, 57%, 100% { box-shadow: 0 0 40px var(--accent-dim), inset 0 0 20px var(--accent-dim); }
+            20%, 24%, 55% { box-shadow: 0 0 80px var(--accent), inset 0 0 40px var(--accent); }
+        }
+        .support-strip h2 { font-size: clamp(2rem, 8vw, 5rem); font-weight: 900; margin-bottom: 2rem; text-transform: uppercase; line-height: 0.8; }
+        .coffee-btn { 
+            display: inline-block; 
+            background: var(--accent); 
+            color: #000; 
+            padding: 2rem 4rem; 
+            text-decoration: none; 
+            font-weight: 900; 
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            box-shadow: 10px 10px 0 #fff;
+            transition: 0.1s;
+        }
+        .coffee-btn:hover { transform: scale(1.05); box-shadow: 5px 5px 0 #fff; }
+
+        /* CTAs */
+        .cta-area { text-align: center; padding-bottom: 10rem; }
+        .btn-group { display: flex; flex-wrap: wrap; justify-content: center; gap: 1rem; margin-bottom: 2rem; }
+        .btn { padding: 1.5rem 3rem; background: transparent; color: var(--accent); border: 2px solid var(--accent); text-decoration: none; font-weight: 900; text-transform: uppercase; transition: 0.2s; flex: 1 1 300px; max-width: 400px; }
+        .btn:hover { background: var(--accent); color: black; box-shadow: var(--neon-glow); }
+        .btn-filled { background: var(--accent); color: black; }
+
+        /* Footer - Visible & Grateful */
+        footer { 
+            background: #0a0a0a;
+            padding: 10rem 0; 
+            text-align: center; 
+            border-top: 1px solid var(--accent);
+        }
+        footer h4 { color: #fff; margin-bottom: 3rem; text-transform: uppercase; letter-spacing: 0.3em; font-size: 1.2rem; }
+        .thank-you { color: #fff; font-size: 1rem; margin-bottom: 6rem; line-height: 1.8; max-width: 800px; margin-left: auto; margin-right: auto; }
+        .thank-you a { color: var(--accent); text-decoration: none; font-weight: 800; border-bottom: 2px solid transparent; }
+        .thank-you a:hover { border-bottom-color: var(--accent); }
+        .footer-logo { font-size: 0.7rem; color: #333; letter-spacing: 0.8em; margin-top: 6rem; text-transform: uppercase; }
+
+        /* RESPONSIVE TABLE */
+        @media (max-width: 900px) {
+            .comp-header { display: none; }
+            .comp-row { grid-template-columns: 1fr; border: 1px solid var(--border); margin-bottom: 2rem; }
+            .comp-cell { padding: 1.5rem; border-right: none; }
+            .comp-feature { background: var(--accent); color: #000; font-size: 0.9rem; justify-content: center; }
+            .comp-invasiv:before { content: "INVASIV // "; font-weight: 900; color: var(--accent); }
+            .comp-industry:before { content: "INDUSTRY // "; font-weight: 900; color: var(--text-dim); }
+            .comp-invasiv { background: rgba(255,0,0,0.1); border-bottom: 1px solid #222; }
+        }
+
+        @media (max-width: 600px) {
+            .logo { font-size: 4rem; box-shadow: 8px 8px 0 var(--accent-dim); }
+            .hero-grid { margin-top: 2rem; }
+            .container { padding: 0 1rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="grid-bg"><div class="grid-plane"></div></div>
+
+    <main class="container">
+        
+        <header>
+            <a href="/" class="logo">INVASIV</a>
+        </header>
+
+        {{ content }}
+
+        <section class="comparison">
+            <h2>FEATURES</h2>
+            
+            <div class="comp-table">
+                <div class="comp-header">
+                    <div class="comp-cell">Feature</div>
+                    <div class="comp-cell">Invasiv</div>
+                    <div class="comp-cell">Industry Standard</div>
+                </div>
+
+                {% for f in site.data.features %}
+                <div class="comp-row">
+                    <div class="comp-cell comp-feature">{{ f.name }}</div>
+                    <div class="comp-cell comp-invasiv">{{ f.invasiv }}</div>
+                    <div class="comp-cell comp-industry">{{ f.industry }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="skewer">
+            <div class="skewer-card">
+                <h2 style="font-size: 3rem; font-weight: 900; text-transform: uppercase; line-height: 0.9;">The Skewer Method</h2>
+                <div class="skewer-grid">
+                    <div class="skewer-step">
+                        <h3>1. Pin the Action</h3>
+                        <p>Open raw footage in <b>SKEWER</b>. Mark exactly when your nail is hit or your dancer kicks. Pin the events, not the time.</p>
+                    </div>
+                    <div class="skewer-step">
+                        <h3>2. Warp the Loop</h3>
+                        <p>Export from Skewer. It non-linearly stretches your video so every marked event lands on a perfect 2-second grid.</p>
+                    </div>
+                    <div class="skewer-step">
+                        <h3>3. Lock the Beat</h3>
+                        <p>Load into <b>INVASIV</b>. As you tap the BPM, the engine adjusts playback speed so your video events stay locked to the musical pulse.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="support-strip">
+            <h2>BUILD BETTER SHOWS.<br>DELETE THE BLOAT.</h2>
+            <a href="https://buymeacoffee.com/sloev" class="coffee-btn">DONATE_TO_INVASIV</a>
+        </section>
+
+        <section class="cta-area">
+            <div class="btn-group">
+                <a href="https://github.com/nihil/invasiv/releases" class="btn btn-filled">Download Invasiv</a>
+                <a href="/skewer" class="btn">Use Skewer (WASM)</a>
+            </div>
+            <div class="btn-group">
+                <a href="https://github.com/nihil/invasiv" class="btn" style="font-size: 0.8rem; padding: 1rem 2rem;">Github Repo</a>
+                <a href="https://github.com/nihil/invasiv/issues" class="btn" style="font-size: 0.8rem; padding: 1rem 2rem;">Report Bug</a>
+            </div>
+        </section>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <h4>Thank You</h4>
+            <p class="thank-you">
+                Invasiv is built by artists for artists, standing on the shoulders of giants. We are deeply grateful to the following open-source projects that power our logic:<br><br>
+                <a href="https://openframeworks.cc/">OPENFRAMEWORKS (MIT)</a> — The bedrock of our creative coding toolkit.<br>
+                <a href="https://github.com/petehaughie/ofxMPVPlayer">OFXMPVPLAYER (MIT)</a> — High-performance video playback integration.<br>
+                <a href="https://github.com/jvcleave/ofxImGui">OFXIMGUI (MIT)</a> — The foundation of our distributed interface.<br>
+            </p>
+            <p class="footer-logo">// INVASIV // DISTRIBUTED_WISDOM // 2026 // NO_BULLSHIT_VISUALS //</p>
+        </div>
+    </footer>
+
+</body>
+</html>
