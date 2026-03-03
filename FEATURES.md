@@ -28,6 +28,9 @@
 * [x] Integration Test Suite: automated verification of networking and binary health in CI (see /tests)
 * [x] Automated Release Pipeline: AppImage bundle and raw binary artifacts generated on each release
 * [x] Skewer: Rust-based rhythmic warping utility for media preparation
+    * **Skewer App:** Native desktop application for marking rhythmic events on a video timeline and re-encoding with FFmpeg to create perfect loops.
+    * **Skewer WASM:** Browser-based version accessible via the project page, utilizing FFmpeg.wasm for client-side media processing and command generation.
+    * **Functionality:** Align video events to a regular grid by automatically calculating segment speeds (`setpts`) for re-encoding, ensuring seamless integration with the `invasiv` metronome-sync system.
 
 ## Roadmap
 * [ ] ROLE_MASTER_PERFORM: expand triggers to OSC and MIDI input
