@@ -3,6 +3,8 @@ layout: default
 title: "SKEWER // ONLINE_WARPER"
 ---
 
+<script src="./coi-serviceworker.js"></script>
+
 <section class="skewer-wasm">
     <h2 style="color: var(--accent); margin-bottom: 2rem;">SKEWER ONLINE</h2>
     
@@ -38,12 +40,16 @@ title: "SKEWER // ONLINE_WARPER"
         const handle = new WebHandle();
         await handle.start("the_canvas_id");
 
-        // Load FFmpeg WASM
+        // Load FFmpeg WASM with robust cross-origin workarounds
         ffmpeg = new FFmpeg();
         const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+        const ffmpegURL = 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm';
+        
         await ffmpeg.load({
             coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
             wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+            // Explicitly load worker via Blob to bypass origin security errors
+            workerURL: await toBlobURL(`${ffmpegURL}/worker.js`, 'text/javascript'),
         });
 
         document.getElementById('loading-overlay').style.display = 'none';
@@ -64,5 +70,8 @@ title: "SKEWER // ONLINE_WARPER"
         });
     }
 
-    setup().catch(console.error);
+    setup().catch((err) => {
+        console.error("FFmpeg Initialization Error:", err);
+        document.getElementById('loading-overlay').innerHTML = "ERROR: " + err.message;
+    });
 </script>
