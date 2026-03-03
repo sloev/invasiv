@@ -3,13 +3,13 @@ layout: default
 title: "SKEWER // ONLINE_WARPER"
 ---
 
-<script src="./coi-serviceworker.js"></script>
+<script src="/coi-serviceworker.js"></script>
 
 <section class="skewer-wasm">
     <h2 style="color: var(--accent); margin-bottom: 2rem;">SKEWER ONLINE</h2>
     
-    <div id="loading-overlay" style="padding: 2rem; background: #111; color: var(--accent); margin-bottom: 2rem; border: 1px dashed var(--accent);">
-        INITIALIZING SKEWER_WASM + FFmpeg.wasm...
+    <div id="loading-overlay" style="padding: 2rem; background: #111; color: var(--accent); margin-bottom: 2rem; border: 1px dashed var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 0.9rem;">
+        INITIALIZING SKEWER_WASM...
     </div>
 
     <div id="controls" style="display:none; margin-bottom: 2rem;">
@@ -30,10 +30,10 @@ title: "SKEWER // ONLINE_WARPER"
     import { FFmpeg } from './lib/index.js';
     import init, { WebHandle } from './skewer_wasm/skewer.js';
     
-    // Inline toBlobURL to avoid dependency on missing export in util.js
     async function toBlobURL(url, type) {
-        console.log(`[WASM] Fetching blob URL for: ${url}`);
+        console.log(`[WASM] Fetching asset: ${url}`);
         const response = await fetch(url);
+        if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
         const buffer = await response.arrayBuffer();
         const blob = new Blob([buffer], { type });
         return URL.createObjectURL(blob);
@@ -41,66 +41,85 @@ title: "SKEWER // ONLINE_WARPER"
 
     const canvas = document.getElementById('the_canvas_id');
     const uploader = document.getElementById('uploader');
+    const overlay = document.getElementById('loading-overlay');
     
     let ffmpeg = null;
     let handle = null;
     let ffmpegBusy = false;
 
+    const setStatus = (msg) => {
+        console.log(`[WASM_STATUS] ${msg}`);
+        overlay.innerHTML = msg;
+    };
+
     // Trigger uploader on canvas click if WASM state requested it.
     canvas.addEventListener('click', () => {
-        console.log("[WASM] Canvas clicked");
         if (handle && handle.is_load_clicked()) {
-            console.log("[WASM] Load requested by Rust, triggering uploader");
+            console.log("[WASM] Click detected on canvas, triggering hidden uploader");
             uploader.click();
             handle.reset_load_clicked();
         }
     });
 
     async function setup() {
-        console.log("[WASM] Starting setup...");
-        await init();
-        handle = new WebHandle();
-        await handle.start("the_canvas_id");
-        console.log("[WASM] Rust engine started");
+        setStatus("BOOTING_RUST_ENGINE...");
+        try {
+            await init();
+            handle = new WebHandle();
+            await handle.start("the_canvas_id");
+            
+            setStatus("RUST_READY. LOADING_FFMPEG...");
 
-        ffmpeg = new FFmpeg();
-        const baseURL = './lib';
-        
-        ffmpeg.on('log', ({ message }) => {
-            // console.log(`[FFmpeg] ${message}`);
-        });
+            ffmpeg = new FFmpeg();
+            const baseURL = '/lib'; // Root-relative path
+            
+            ffmpeg.on('log', ({ message }) => {
+                console.log(`[FFmpeg] ${message}`);
+            });
 
-        console.log("[WASM] Loading FFmpeg...");
-        await ffmpeg.load({
-            classWorkerURL: await toBlobURL(`${baseURL}/worker.js`, 'text/javascript'),
-            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-        });
-        console.log("[WASM] FFmpeg Loaded");
+            await ffmpeg.load({
+                classWorkerURL: await toBlobURL(`${baseURL}/worker.js`, 'text/javascript'),
+                coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+                wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+            });
 
-        document.getElementById('loading-overlay').style.display = 'none';
-        document.getElementById('controls').style.display = 'block';
+            setStatus("SYSTEM_ONLINE.");
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                document.getElementById('controls').style.display = 'block';
+            }, 500);
+
+        } catch (err) {
+            console.error("[WASM_FATAL]", err);
+            setStatus(`FATAL_ERROR: ${err.message}<br><br>Check console for details.`);
+            return;
+        }
 
         uploader.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
             
-            console.log(`[WASM] File selected: ${file.name} (${file.size} bytes)`);
+            console.log(`[WASM] File selected: ${file.name} (${(file.size/1024/1024).toFixed(2)} MB)`);
             
             // Get Metadata using Browser Video Element
             const video = document.createElement('video');
             video.preload = 'metadata';
             video.onloadedmetadata = () => {
-                console.log(`[WASM] Video duration detected: ${video.duration}s`);
+                console.log(`[WASM] Metadata loaded: duration=${video.duration}s`);
                 handle.set_duration(video.duration);
                 window.URL.revokeObjectURL(video.src);
             };
+            video.onerror = () => console.error("[WASM] Failed to load video metadata");
             video.src = URL.createObjectURL(file);
 
-            const data = new Uint8Array(await file.arrayBuffer());
-            await ffmpeg.writeFile('input.mp4', data);
-            handle.load_video('input.mp4');
-            console.log("[WASM] Video transferred to FFmpeg filesystem");
+            try {
+                const data = new Uint8Array(await file.arrayBuffer());
+                await ffmpeg.writeFile('input.mp4', data);
+                handle.load_video('input.mp4');
+                console.log("[WASM] File written to virtual disk");
+            } catch (err) {
+                console.error("[WASM] Write error:", err);
+            }
         });
 
         let last_time = -1;
@@ -111,11 +130,10 @@ title: "SKEWER // ONLINE_WARPER"
             if (Math.abs(current_time - last_time) > 0.05) {
                 ffmpegBusy = true;
                 last_time = current_time;
-                console.log(`[WASM] Seeking to ${current_time.toFixed(2)}s`);
                 try {
-                    // Extract a single frame at current_time (optimized size for preview)
+                    // Extract a single frame at current_time
                     await ffmpeg.exec([
-                        '-ss', current_time.toString(),
+                        '-ss', current_time.toFixed(3),
                         '-i', 'input.mp4',
                         '-frames:v', '1',
                         '-s', '640x360',
@@ -126,17 +144,14 @@ title: "SKEWER // ONLINE_WARPER"
                     ]);
                     const data = await ffmpeg.readFile('out.raw');
                     handle.push_frame(data, 640, 360); 
-                    // console.log("[WASM] Frame pushed to Rust");
                 } catch (e) {
-                    // console.error("[WASM] Frame extraction error:", e);
+                    // console.warn("[WASM] Frame extraction failed (expected if no video yet)");
+                } finally {
+                    ffmpegBusy = false;
                 }
-                ffmpegBusy = false;
             }
         }, 100);
     }
 
-    setup().catch((err) => {
-        console.error("[WASM] Global Setup Error:", err);
-        document.getElementById('loading-overlay').innerHTML = "ERROR: " + err.message;
-    });
+    setup();
 </script>
