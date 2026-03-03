@@ -139,6 +139,17 @@ void Network::sendMetronome(float bpm, double refTime, int beats)
     sendSafe((const char *)&p, sizeof(MetronomePacket));
 }
 
+void Network::sendFullscreen(string targetId, bool enabled)
+{
+    if (!isAuthority() || inErrorState) return;
+    FullscreenPacket p;
+    fillHeader(p.header, PKT_FULLSCREEN);
+    strncpy(p.targetId, targetId.c_str(), 8);
+    p.targetId[8] = 0;
+    p.enabled = enabled;
+    sendSafe((const char *)&p, sizeof(FullscreenPacket));
+}
+
 void Network::sendWarp(string ownerId, int surfIdx, int mode, int ptIdx, float x, float y)
 {
     if (!isAuthority() || inErrorState) return;

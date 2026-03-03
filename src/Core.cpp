@@ -95,14 +95,17 @@ void Core::handlePackets() {
             ofFile(tmpPath).renameTo(finalPath, true, true);
             warper.refreshContent();
             ofLogNotice("Core") << "File sync complete: " << finalPath;
-        } else if (h->type == PKT_WARP_MOVE_ALL && !net.isAuthority()) {
-            WarpMoveAllPacket *p = (WarpMoveAllPacket *)packetBuffer;
-            auto subset = warper.getSurfacesForPeer(p->ownerId);
-            if (p->surfaceIndex < subset.size()) subset[p->surfaceIndex]->moveAll(p->dx, p->dy, p->mode);
         } else if (h->type == PKT_WARP_SCALE_ALL && !net.isAuthority()) {
             WarpScaleAllPacket *p = (WarpScaleAllPacket *)packetBuffer;
             auto subset = warper.getSurfacesForPeer(p->ownerId);
             if (p->surfaceIndex < subset.size()) subset[p->surfaceIndex]->scaleAll(p->scaleFactor, glm::vec2(p->centroidX, p->centroidY), p->mode);
+        } else if (h->type == PKT_FULLSCREEN) {
+            FullscreenPacket *p = (FullscreenPacket *)packetBuffer;
+            if (strncmp(p->targetId, identity.myId.c_str(), 8) == 0 || strncmp(p->targetId, "ALL", 3) == 0) {
+                ofSetFullscreen(p->enabled);
+                identity.fullscreen = p->enabled;
+                identity.save();
+            }
         }
     }
 }

@@ -43,9 +43,10 @@ void ofApp::draw() {
         else ofDrawBitmapStringHighlight("MASTER: PERFORMANCE MODE", 10, 20, ofColor::black, ofColor::green);
 
         AppComponents components = {
-            core.identity, core.net, core.warper, core.watcher, 
-            core.stateMgr, core.metro, pathInputBuf, core.projectPath
+            core.identity, core.net, core.warper, core.watcher,
+            core.stateMgr, core.metro, pathInputBuf, core.projectPath, core
         };
+
         gui.draw(components);
     } else {
         core.warper.draw();

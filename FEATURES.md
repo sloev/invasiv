@@ -33,15 +33,15 @@
     * **Functionality:** Align video events to a regular grid by automatically calculating segment speeds (`setpts`) for re-encoding, ensuring seamless integration with the `invasiv` metronome-sync system.
 
 ## Roadmap
-* [ ] fix the skewer app so it can 
-  * [ ] load a video
-  * [ ] play/pause the video
-  * [ ] user can use a time slider to seek around in the video
-  * [ ] user can add/delete/drag markers  (video beat indicators) around a second timeline just below the first one 
-  * [ ] user can see a counter with number of videobeats 
-  * [ ] user can select start and end of the video by the use of a slider in both ends, if adjusting start/end of the video makes any videobeat markers outside of the selected part of the video they should be deleted
-  * [ ] user should be able to export the final video to a codec that is great for transmitting over network in the file sync layer + great for the pll skewer algo and great for detail and viewing
-* [ ] invasiv: make the project folder selector open a file picker to choose/create a project folder
-* [ ] invasiv: in the "media status" add a button to open the media folder
-* [ ] invasiv:  surface settings - > surface id: label should before field
-* [ ] add a toggle button to all instances FULLSCREEN  to toglle fullscreen for that peer instance remotely
+* [x] fix the skewer app so it can 
+  * [x] load a video
+  * [x] play/pause the video
+  * [x] user can use a time slider to seek around in the video
+  * [x] user can add/delete/drag markers  (video beat indicators) around a second timeline just below the first one 
+  * [x] user can see a counter with number of videobeats 
+  * [x] user can select start and end of the video by the use of a slider in both ends, if adjusting start/end of the video makes any videobeat markers outside of the selected part of the video they should be deleted
+  * [x] user should be able to export the final video to a codec that is great for transmitting over network in the file sync layer + great for the pll skewer algo and great for detail and viewing
+* [x] invasiv: make the project folder selector open a file picker to choose/create a project folder
+* [x] invasiv: in the "media status" add a button to open the media folder
+* [x] invasiv:  surface settings - > surface id: label should before field
+* [x] add a toggle button to all instances FULLSCREEN  to toglle fullscreen for that peer instance remotely

@@ -19,7 +19,8 @@ enum PacketType : uint8_t {
     PKT_FILE_END   = 6,
     PKT_WARP_MOVE_ALL = 7, 
     PKT_WARP_SCALE_ALL = 8,
-    PKT_METRONOME = 9
+    PKT_METRONOME = 9,
+    PKT_FULLSCREEN = 10
 };
 
 enum EditMode : int {
@@ -33,6 +34,12 @@ struct PacketHeader {
     uint8_t id = PACKET_ID;
     uint8_t type;
     char senderId[9];
+};
+
+struct FullscreenPacket {
+    PacketHeader header;
+    char targetId[9];
+    bool enabled;
 };
 
 struct HeartbeatPacket {

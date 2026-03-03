@@ -49,6 +49,15 @@ void GuiManager::drawPerformUi(AppComponents &c)
                 
                 if (ImGui::CollapsingHeader(headerName.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
                 {
+                    ImGui::SameLine(ImGui::GetContentRegionAvail().x - 100);
+                    if(ImGui::SmallButton("FULLSCREEN")) {
+                         c.net.sendFullscreen(inst.id, true);
+                    }
+                    ImGui::SameLine();
+                    if(ImGui::SmallButton("WINDOW")) {
+                         c.net.sendFullscreen(inst.id, false);
+                    }
+
                     vector<shared_ptr<WarpSurface>> surfaces = c.warper.getSurfacesForPeer(inst.id);
                     if(surfaces.empty()) {
                         ImGui::TextDisabled("No surfaces found.");
@@ -276,9 +285,21 @@ void GuiManager::drawEditingUI(AppComponents &c)
 
     if (ImGui::Begin("invasiv", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
     {
-        ImGui::InputText("Project Path", c.pathInputBuf, 256);
+        ImGui::Text("Project Path:");
+        ImGui::SameLine();
+        ImGui::InputText("##ProjPath", c.pathInputBuf, 256);
+        ImGui::SameLine();
+        if (ImGui::Button("...")) {
+             ofFileDialogResult res = ofSystemLoadDialog("Select Invasiv Project Folder", true);
+             if (res.bSuccess) {
+                 strncpy(c.pathInputBuf, res.getPath().c_str(), 255);
+                 c.core.saveSettings(res.getPath());
+                 c.core.reloadProject(res.getPath());
+             }
+        }
         ImGui::SameLine();
         if (ImGui::Button("Reload")) {
+             c.core.reloadProject(string(c.pathInputBuf));
         }
 
         ImGui::Separator();
@@ -293,6 +314,16 @@ void GuiManager::drawEditingUI(AppComponents &c)
 
         if (ImGui::TreeNode("Media Status"))
         {
+            if (ImGui::Button("Open Media Folder")) {
+                string mDir = ofFilePath::join(c.projectPath, "media");
+                #ifdef TARGET_WIN32
+                    system(("explorer \"" + mDir + "\"").c_str());
+                #elif defined(TARGET_OSX)
+                    system(("open \"" + mDir + "\"").c_str());
+                #else
+                    system(("xdg-open \"" + mDir + "\"").c_str());
+                #endif
+            }
             vector<string> files = c.watcher.getAllItems();
             if (files.empty())
                 ImGui::Text("No media files found.");
@@ -410,7 +441,9 @@ void GuiManager::drawEditingUI(AppComponents &c)
             }
 
             ImGui::Text("Target: %s", c.warper.targetPeerId.c_str());
-            if (ImGui::InputText("Surface ID", surfaceIdInputBuf, 64, ImGuiInputTextFlags_EnterReturnsTrue)) {
+            ImGui::Text("Surface ID:");
+            ImGui::SameLine();
+            if (ImGui::InputText("##SId", surfaceIdInputBuf, 64, ImGuiInputTextFlags_EnterReturnsTrue)) {
                 string newSId = string(surfaceIdInputBuf);
                 if (newSId != currentSurface->id && newSId != "") {
                     c.warper.updateSurfaceId(currentSurface->id, newSId, c.net);

@@ -47,6 +47,7 @@ public:
     void sendWarpMoveAll(string ownerId, int surfIdx, int mode, float dx, float dy);
     void sendWarpScaleAll(string ownerId, int surfIdx, int mode, float factor, float cx, float cy);
     void sendMetronome(float bpm, double refTime, int beats);
+    void sendFullscreen(string targetId, bool enabled);
     void sendWarp(string ownerId, int surfIdx, int mode, int ptIdx, float x, float y);
     void sendStructure(string jsonStr);
     void offerFile(string filename);

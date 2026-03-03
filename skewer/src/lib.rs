@@ -35,7 +35,9 @@ pub struct BeatMapper {
     pub beats: Vec<Beat>,
     pub current_time: f64,
     pub duration: f64,
-    pub _is_playing: bool,
+    pub trim_start: f64,
+    pub trim_end: f64,
+    pub is_playing: bool,
     pub last_ffmpeg_cmd: String,
     
     // UI & Texture state
@@ -64,7 +66,9 @@ impl Default for BeatMapper {
             beats: vec![Beat { time: 0.0 }],
             current_time: 0.0,
             duration: 10.0,
-            _is_playing: false,
+            trim_start: 0.0,
+            trim_end: 10.0,
+            is_playing: false,
             last_ffmpeg_cmd: String::new(),
             dragging_beat: None,
             texture: None,
@@ -90,13 +94,21 @@ impl BeatMapper {
         
         let mut filter_complex = String::new();
         let mut concat_parts = String::new();
-        let segments = self.beats.len().saturating_sub(1);
         
-        for (i, pair) in self.beats.windows(2).enumerate() {
+        // Filter beats within trim range
+        let mut active_beats = self.beats.clone();
+        active_beats.retain(|b| b.time >= self.trim_start && b.time <= self.trim_end);
+        
+        // Ensure markers at start and end of trim if not present? 
+        // Or just use the existing beats.
+        
+        let segments = active_beats.len().saturating_sub(1);
+        
+        for (i, pair) in active_beats.windows(2).enumerate() {
             let start = pair[0].time;
             let end = pair[1].time;
             let segment_duration = end - start;
-            if segment_duration <= 0.0 { continue; }
+            if segment_duration <= 0.001 { continue; }
             let scale = 2.0 / segment_duration;
             
             let out_tag = if segments == 1 { "outv".to_string() } else { format!("v{}", i) };
@@ -116,10 +128,16 @@ impl BeatMapper {
                 concat_parts,
                 segments
             ));
+        } else if segments == 0 {
+             // Just trim the whole thing if no beats?
+             filter_complex.push_str(&format!(
+                "[0:v]trim=start={}:end={},setpts=PTS-STARTPTS[outv]",
+                self.trim_start, self.trim_end
+            ));
         }
 
         format!(
-            r#"ffmpeg -i "{}" -filter_complex "{}" -map "[outv]" -an -c:v libx264 -crf 18 -preset veryfast -g 30 "{}""#,
+            r#"ffmpeg -i "{}" -filter_complex "{}" -map "[outv]" -an -c:v libx264 -crf 18 -pix_fmt yuv420p -preset veryfast -g 30 "{}""#,
             input, filter_complex, output_name
         )
     }
@@ -142,6 +160,7 @@ impl BeatMapper {
                 let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
                 if let Ok(d) = s.parse::<f64>() {
                     self.duration = d;
+                    self.trim_end = d;
                     log::info!("[NATIVE] Probed duration: {}s", d);
                 }
             }
@@ -169,19 +188,6 @@ impl BeatMapper {
                         if buffer.len() == w * h * 3 {
                             let image = egui::ColorImage::from_rgb([w, h], &buffer);
                             self.texture = Some(ctx.load_texture("video_frame", image, Default::default()));
-                            log::info!("[NATIVE] Texture updated successfully");
-                        } else {
-                            log::warn!("[NATIVE] Unexpected buffer size: {} (expected {})", buffer.len(), w * h * 3);
-                        }
-                    }
-                }
-                // Optional: read stderr if buffer is empty
-                if buffer.is_empty() {
-                    if let Some(mut stderr) = child.stderr.take() {
-                        let mut err_msg = String::new();
-                        let _ = stderr.read_to_string(&mut err_msg);
-                        if !err_msg.is_empty() {
-                            log::error!("[NATIVE] FFmpeg Error: {}", err_msg);
                         }
                     }
                 }
@@ -195,6 +201,14 @@ impl BeatMapper {
 
 impl eframe::App for BeatMapper {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if self.is_playing {
+            self.current_time += ctx.input(|i| i.stable_dt) as f64;
+            if self.current_time > self.trim_end {
+                self.current_time = self.trim_start;
+            }
+            ctx.request_repaint();
+        }
+
         #[cfg(not(target_arch = "wasm32"))]
         if !self.ffmpeg_missing {
             self.fetch_frame_native(ctx);
@@ -211,8 +225,9 @@ impl eframe::App for BeatMapper {
                     let image = egui::ColorImage::from_rgba_unmultiplied([size.0, size.1], &data);
                     self.texture = Some(ctx.load_texture("video_frame", image, Default::default()));
                 }
-                if state.duration > 0.0 {
+                if state.duration > 0.0 && (state.duration - self.duration).abs() > 0.001 {
                     self.duration = state.duration;
+                    self.trim_end = state.duration;
                 }
                 state.current_time = self.current_time;
             }
@@ -251,6 +266,10 @@ impl eframe::App for BeatMapper {
                 if let Some(path) = &self.video_path {
                     ui.label(format!("Active: {}", path.file_name().unwrap().to_string_lossy()));
                 }
+                
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(format!("Beats: {}", self.beats.len()));
+                });
             });
 
             ui.add_space(10.0);
@@ -269,37 +288,79 @@ impl eframe::App for BeatMapper {
 
             ui.add_space(10.0);
 
-            let timeline_size = egui::vec2(ui.available_width(), 60.0);
-            let (t_rect, t_response) = ui.allocate_at_least(timeline_size, egui::Sense::click_and_drag());
+            // --- Timeline 1: Video Scrubbing ---
+            ui.label("Video Timeline");
+            let vt_size = egui::vec2(ui.available_width(), 20.0);
+            let (vt_rect, vt_response) = ui.allocate_at_least(vt_size, egui::Sense::click_and_drag());
+            ui.painter().rect_filled(vt_rect, 2.0, var_surface_color());
             
-            ui.painter().rect_filled(t_rect, 2.0, var_surface_color());
+            if vt_response.dragged() || vt_response.clicked() {
+                if let Some(pos) = vt_response.interact_pointer_pos() {
+                    let x = pos.x - vt_rect.left();
+                    self.current_time = ((x / vt_rect.width()) as f64 * self.duration).clamp(0.0, self.duration);
+                }
+            }
+            let playhead_x = vt_rect.left() + (self.current_time as f32 / self.duration as f32) * vt_rect.width();
+            ui.painter().line_segment([egui::pos2(playhead_x, vt_rect.top()), egui::pos2(playhead_x, vt_rect.bottom())], (2.0, egui::Color32::WHITE));
+
+            ui.add_space(5.0);
+
+            // --- Timeline 2: Beat Markers ---
+            ui.label("Beat Markers");
+            let mt_size = egui::vec2(ui.available_width(), 40.0);
+            let (mt_rect, mt_response) = ui.allocate_at_least(mt_size, egui::Sense::click_and_drag());
+            ui.painter().rect_filled(mt_rect, 2.0, egui::Color32::from_rgb(35, 35, 35));
             
-            let playhead_x = t_rect.left() + (self.current_time as f32 / self.duration as f32) * t_rect.width();
-            ui.painter().line_segment([egui::pos2(playhead_x, t_rect.top()), egui::pos2(playhead_x, t_rect.bottom())], (2.0, egui::Color32::WHITE));
+            // Draw trim overlay
+            let trim_start_x = mt_rect.left() + (self.trim_start as f32 / self.duration as f32) * mt_rect.width();
+            let trim_end_x = mt_rect.left() + (self.trim_end as f32 / self.duration as f32) * mt_rect.width();
+            ui.painter().rect_filled(egui::Rect::from_x_y_ranges(mt_rect.left()..=trim_start_x, mt_rect.y_range()), 0.0, egui::Color32::from_rgba_unmultiplied(255, 0, 0, 40));
+            ui.painter().rect_filled(egui::Rect::from_x_y_ranges(trim_end_x..=mt_rect.right(), mt_rect.y_range()), 0.0, egui::Color32::from_rgba_unmultiplied(255, 0, 0, 40));
+
+            let mut to_delete = None;
 
             for i in 0..self.beats.len() {
                 let beat_time = self.beats[i].time;
-                let x = t_rect.left() + (beat_time as f32 / self.duration as f32) * t_rect.width();
-                let marker_rect = egui::Rect::from_center_size(egui::pos2(x, t_rect.center().y), egui::vec2(12.0, 40.0));
+                let x = mt_rect.left() + (beat_time as f32 / self.duration as f32) * mt_rect.width();
+                let marker_rect = egui::Rect::from_center_size(egui::pos2(x, mt_rect.center().y), egui::vec2(12.0, 30.0));
                 let marker_id = ui.make_persistent_id(format!("marker_{}", i));
                 let marker_resp = ui.interact(marker_rect, marker_id, egui::Sense::drag());
                 
                 if marker_resp.dragged() {
                     let delta_x = marker_resp.drag_delta().x;
-                    let delta_time = (delta_x / t_rect.width()) * self.duration as f32;
+                    let delta_time = (delta_x / mt_rect.width()) * self.duration as f32;
                     self.beats[i].time = (self.beats[i].time + delta_time as f64).clamp(0.0, self.duration);
                     self.dragging_beat = Some(i);
                 }
+                
+                marker_resp.context_menu(|ui| {
+                    if ui.button("🗑 Delete").clicked() {
+                        to_delete = Some(i);
+                        ui.close_menu();
+                    }
+                });
 
                 let color = if self.dragging_beat == Some(i) { egui::Color32::WHITE } else { var_accent() };
                 ui.painter().rect_filled(marker_rect, 1.0, color);
             }
 
-            if t_response.drag_stopped() { self.dragging_beat = None; }
+            if let Some(idx) = to_delete {
+                self.beats.remove(idx);
+            }
+
+            if mt_response.drag_stopped() { 
+                self.dragging_beat = None; 
+                self.beats.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
+            }
 
             ui.add_space(10.0);
 
             ui.horizontal(|ui| {
+                let play_btn_text = if self.is_playing { "⏸ Pause" } else { "▶ Play" };
+                if ui.button(play_btn_text).clicked() {
+                    self.is_playing = !self.is_playing;
+                }
+
                 if ui.button("➕ Beat").clicked() {
                     self.beats.push(Beat { time: self.current_time });
                     self.beats.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
@@ -308,6 +369,22 @@ impl eframe::App for BeatMapper {
                     self.beats = vec![Beat { time: 0.0 }];
                 }
                 ui.add(egui::Slider::new(&mut self.current_time, 0.0..=self.duration).text("Scrub"));
+            });
+
+            ui.add_space(10.0);
+            
+            ui.group(|ui| {
+                ui.label("Trim Settings");
+                ui.horizontal(|ui| {
+                    ui.label("Start:");
+                    if ui.add(egui::DragValue::new(&mut self.trim_start).speed(0.1).clamp_range(0.0..=self.trim_end)).changed() {
+                         self.beats.retain(|b| b.time >= self.trim_start);
+                    }
+                    ui.label("End:");
+                    if ui.add(egui::DragValue::new(&mut self.trim_end).speed(0.1).clamp_range(self.trim_start..=self.duration)).changed() {
+                         self.beats.retain(|b| b.time <= self.trim_end);
+                    }
+                });
             });
 
             ui.add_space(20.0);
