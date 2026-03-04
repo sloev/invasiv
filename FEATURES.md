@@ -66,5 +66,6 @@
 * [x] **Tempo & Phase Soft-Sync:** Implement a smoothing mechanism in `Metronome.h` to skew the metronome phase (`delta * 0.25`), subtracting the known lookahead and hardware latency to achieve perfect real-time alignment.
 * [x] **Latency Calibration UI:** Add a slider to the GUI to manually offset timestamps (-500ms to +500ms) compensating for hardware pipeline latency.
 * [x] **Network Broadcast:** Transmit the smoothed BPM and phase offsets to peer nodes via `StateManager` to synchronize the global network clock.
-* [ ] **Toggle Beat Tracker:** Add a UI option and internal logic to turn the neural beat tracker on and off.
-* [ ] **Smooth Startup:** Ensure the startup of `invasiv` is smooth and loading of heavy resources (like the ONNX model) is handled asynchronously outside of the main UI thread.
+* [x] **Toggle Beat Tracker:** Add a UI option and internal logic to turn the neural beat tracker on and off.
+* [x] **Smooth Startup:** Ensure the startup of `invasiv` is smooth and loading of heavy resources (like the ONNX model) is handled asynchronously outside of the main UI thread.
+* [ ] the help text should fade out after max 15 seconds (including a counter that tells so)

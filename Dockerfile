@@ -60,7 +60,7 @@ COPY bin ./bin
 COPY addons.make config.make Makefile ./
 RUN mkdir -p bin/libs && cp -r onnxruntime_cpp/lib/* bin/libs/
 RUN (projectGenerator -r -o"/of" . > /tmp/pg_run.log 2>&1 && echo "App Project Generation: Succeeded" || (echo "App Project Generation: Failed" && cat /tmp/pg_run.log && exit 1)) \
-    && (make Release -j$(nproc) PROJECT_CFLAGS="-DVERSION_NAME='\"${VERSION_NAME}\"' -DHEADLESS_SUPPORT -I./onnxruntime_cpp/include" PROJECT_LDFLAGS="-lmpv -L./onnxruntime_cpp/lib -lonnxruntime -Wl,-rpath=./libs" > /tmp/build.log 2>&1 && echo "App Build: Succeeded" || (echo "App Build: Failed" && cat /tmp/build.log && exit 1))
+    && (make Release -j$(nproc) PROJECT_CFLAGS="-DVERSION_NAME='\"${VERSION_NAME}\"' -DHEADLESS_SUPPORT -I./onnxruntime_cpp/include" PROJECT_LDFLAGS="-lmpv -L./onnxruntime_cpp/lib -lonnxruntime -Wl,-rpath='\$\$ORIGIN/libs'" > /tmp/build.log 2>&1 && echo "App Build: Succeeded" || (echo "App Build: Failed" && cat /tmp/build.log && exit 1))
 
 # Stage 6: Tester
 FROM builder AS tester

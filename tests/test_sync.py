@@ -48,6 +48,8 @@ def test_protocol_driver():
     test_env_vars = os.environ.copy()
     # Use broadcast for isolated CI/Docker environments to ensure all REUSEADDR sockets get it
     test_env_vars["INVASIV_TEST_ADDR"] = "127.255.255.255"
+    # Ensure local libraries (like ONNX Runtime) are found regardless of CWD
+    test_env_vars["LD_LIBRARY_PATH"] = os.path.abspath("./bin/libs") + ":" + test_env_vars.get("LD_LIBRARY_PATH", "")
     
     # Setup node
     path_node, work_node = setup_node("peer", "PEER01", 0)
