@@ -78,7 +78,7 @@ OF_ROOT = ../../..
 # incorporated directly into the final executable application binary.
 # TODO: should this be a default setting?
 # PROJECT_LDFLAGS=-Wl,-rpath=./libs
-PROJECT_LDFLAGS = -lmpv
+PROJECT_LDFLAGS = -lmpv -L./onnxruntime_cpp/lib -lonnxruntime -Wl,-rpath=./onnxruntime_cpp/lib
 
 ################################################################################
 # PROJECT DEFINES
@@ -106,7 +106,7 @@ PROJECT_LDFLAGS = -lmpv
 #
 #   Note: Leave a leading space when adding list items with the += operator
 ################################################################################
-# PROJECT_CFLAGS = 
+PROJECT_CFLAGS = -I./onnxruntime_cpp/include
 
 ################################################################################
 # PROJECT OPTIMIZATION CFLAGS

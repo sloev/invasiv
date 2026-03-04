@@ -5,7 +5,8 @@
 #include "MediaWatcher.h"
 #include "StateManager.h"
 #include "Metronome.h"
-#include "Core.h"
+#include "BeatTracker.h"
+#include "ofApp.h"
 
 void GuiManager::setup() {
     gui.setup();
@@ -110,7 +111,7 @@ void GuiManager::drawPerformUi(AppComponents &c)
             {
                 float phase = c.metro.getPhase();
                 ImVec4 color = (c.metro.getBeatInBar() == 1) ? ImVec4(1,0,0,1) : ImVec4(1,1,1,1);
-                
+
                 ImGui::Text("BPM: %.1f", c.metro.bpm);
                 ImGui::SameLine();
                 if(ImGui::Button("TAP", ImVec2(60, 0))) c.metro.tap();
@@ -120,8 +121,15 @@ void GuiManager::drawPerformUi(AppComponents &c)
                 ImGui::PopStyleColor();
 
                 ImGui::Text("Beat: %d", c.metro.getBeatInBar());
-            }
-            
+
+                ImGui::Separator();
+                ImGui::Text("Neural Beat Tracker");
+                float latency = c.tracker.getLatencyOffset();
+                if (ImGui::SliderFloat("Tracker Latency", &latency, -500.0f, 500.0f)) {
+                    c.tracker.setLatencyOffset(latency);
+                }
+                ImGui::Text("Detected BPM: %.1f", c.tracker.getBPM());
+            }            
             ImGui::Dummy(ImVec2(0, 20));
             ImGui::AlignTextToFramePadding();
             ImGui::Text("STATES");
@@ -310,6 +318,15 @@ void GuiManager::drawEditingUI(AppComponents &c)
             ImGui::SliderFloat("BPM", &c.metro.bpm, 40, 240);
             if(ImGui::Button("TAP")) c.metro.tap();
             ImGui::Text("Beat: %d", c.metro.getBeatInBar());
+            
+            ImGui::Separator();
+            ImGui::Text("Neural Beat Tracker");
+            float latency = c.tracker.getLatencyOffset();
+            if (ImGui::SliderFloat("Latency Offset (ms)", &latency, -500.0f, 500.0f)) {
+                c.tracker.setLatencyOffset(latency);
+            }
+            ImGui::Text("Detected BPM: %.1f", c.tracker.getBPM());
+            
             ImGui::TreePop();
         }
 

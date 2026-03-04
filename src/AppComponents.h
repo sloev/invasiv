@@ -7,6 +7,7 @@ class WarpController;
 class MediaWatcher;
 class StateManager;
 class Metronome;
+class BeatTracker;
 class Core;
 
 struct AppComponents {
@@ -16,6 +17,7 @@ struct AppComponents {
     MediaWatcher &watcher;
     StateManager &stateMgr;
     Metronome &metro;
+    BeatTracker &tracker;
     char* pathInputBuf;
     string &projectPath;
     Core &core;

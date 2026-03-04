@@ -48,11 +48,19 @@ RUN git clone https://github.com/jvcleave/ofxImGui /of/addons/ofxImGui \
 FROM ${BASE_IMAGE} AS builder
 ARG VERSION_NAME=dev
 WORKDIR /of/apps/myApps/invasiv
+
+RUN wget -qO onnxruntime.tgz https://github.com/microsoft/onnxruntime/releases/download/v1.18.1/onnxruntime-linux-x64-1.18.1.tgz \
+    && tar -xzf onnxruntime.tgz \
+    && mv onnxruntime-linux-x64-1.18.1 onnxruntime_cpp \
+    && rm onnxruntime.tgz
+
 # Copy only the files needed for the build to improve caching
 COPY src ./src
+COPY bin ./bin
 COPY addons.make config.make Makefile ./
+RUN mkdir -p bin/libs && cp -r onnxruntime_cpp/lib/* bin/libs/
 RUN (projectGenerator -r -o"/of" . > /tmp/pg_run.log 2>&1 && echo "App Project Generation: Succeeded" || (echo "App Project Generation: Failed" && cat /tmp/pg_run.log && exit 1)) \
-    && (make Release -j$(nproc) PROJECT_CFLAGS="-DVERSION_NAME='\"${VERSION_NAME}\"' -DHEADLESS_SUPPORT" > /tmp/build.log 2>&1 && echo "App Build: Succeeded" || (echo "App Build: Failed" && cat /tmp/build.log && exit 1))
+    && (make Release -j$(nproc) PROJECT_CFLAGS="-DVERSION_NAME='\"${VERSION_NAME}\"' -DHEADLESS_SUPPORT -I./onnxruntime_cpp/include" PROJECT_LDFLAGS="-lmpv -L./onnxruntime_cpp/lib -lonnxruntime -Wl,-rpath=./libs" > /tmp/build.log 2>&1 && echo "App Build: Succeeded" || (echo "App Build: Failed" && cat /tmp/build.log && exit 1))
 
 # Stage 6: Tester
 FROM builder AS tester

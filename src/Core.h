@@ -6,6 +6,7 @@
 #include "MediaWatcher.h"
 #include "StateManager.h"
 #include "Metronome.h"
+#include "BeatTracker.h"
 
 class Core {
 public:
@@ -28,6 +29,7 @@ public:
     MediaWatcher watcher;
     StateManager stateMgr;
     Metronome metro;
+    BeatTracker tracker;
     
     string projectPath;
     string mediaDir;

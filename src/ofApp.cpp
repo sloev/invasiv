@@ -7,9 +7,18 @@
 void ofApp::setup() {
     core.setup(bHeadless);
     ofSetFrameRate(60);
-    
-    if (!bHeadless) {
-        ofSetVerticalSync(true);
+
+    // Setup Audio Input for Beat Tracker
+    ofSoundStreamSettings settings;
+    settings.numOutputChannels = 0;
+    settings.numInputChannels = 1;
+    settings.sampleRate = 22050; // Required by BeatNet
+    settings.bufferSize = 512;
+    settings.numBuffers = 4;
+    settings.setInListener(this);
+    soundStream.setup(settings);
+
+    if (!bHeadless) {        ofSetVerticalSync(true);
         ofBackground(20);
         ofSetWindowTitle("invasiv " + string(VERSION_NAME));
         gui.setup();
@@ -45,7 +54,7 @@ void ofApp::draw() {
 
         AppComponents components = {
             core.identity, core.net, core.warper, core.watcher,
-            core.stateMgr, core.metro, pathInputBuf, core.projectPath, core
+            core.stateMgr, core.metro, core.tracker, pathInputBuf, core.projectPath, core
         };
 
         gui.draw(components);
@@ -103,4 +112,8 @@ void ofApp::keyPressed(int key) {
 void ofApp::exit() {
     ofRemoveListener(core.watcher.filesChanged, this, &ofApp::onFilesChanged);
     core.exit();
+}
+
+void ofApp::audioIn(ofSoundBuffer & input) {
+    core.tracker.audioIn(input);
 }

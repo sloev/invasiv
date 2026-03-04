@@ -16,10 +16,14 @@ public:
     void keyPressed(int key);
     void onFilesChanged(std::vector<std::string>& files);
     void exit();
+    
+    void audioIn(ofSoundBuffer & input);
 
     bool bHeadless = false;
     Core core;
     GuiManager gui;
+    
+    ofSoundStream soundStream;
     
     char pathInputBuf[256];
     

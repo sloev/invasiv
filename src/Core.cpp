@@ -5,9 +5,9 @@
 void Core::setup(bool headless) {
     bHeadless = headless;
     metro.setup();
-    
-    string pPath = loadSettings();
-    if (pPath == "" || !ofDirectory(pPath).exists()) {
+    tracker.setup();
+
+    string pPath = loadSettings();    if (pPath == "" || !ofDirectory(pPath).exists()) {
         pPath = ofFilePath::getCurrentExeDir();
     }
     
@@ -15,6 +15,7 @@ void Core::setup(bool headless) {
 }
 
 void Core::update() {
+    tracker.update();
     watcher.update();
     warper.update();
     net.updatePeers();
