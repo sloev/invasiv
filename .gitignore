@@ -61,3 +61,8 @@ tests/*.tmp
 *.tmp
 *.log
 GEMINI.md
+.venv/
+onnxruntime_cpp/
+beatnet.onnx*
+skewer/app_log.txt
+skewer/test_vid.mp4
