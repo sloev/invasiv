@@ -6,6 +6,7 @@ BeatTracker::BeatTracker() {
     currentBpm.store(120.0f);
     lastBeatTime.store(0.0f);
     isRunning.store(false);
+    isEnabled.store(false);
 }
 
 BeatTracker::~BeatTracker() {
@@ -45,21 +46,7 @@ void BeatTracker::setup() {
     
     prevSpectrogram.resize(numBands, 0.0f);
     
-    // 2. Setup ONNX Runtime
-    try {
-        ortEnv = new Ort::Env(ORT_LOGGING_LEVEL_WARNING, "BeatNet");
-        Ort::SessionOptions sessionOptions;
-        sessionOptions.SetIntraOpNumThreads(1);
-        sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
-        
-        std::string modelPath = ofToDataPath("models/beatnet.onnx", true);
-        ortSession = new Ort::Session(*ortEnv, modelPath.c_str(), sessionOptions);
-        ofLogNotice("BeatTracker") << "ONNX model loaded successfully: " << modelPath;
-    } catch (const Ort::Exception& e) {
-        ofLogError("BeatTracker") << "Failed to load ONNX model: " << e.what();
-    }
-    
-    // 3. Start processing thread
+    // 2. Start processing thread (ONNX is loaded asynchronously inside)
     isRunning.store(true);
     processingThread = std::thread(&BeatTracker::processingThreadFunc, this);
 }
@@ -92,6 +79,8 @@ void BeatTracker::drawDebug(int x, int y) {
 }
 
 void BeatTracker::audioIn(ofSoundBuffer& input) {
+    if (!isEnabled.load()) return;
+    
     // Push audio to lock-free or mutex queue
     std::lock_guard<std::mutex> lock(audioMutex);
     for (size_t i = 0; i < input.getNumFrames(); ++i) {
@@ -144,6 +133,20 @@ void BeatTracker::computeSpectrogram(const std::vector<float>& audioFrame, std::
 }
 
 void BeatTracker::processingThreadFunc() {
+    // 1. Setup ONNX Runtime asynchronously
+    try {
+        ortEnv = new Ort::Env(ORT_LOGGING_LEVEL_WARNING, "BeatNet");
+        Ort::SessionOptions sessionOptions;
+        sessionOptions.SetIntraOpNumThreads(1);
+        sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
+        
+        std::string modelPath = ofToDataPath("models/beatnet.onnx", true);
+        ortSession = new Ort::Session(*ortEnv, modelPath.c_str(), sessionOptions);
+        ofLogNotice("BeatTracker") << "ONNX model loaded successfully: " << modelPath;
+    } catch (const Ort::Exception& e) {
+        ofLogError("BeatTracker") << "Failed to load ONNX model: " << e.what();
+    }
+
     std::vector<float> frame(winLength, 0.0f);
     
     // LSTM states
@@ -151,6 +154,11 @@ void BeatTracker::processingThreadFunc() {
     std::vector<float> cell(2 * 1 * 150, 0.0f);
     
     while (isRunning.load()) {
+        if (!isEnabled.load()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            continue;
+        }
+
         bool hasEnoughData = false;
         {
             std::lock_guard<std::mutex> lock(audioMutex);

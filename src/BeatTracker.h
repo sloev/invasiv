@@ -33,6 +33,9 @@ public:
     
     void setLatencyOffset(float ms) { latencyOffsetMs = ms; }
     float getLatencyOffset() const { return latencyOffsetMs; }
+    
+    void setEnabled(bool enabled) { isEnabled.store(enabled); }
+    bool getEnabled() const { return isEnabled.load(); }
 
 private:
     void processingThreadFunc();
@@ -42,6 +45,7 @@ private:
     // Threading and Buffering
     std::thread processingThread;
     std::atomic<bool> isRunning;
+    std::atomic<bool> isEnabled;
     
     std::mutex audioMutex;
     std::deque<float> audioBuffer;

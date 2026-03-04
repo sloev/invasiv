@@ -124,11 +124,17 @@ void GuiManager::drawPerformUi(AppComponents &c)
 
                 ImGui::Separator();
                 ImGui::Text("Neural Beat Tracker");
-                float latency = c.tracker.getLatencyOffset();
-                if (ImGui::SliderFloat("Tracker Latency", &latency, -500.0f, 500.0f)) {
-                    c.tracker.setLatencyOffset(latency);
+                bool trackerEnabled = c.tracker.getEnabled();
+                if (ImGui::Checkbox("Enable Tracker", &trackerEnabled)) {
+                    c.tracker.setEnabled(trackerEnabled);
                 }
-                ImGui::Text("Detected BPM: %.1f", c.tracker.getBPM());
+                if (trackerEnabled) {
+                    float latency = c.tracker.getLatencyOffset();
+                    if (ImGui::SliderFloat("Tracker Latency", &latency, -500.0f, 500.0f)) {
+                        c.tracker.setLatencyOffset(latency);
+                    }
+                    ImGui::Text("Detected BPM: %.1f", c.tracker.getBPM());
+                }
             }            
             ImGui::Dummy(ImVec2(0, 20));
             ImGui::AlignTextToFramePadding();
@@ -321,11 +327,17 @@ void GuiManager::drawEditingUI(AppComponents &c)
             
             ImGui::Separator();
             ImGui::Text("Neural Beat Tracker");
-            float latency = c.tracker.getLatencyOffset();
-            if (ImGui::SliderFloat("Latency Offset (ms)", &latency, -500.0f, 500.0f)) {
-                c.tracker.setLatencyOffset(latency);
+            bool trackerEnabled = c.tracker.getEnabled();
+            if (ImGui::Checkbox("Enable Tracker", &trackerEnabled)) {
+                c.tracker.setEnabled(trackerEnabled);
             }
-            ImGui::Text("Detected BPM: %.1f", c.tracker.getBPM());
+            if (trackerEnabled) {
+                float latency = c.tracker.getLatencyOffset();
+                if (ImGui::SliderFloat("Latency Offset (ms)", &latency, -500.0f, 500.0f)) {
+                    c.tracker.setLatencyOffset(latency);
+                }
+                ImGui::Text("Detected BPM: %.1f", c.tracker.getBPM());
+            }
             
             ImGui::TreePop();
         }

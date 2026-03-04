@@ -60,9 +60,11 @@
 * [x] skewer: analyze the current design and see if there is a simpler way to present the core idea and thereby increase self explanatory design 
 * [x] invasiv: when started it should look for a settings.json file in current directory or look for a "last project folder path" in the file in ~/.invasiv and if not found it should ask the user to choose/create a project folder, it should then save the path to that project folder in a setting in ~/.invasiv
 * [x] invasiv: when invasiv is started it should have some help text for the first 10 seconds that tell the hotkeys including "h" to see the help text again, plus a mention about donation via invasiv.github.io
-* [ ] **ONNX Model Export:** Create a standalone Python script to export BeatNet's pre-trained PyTorch weights to a static `beatnet.onnx` model file for native C++ inference.
-* [ ] **Lookahead Neural Inference:** Integrate ONNX Runtime (C++ API). Run the BeatNet model on a dedicated background thread using a small lookahead buffer (~50ms) to maximize precision, extracting beat probabilities from spectrograms.
-* [ ] **Particle Filter Decoding:** Implement a lightweight particle filter (based on the BeatNet paper) in C++ to decode neural activations into stable BPM and beat timestamps.
-* [ ] **Tempo & Phase Soft-Sync:** Implement a smoothing mechanism in `Metronome.h` to skew the metronome phase (`delta * 0.25`), subtracting the known lookahead and hardware latency to achieve perfect real-time alignment.
-* [ ] **Latency Calibration UI:** Add a slider to the GUI to manually offset timestamps (-500ms to +500ms) compensating for hardware pipeline latency.
-* [ ] **Network Broadcast:** Transmit the smoothed BPM and phase offsets to peer nodes via `StateManager` to synchronize the global network clock.
+* [x] **ONNX Model Export:** Create a standalone Python script to export BeatNet's pre-trained PyTorch weights to a static `beatnet.onnx` model file for native C++ inference.
+* [x] **Lookahead Neural Inference:** Integrate ONNX Runtime (C++ API). Run the BeatNet model on a dedicated background thread using a small lookahead buffer (~50ms) to maximize precision, extracting beat probabilities from spectrograms.
+* [x] **Particle Filter Decoding:** Implement a lightweight particle filter (based on the BeatNet paper) in C++ to decode neural activations into stable BPM and beat timestamps.
+* [x] **Tempo & Phase Soft-Sync:** Implement a smoothing mechanism in `Metronome.h` to skew the metronome phase (`delta * 0.25`), subtracting the known lookahead and hardware latency to achieve perfect real-time alignment.
+* [x] **Latency Calibration UI:** Add a slider to the GUI to manually offset timestamps (-500ms to +500ms) compensating for hardware pipeline latency.
+* [x] **Network Broadcast:** Transmit the smoothed BPM and phase offsets to peer nodes via `StateManager` to synchronize the global network clock.
+* [ ] **Toggle Beat Tracker:** Add a UI option and internal logic to turn the neural beat tracker on and off.
+* [ ] **Smooth Startup:** Ensure the startup of `invasiv` is smooth and loading of heavy resources (like the ONNX model) is handled asynchronously outside of the main UI thread.
