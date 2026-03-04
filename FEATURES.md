@@ -68,4 +68,4 @@
 * [x] **Network Broadcast:** Transmit the smoothed BPM and phase offsets to peer nodes via `StateManager` to synchronize the global network clock.
 * [x] **Toggle Beat Tracker:** Add a UI option and internal logic to turn the neural beat tracker on and off.
 * [x] **Smooth Startup:** Ensure the startup of `invasiv` is smooth and loading of heavy resources (like the ONNX model) is handled asynchronously outside of the main UI thread.
-* [ ] the help text should fade out after max 15 seconds (including a counter that tells so)
+* [x] the help text should fade out after max 15 seconds (including a counter that tells so)

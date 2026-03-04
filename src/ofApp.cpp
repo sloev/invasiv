@@ -73,16 +73,26 @@ void ofApp::draw() {
         }
     }
 
-    if (bShowHelp || helpTimer > 0) {
+    if (helpTimer > 0) {
         string help = "INVASIV // QUICK HELP\n\n";
         help += "[m] - Master Edit Mode\n";
         help += "[n] - Master Perform Mode\n";
         help += "[p] - Peer Mode\n";
         help += "[f] - Toggle Fullscreen\n";
         help += "[h] - Toggle This Help\n\n";
-        help += "Support development: invasiv.github.io";
+        help += "Support development: invasiv.github.io\n\n";
+        help += "Hiding in " + ofToString((int)ceil(helpTimer)) + "s";
         
-        ofDrawBitmapStringHighlight(help, ofGetWidth() - 250, 20, ofColor::black, ofColor::yellow);
+        ofColor bg = ofColor::black;
+        ofColor fg = ofColor::yellow;
+        
+        if (helpTimer < 2.0f) {
+            float alpha = (helpTimer / 2.0f) * 255.0f;
+            bg.a = alpha;
+            fg.a = alpha;
+        }
+
+        ofDrawBitmapStringHighlight(help, ofGetWidth() - 250, 20, bg, fg);
     }
 }
 
@@ -103,7 +113,7 @@ void ofApp::mouseReleased(int x, int y, int button) {
 void ofApp::keyPressed(int key) {
     if (!core.net.isEditing()) core.stateMgr.processKey(key, core.warper, core.net);
     if (key == 'f') core.identity.toggleFullscreen();
-    if (key == 'h') { bShowHelp = !bShowHelp; helpTimer = 0; }
+    if (key == 'h') { helpTimer = (helpTimer > 0) ? 0 : 15.0f; }
     if (key == 'm') { core.warper.reset(); core.net.setRole(ROLE_MASTER_EDIT); core.syncFullState(); }
     if (key == 'n') { core.warper.reset(); core.net.setRole(ROLE_MASTER_PERFORM); core.syncFullState(); }
     if (key == 'p') { core.warper.reset(); core.warper.targetPeerId = core.identity.myId; core.net.setRole(ROLE_PEER); }

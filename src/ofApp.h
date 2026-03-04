@@ -27,6 +27,5 @@ public:
     
     char pathInputBuf[256];
     
-    bool bShowHelp = true;
-    float helpTimer = 10.0f;
+    float helpTimer = 15.0f;
 };
